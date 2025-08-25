@@ -129,6 +129,7 @@ def get_n_reviews(appid, n, type = "all"):
         n -= 100
 
         response = get_reviews(str(appid), params)
+        print(f"Fetching reviews... Got {len(response['reviews'])} new reviews.")
 
         cursor = response['cursor']
         reviews += response['reviews']

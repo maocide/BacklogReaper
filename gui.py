@@ -54,9 +54,11 @@ class App(tk.Tk):
 
         # Review Count
         ttk.Label(controls_frame, text="Review Count:").pack(side=tk.LEFT, padx=(10, 5))
-        self.review_count_slider = ttk.Scale(controls_frame, from_=1, to=100, orient=tk.HORIZONTAL)
+        self.review_count_slider = ttk.Scale(controls_frame, from_=1, to=100, orient=tk.HORIZONTAL, command=self.update_slider_label)
         self.review_count_slider.set(10)
         self.review_count_slider.pack(side=tk.LEFT, padx=(0, 5))
+        self.slider_label = ttk.Label(controls_frame, text="10", width=3)
+        self.slider_label.pack(side=tk.LEFT, padx=(0, 5))
 
         # Buttons
         self.start_button_tab1 = ttk.Button(controls_frame, text="Start Analysis", command=self.start_analysis)
@@ -70,6 +72,9 @@ class App(tk.Tk):
 
         self.analysis_thread = None
         self.stop_event_tab1 = threading.Event()
+
+    def update_slider_label(self, value):
+        self.slider_label.config(text=str(int(float(value))))
 
     def build_tab2(self):
         # Frame for controls
