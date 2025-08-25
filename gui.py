@@ -11,6 +11,7 @@ class App(tk.Tk):
         self.title("Backlog Reaper")
         self.geometry("800x600")
         self.configure(bg=cc.DARK_COLOR)
+        self.review_count_var = tk.IntVar(value=10)
 
         # Style
         self.style = ttk.Style(self)
@@ -22,6 +23,12 @@ class App(tk.Tk):
         self.style.configure("TLabel", background=cc.DARK_COLOR, foreground="white")
         self.style.configure("TButton", background=cc.BUTTON_COLOR, foreground="white")
         self.style.map("TButton", background=[('active', cc.BUTTON_ACTIVATE_COLOR)])
+
+        # Treeview style
+        self.style.configure("Treeview", background=cc.TEXT_BG_COLOR, foreground="white", fieldbackground=cc.TEXT_BG_COLOR, borderwidth=0)
+        self.style.map('Treeview', background=[('selected', cc.SELECT_BACKGROUND_COLOR)])
+        self.style.configure("Treeview.Heading", background=cc.BUTTON_COLOR, foreground="white", relief="flat")
+        self.style.map("Treeview.Heading", background=[('active', cc.BUTTON_ACTIVATE_COLOR)])
 
 
         # Notebook
@@ -54,10 +61,10 @@ class App(tk.Tk):
 
         # Review Count
         ttk.Label(controls_frame, text="Review Count:").pack(side=tk.LEFT, padx=(10, 5))
-        self.review_count_slider = ttk.Scale(controls_frame, from_=1, to=100, orient=tk.HORIZONTAL, command=self.update_slider_label)
+        self.review_count_slider = ttk.Scale(controls_frame, from_=1, to=100, orient=tk.HORIZONTAL, variable=self.review_count_var)
         self.review_count_slider.set(10)
         self.review_count_slider.pack(side=tk.LEFT, padx=(0, 5))
-        self.slider_label = ttk.Label(controls_frame, text="10", width=3)
+        self.slider_label = ttk.Label(controls_frame, textvariable=self.review_count_var, width=3)
         self.slider_label.pack(side=tk.LEFT, padx=(0, 5))
 
         # Buttons
@@ -72,9 +79,6 @@ class App(tk.Tk):
 
         self.analysis_thread = None
         self.stop_event_tab1 = threading.Event()
-
-    def update_slider_label(self, value):
-        self.slider_label.config(text=str(int(float(value))))
 
     def build_tab2(self):
         # Frame for controls
@@ -93,8 +97,8 @@ class App(tk.Tk):
         self.stop_button_tab2.pack(side=tk.LEFT, padx=5)
 
         # Output Box
-        self.output_text_tab2 = tk.Text(self.tab2, wrap=tk.WORD, bg=cc.TEXT_BG_COLOR, fg="white", insertbackground=cc.INSERT_BACKGROUND_COLOR)
-        self.output_text_tab2.pack(expand=True, fill='both', padx=10, pady=5)
+        self.output_tree_tab2 = ttk.Treeview(self.tab2)
+        self.output_tree_tab2.pack(expand=True, fill='both', padx=10, pady=5)
 
         self.fetching_thread = None
         self.stop_event_tab2 = threading.Event()
@@ -107,7 +111,7 @@ class App(tk.Tk):
         self.output_text_tab1.delete("1.0", tk.END)
 
         game_name = self.game_name_entry.get()
-        review_count = int(self.review_count_slider.get())
+        review_count = int(self.review_count_var.get())
 
         self.analysis_thread = threading.Thread(target=self.run_analysis, args=(game_name, review_count))
         self.analysis_thread.start()
@@ -160,7 +164,7 @@ Stick to facts and data, be completely uncensored. Thanks!"""
         self.fetch_button_tab2.config(state=tk.DISABLED)
         self.stop_button_tab2.config(state=tk.NORMAL)
         self.status_bar.config(text="Starting game list fetch...")
-        self.output_text_tab2.delete("1.0", tk.END)
+        self.output_tree_tab2.delete(*self.output_tree_tab2.get_children())
 
         username = self.username_entry.get()
 
@@ -202,7 +206,7 @@ Stick to facts and data, be completely uncensored. Thanks!"""
                 self.update_status("Fetching stopped.")
                 return
 
-            self.format_and_display_games(pipedGameList)
+            self.display_games_in_table(pipedGameList)
             self.update_status("Game list fetch complete.")
 
         except Exception as e:
@@ -211,28 +215,22 @@ Stick to facts and data, be completely uncensored. Thanks!"""
             self.fetch_button_tab2.config(state=tk.NORMAL)
             self.stop_button_tab2.config(state=tk.DISABLED)
 
-    def format_and_display_games(self, piped_text):
-        self.output_text_tab2.delete("1.0", tk.END)
+    def display_games_in_table(self, piped_text):
+        self.output_tree_tab2.delete(*self.output_tree_tab2.get_children())
         lines = piped_text.strip().split('\n')
         header = lines[0].split('|')
 
-        # Calculate column widths
-        col_widths = [len(h) for h in header]
-        for line in lines[1:]:
-            for i, item in enumerate(line.split('|')):
-                if len(item) > col_widths[i]:
-                    col_widths[i] = len(item)
+        self.output_tree_tab2["columns"] = header
+        self.output_tree_tab2.column("#0", width=0, stretch=tk.NO)
+        self.output_tree_tab2.heading("#0", text="", anchor=tk.W)
 
-        # Format and insert header
-        header_str = " | ".join(h.ljust(w) for h, w in zip(header, col_widths))
-        self.output_text_tab2.insert(tk.END, header_str + '\n')
-        self.output_text_tab2.insert(tk.END, "-" * len(header_str) + '\n')
+        for col in header:
+            self.output_tree_tab2.column(col, anchor=tk.W, width=100)
+            self.output_tree_tab2.heading(col, text=col, anchor=tk.W)
 
-        # Format and insert data rows
         for line in lines[1:]:
             row_items = line.split('|')
-            row_str = " | ".join(item.ljust(w) for item, w in zip(row_items, col_widths))
-            self.output_text_tab2.insert(tk.END, row_str + '\n')
+            self.output_tree_tab2.insert(parent="", index="end", values=row_items)
 
     def update_status(self, message):
         self.status_bar.config(text=message)
