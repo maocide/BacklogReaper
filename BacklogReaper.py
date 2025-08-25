@@ -492,6 +492,9 @@ if __name__ == '__main__':
 
     from pathlib import Path
 
+
+
+    ###### FUNCTIONALITY FOR TAB 2
     file_path = "pipedGames.txt"
 
     my_file = Path(file_path)
@@ -513,7 +516,18 @@ if __name__ == '__main__':
             f.write(pipedGameList)
 
 
-    n = 100
+    #THESE COMMENTED LINES TO KEEP FOR FUNCTIONALITY OF TAB 2, BUT LEAVE COMMENTED
+    # print("contacting AI for analysis...\n")
+
+    # aiSortedGames = aiCall(pipedGameList)
+
+    # print("...and DONE!\n\n")
+    # print(aiSortedGames)
+
+    ###### END FUNCTIONALITY FOR TAB 2
+
+    ###### FUNCTIONALITY FOR TAB 1
+
     reviews = get_reviews_byname("Stellar Blade", 30)
     print(reviews)
 
@@ -528,14 +542,9 @@ if __name__ == '__main__':
     ai_out = aiCall(reviews, ai_request)
     print(ai_out)
 
+    ###### FUNCTIONALITY FOR TAB 1
 
 
-    #print("contacting AI for analysis...\n")
-
-    #aiSortedGames = aiCall(pipedGameList)
-
-    #print("...and DONE!\n\n")
-    #print(aiSortedGames)
 
 
 
