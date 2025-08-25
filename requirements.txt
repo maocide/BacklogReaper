@@ -1,0 +1,7 @@
+python-dotenv
+networkx
+sympy
+openai
+requests
+python-steam-api
+steamspypi

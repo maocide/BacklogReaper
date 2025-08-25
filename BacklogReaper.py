@@ -1,30 +1,30 @@
 
-from statistics import median
 from time import sleep
-from xml.etree.ElementTree import tostring
-
-from networkx.algorithms.assortativity.neighbor_degree import average_neighbor_degree
-from networkx.algorithms.tournament import score_sequence
-from sympy.codegen.cnodes import sizeof
 
 
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
-STEAM_API_KEY = ""
+import config
 
 
 def aiCall(data, request):
+    """
+    Calls the OpenAI API to analyze the provided data.
+
+    Args:
+        data: The data to be analyzed.
+        request: The request to be sent to the AI.
+
+    Returns:
+        The content of the AI's response.
+    """
     from openai import OpenAI
     #api_key = ""
     #base_url = "https://api.deepseek.com"
     #model = "deepseek-chat"
 
-    api_key = ""
-    base_url = "https://openrouter.ai/api/v1"
-    model = "deepseek/deepseek-r1-0528:free"
-
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
 
     systemRequest ="""
     HUNT for hidden gems with cult followings or niche acclaim—prioritize games dismissed by mainstream critics but worshipped on forums.
@@ -43,7 +43,7 @@ def aiCall(data, request):
     """
 
     response = client.chat.completions.create(
-        model=model,
+        model=config.OPENAI_MODEL,
         messages=[
             {"role": "system", "content": request},
             {"role": "user", "content": data},
@@ -58,11 +58,30 @@ def aiCall(data, request):
 
 
 def get_reviews(appid, params={'json': 1}):
+    """
+    Gets the reviews for a given appid from the Steam store.
+
+    Args:
+        appid: The id of the app to get the reviews for.
+        params: The parameters to be sent with the request.
+
+    Returns:
+        A json object containing the reviews.
+    """
     url = 'https://store.steampowered.com/appreviews/'
     response = requests.get(url=url + appid, params=params, headers={'User-Agent': 'Mozilla/5.0'})
     return response.json()
 
 def get_reviews_summary(appid):
+    """
+    Gets the review summary for a given appid from the Steam store.
+
+    Args:
+        appid: The id of the app to get the review summary for.
+
+    Returns:
+        A json object containing the review summary.
+    """
     reviews = []
     cursor = '*'
     params = {
@@ -80,6 +99,17 @@ def get_reviews_summary(appid):
 
 
 def get_n_reviews(appid, n, type = "all"):
+    """
+    Gets n reviews for a given appid from the Steam store.
+
+    Args:
+        appid: The id of the app to get the reviews for.
+        n: The number of reviews to get.
+        type: The type of reviews to get (e.g. "positive", "negative", "all").
+
+    Returns:
+        A list of reviews.
+    """
     reviews = []
     cursor = '*'
     params = {
@@ -117,9 +147,18 @@ def get_n_reviews(appid, n, type = "all"):
     return reviews_cut
 
 def fetch_app_from_api(game_name):
+    """
+    Fetches the app id for a given game name from the Steam API.
+
+    Args:
+        game_name: The name of the game to fetch the app id for.
+
+    Returns:
+        The app id for the given game name, or -1 if not found.
+    """
     print("contacting STEAM API for a appid...\n")
 
-    steam = Steam(STEAM_API_KEY)
+    steam = Steam(config.STEAM_API_KEY)
 
     # arguments: search
     apps = steam.apps.search_games(game_name)
@@ -131,11 +170,30 @@ def fetch_app_from_api(game_name):
         print("not found!\n\n")
         return -1
 
-def get_reviews_byname(game_name, count=5):
-    app = fetch_app_from_api(game_name)
-    appid = app['id'][0]
-    price = app['price']
+def get_steam_app_info(game_name):
+    """
+    Gets the app info for a given game name from the Steam API.
 
+    Args:
+        game_name: The name of the game to get the app info for.
+
+    Returns:
+        A dictionary containing the app id and price.
+    """
+    app = fetch_app_from_api(game_name)
+    return {'id': app['id'][0], 'price': app['price']}
+
+def get_steam_reviews(appid, count):
+    """
+    Gets the reviews for a given appid from the Steam store.
+
+    Args:
+        appid: The id of the app to get the reviews for.
+        count: The number of positive and negative reviews to get.
+
+    Returns:
+        A dictionary containing the reviews, the review summary, and the number of positive and negative reviews.
+    """
     positive = get_n_reviews(appid, count, "positive")
     negative = get_n_reviews(appid, count, "negative")
 
@@ -146,27 +204,67 @@ def get_reviews_byname(game_name, count=5):
 
     summary = get_reviews_summary(appid)
 
-    print(summary)
+    return {'reviews': reviews, 'summary': summary, 'count_positive': count_positive, 'count_negative': count_negative}
+
+def get_steamspy_game_info(appid):
+    """
+    Gets the game info for a given appid from the SteamSpy API.
+
+    Args:
+        appid: The id of the app to get the game info for.
+
+    Returns:
+        A json object containing the game info.
+    """
+    import steamspypi
+    data_request = dict()
+    data_request['request'] = 'appdetails'
+    data_request['appid'] = appid
+    return steamspypi.download(data_request)
+
+def get_reviews_byname(game_name, count=5):
+    """
+    Gets the reviews for a given game name.
+
+    Args:
+        game_name: The name of the game to get the reviews for.
+        count: The number of positive and negative reviews to get.
+
+    Returns:
+        A string containing the formatted reviews.
+    """
+    app_info = get_steam_app_info(game_name)
+    appid = app_info['id']
+    price = app_info['price']
+
+    steam_reviews = get_steam_reviews(appid, count)
+    sleep(1)
+    gameinfo = get_steamspy_game_info(appid)
+
+    return format_reviews_for_ai(price, steam_reviews, gameinfo)
+
+def format_reviews_for_ai(price, steam_reviews, gameinfo):
+    """
+    Formats the reviews and game info into a single string for the AI to analyze.
+
+    Args:
+        price: The price of the game.
+        steam_reviews: A dictionary containing the reviews, the review summary, and the number of positive and negative reviews.
+        gameinfo: A json object containing the game info from SteamSpy.
+
+    Returns:
+        A string containing the formatted reviews.
+    """
+    import textwrap
+    reviews = steam_reviews['reviews']
+    summary = steam_reviews['summary']
+    count_positive = steam_reviews['count_positive']
+    count_negative = steam_reviews['count_negative']
 
     review_score = summary['review_score']
     review_score_desc = summary['review_score_desc']
     total_positive = summary['total_positive']
     total_negative = summary['total_negative']
-
-
-
-    import steamspypi
-    import textwrap
-    sleep(1)
-    # gameinfo = steam.apps.get_app_details(game['appid'], "US", "metacritic")
-
-    data_request = dict()
-    data_request['request'] = 'appdetails'
-    data_request['appid'] = appid
-
-    gameinfo = steamspypi.download(data_request)
-
-    print(gameinfo)
 
     name = gameinfo.get('name')
     genre = gameinfo.get('genre')
@@ -198,45 +296,24 @@ def get_reviews_byname(game_name, count=5):
         review_text = review.get('review')
         votes_up = review.get('votes_up')
         votes_funny = review.get('votes_funny')
-        weighted_vote_score = review.get('weighted_vote_score')
-        
-        human_reviews +=    ("---\nplaytime_at_review: {playtime_at_review}, num_games_owned: {num_games_owned}, received_for_free: {received_for_free}, positive: {voted_up}, votes_up: {votes_up}, votes_funny:{votes_funny}\ntext=\"\"\"\n{review_text}\n\"\"\"\n\n"
-                             .format(playtime_at_review=playtime_at_review, num_games_owned=num_games_owned, received_for_free=received_for_free, voted_up=voted_up, review_text=review_text, weighted_vote_score=weighted_vote_score, votes_up=votes_up, votes_funny=votes_funny))
 
-    
+        human_reviews +=    ("---\nplaytime_at_review: {playtime_at_review}, num_games_owned: {num_games_owned}, received_for_free: {received_for_free}, positive: {voted_up}, votes_up: {votes_up}, votes_funny:{votes_funny}\ntext=\"\"\"\n{review_text}\n\"\"\"\n\n"
+                             .format(playtime_at_review=playtime_at_review, num_games_owned=num_games_owned, received_for_free=received_for_free, voted_up=voted_up, review_text=review_text, votes_up=votes_up, votes_funny=votes_funny))
+
+
 
     human_reviews += """```"""
 
 
     return human_reviews
 
-def trim(docstring):
-    import sys
-    if not docstring:
-        return ''
-    # Convert tabs to spaces (following the normal Python rules)
-    # and split into a list of lines:
-    lines = docstring.expandtabs().splitlines()
-    # Determine minimum indentation (first line doesn't count):
-    indent = sys.maxint
-    for line in lines[1:]:
-        stripped = line.lstrip()
-        if stripped:
-            indent = min(indent, len(line) - len(stripped))
-    # Remove indentation (first line is special):
-    trimmed = [lines[0].strip()]
-    if indent < sys.maxint:
-        for line in lines[1:]:
-            trimmed.append(line[indent:].rstrip())
-    # Strip off trailing and leading blank lines:
-    while trimmed and not trimmed[-1]:
-        trimmed.pop()
-    while trimmed and not trimmed[0]:
-        trimmed.pop(0)
-    # Return a single string:
-    return '\n'.join(trimmed)
+def query_game_info(games):
+    """
+    Queries the SteamSpy API for information about the games in the provided list.
 
-def query_game_info():
+    Args:
+        games: A list of games to query information for.
+    """
     import steamspypi
     for game in games:
         attempts = 0
@@ -254,7 +331,6 @@ def query_game_info():
 
                 print(gameinfo)
 
-                #if gameinfo is not None and str(game['appid']) in  gameinfo and gameinfo[str(game['appid'])]['success'] == True and ("data" in gameinfo[str(game['appid'])].keys()) and len(gameinfo[str(game['appid'])]['data'])>0:
                 if gameinfo is not None and 'appid' in  gameinfo:
 
 
@@ -268,7 +344,6 @@ def query_game_info():
                     if positive is not None and negative is not None and positive + negative !=0:
                         approval = round(positive / (positive + negative), 2)
 
-                    #game['metacritic'] = gameinfo[str(game['appid'])]['data']['metacritic']['score']
                     game['approval'] = approval
                     game['average_forever'] = average_forever
                     game['median_forever'] = median_forever
@@ -278,20 +353,8 @@ def query_game_info():
 
                     break
                 else:
-                    #game['metacritic'] = -1
                     print("nodata")
                     break
-
-
-                #else:
-
-                #    if attempts > 4:
-                #        game['metacritic'] = -1
-                #        print("nodata")
-                #        break
-
-                #    attempts += 1
-                #    print("{0}: Try again...".format(attempts))
 
 
             except ValueError:
@@ -305,6 +368,15 @@ def query_game_info():
 
 
 def make_pipe_list_games(steam_games: list):
+    """
+    Creates a pipe-separated list of games from the provided list of games.
+
+    Args:
+        steam_games: A list of games to create the pipe-separated list from.
+
+    Returns:
+        A string containing the pipe-separated list of games.
+    """
     heading = "appid|name|playtime_forever|rtime_last_played|approval|average_forever|median_forever|ccu"
     piped_text = heading + "\n"
     for game in steam_games:
@@ -317,17 +389,21 @@ def make_pipe_list_games(steam_games: list):
     return piped_text
 
 def fetch_info_from_api():
+    """
+    Fetches the owned games for the user specified in the config file.
+
+    Returns:
+        A list of owned games.
+    """
     print("contacting STEAM API, please respond and not say bullshit quota lies...\n")
 
-    userData = steam.users.search_user("maocide")
+    userData = steam.users.search_user(config.STEAM_USER)
     steamId = userData['player']['steamid']
-    print()
     userGames = steam.users.get_owned_games(steamId, True, False)
-    print(userGames)
     gameCount = userGames['game_count']
     games = userGames['games']
 
-    query_game_info()
+    query_game_info(games)
 
 
 
@@ -336,6 +412,15 @@ def fetch_info_from_api():
 
 
 def make_gameinfo_dict(piped_text: str):
+    """
+    Creates a dictionary of games from a pipe-separated string.
+
+    Args:
+        piped_text: A pipe-separated string of games.
+
+    Returns:
+        A dictionary of games.
+    """
     game = dict()
     games_list = dict()
     header_line = piped_text.splitlines()[0].split("|")
@@ -343,19 +428,14 @@ def make_gameinfo_dict(piped_text: str):
 
         if line.startswith("appid"):
             header_line = line.split("|")
-            print(header_line)
 
         else:
             i = 0
             game = dict()
             for values in line.split("|"):
                 game[header_line[i]] = values
-
-                print(header_line[i])
-                print(values)
                 i += 1
 
-            print(game)
             games_list[line.split("|")[0]] = game
 
 
@@ -364,6 +444,15 @@ def make_gameinfo_dict(piped_text: str):
     return games_list
 
 def sort_and_crop(games):
+    """
+    Sorts and crops the list of games.
+
+    Args:
+        games: A dictionary of games to sort and crop.
+
+    Returns:
+        A list of cropped games.
+    """
     # Sort based on Values
     sorted_games = dict(sorted(games.items(), key=lambda x: (x[1]['playtime_forever'], -float(x[1]['approval']))))
 
@@ -375,7 +464,10 @@ def sort_and_crop(games):
     return cropped
 
 def count_games():
-    user_data = steam.users.search_user("maocide")
+    """
+    Counts the total number of games and the number of unplayed games for the user specified in the config file.
+    """
+    user_data = steam.users.search_user(config.STEAM_USER)
     steam_id = user_data['player']['steamid']
     print()
     user_games = steam.users.get_owned_games(steam_id, True, False)
@@ -396,7 +488,7 @@ if __name__ == '__main__':
     import requests
     from steam_web_api import Steam
 
-    steam = Steam(STEAM_API_KEY)
+    steam = Steam(config.STEAM_API_KEY)
 
     from pathlib import Path
 
@@ -404,11 +496,8 @@ if __name__ == '__main__':
 
     my_file = Path(file_path)
     if my_file.is_file():
-        print("File exists")
         with open(file_path, 'r', encoding="utf-8") as file:
             pipedText = file.read()
-
-        print(pipedText)
 
         games = make_gameinfo_dict(pipedText)
 
@@ -416,11 +505,7 @@ if __name__ == '__main__':
 
         pipedGameList = make_pipe_list_games(games)
 
-
-        print(pipedGameList)
-
     else:
-        print("File does not exist")
         games = fetch_info_from_api()
         pipedGameList = make_pipe_list_games(games)
 
