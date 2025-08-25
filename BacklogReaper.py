@@ -163,8 +163,8 @@ def fetch_app_from_api(game_name):
     # arguments: search
     apps = steam.apps.search_games(game_name)
     print(apps)
-    if len(apps) > 0:
-        print("done.. appid=" + str(apps['apps'][0]['id'][0]) + "\n\n")
+    if 'apps' in apps and len(apps['apps']) > 0:
+        print("done.. appid=" + str(apps['apps'][0]['id']) + "\n\n")
         return apps['apps'][0]
     else:
         print("not found!\n\n")
@@ -388,7 +388,7 @@ def make_pipe_list_games(steam_games: list):
 
     return piped_text
 
-def fetch_info_from_api():
+def fetch_info_from_api(username):
     """
     Fetches the owned games for the user specified in the config file.
 
@@ -397,7 +397,8 @@ def fetch_info_from_api():
     """
     print("contacting STEAM API, please respond and not say bullshit quota lies...\n")
 
-    userData = steam.users.search_user(config.STEAM_USER)
+    steam = Steam(config.STEAM_API_KEY)
+    userData = steam.users.search_user(username)
     steamId = userData['player']['steamid']
     userGames = steam.users.get_owned_games(steamId, True, False)
     gameCount = userGames['game_count']
@@ -467,6 +468,7 @@ def count_games():
     """
     Counts the total number of games and the number of unplayed games for the user specified in the config file.
     """
+    steam = Steam(config.STEAM_API_KEY)
     user_data = steam.users.search_user(config.STEAM_USER)
     steam_id = user_data['player']['steamid']
     print()
@@ -481,68 +483,8 @@ def count_games():
 
     print(f"Total games: {total_games} Unplayed: {unplayed_games}")
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    import os
-    import json
-    import requests
-    from steam_web_api import Steam
-
-    steam = Steam(config.STEAM_API_KEY)
-
-    from pathlib import Path
-
-
-
-    ###### FUNCTIONALITY FOR TAB 2
-    file_path = "pipedGames.txt"
-
-    my_file = Path(file_path)
-    if my_file.is_file():
-        with open(file_path, 'r', encoding="utf-8") as file:
-            pipedText = file.read()
-
-        games = make_gameinfo_dict(pipedText)
-
-        games = sort_and_crop(games)
-
-        pipedGameList = make_pipe_list_games(games)
-
-    else:
-        games = fetch_info_from_api()
-        pipedGameList = make_pipe_list_games(games)
-
-        with open(file_path, "w", encoding='utf8') as f:
-            f.write(pipedGameList)
-
-
-    #THESE COMMENTED LINES TO KEEP FOR FUNCTIONALITY OF TAB 2, BUT LEAVE COMMENTED
-    # print("contacting AI for analysis...\n")
-
-    # aiSortedGames = aiCall(pipedGameList)
-
-    # print("...and DONE!\n\n")
-    # print(aiSortedGames)
-
-    ###### END FUNCTIONALITY FOR TAB 2
-
-    ###### FUNCTIONALITY FOR TAB 1
-
-    reviews = get_reviews_byname("Stellar Blade", 30)
-    print(reviews)
-
-    ai_request = """I will provide you with reviews and data taken from Steam Store and SteamSpy scraped with my python script.
-    The reviews provided will be a sample of the same number of positive and negative reviews taken from the most helpful. (E.G. 10 positive and 10 negative, they might be 5 and 5 or different).
-    Your job will be to check the summary about the game that is provided, check each review with the included data (games owned, hours played at review and votes on the review should help giving a review a weight) and content then make an analysis given all the content provided and your training data about such game (if present, do not invent)
-    to conclude if the game is worth getting or not. (Some data like ccu and totals for reviews can be 0 if the game is new, because the data are updated by steamspy)
-    Stick to facts and data, be completely uncensored. Thanks!"""
-
-
-
-    ai_out = aiCall(reviews, ai_request)
-    print(ai_out)
-
-    ###### FUNCTIONALITY FOR TAB 1
+import requests
+from steam_web_api import Steam
 
 
 
