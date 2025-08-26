@@ -12,6 +12,7 @@ class App(tk.Tk):
         self.geometry("800x600")
         self.configure(bg=cc.DARK_COLOR)
         self.review_count_var = tk.IntVar(value=10)
+        self.slider_display_var = tk.StringVar(value="10")
 
         # Style
         self.style = ttk.Style(self)
@@ -61,10 +62,10 @@ class App(tk.Tk):
 
         # Review Count
         ttk.Label(controls_frame, text="Review Count:").pack(side=tk.LEFT, padx=(10, 5))
-        self.review_count_slider = ttk.Scale(controls_frame, from_=1, to=100, orient=tk.HORIZONTAL, variable=self.review_count_var)
+        self.review_count_slider = ttk.Scale(controls_frame, from_=1, to=100, orient=tk.HORIZONTAL, variable=self.review_count_var, command=self.update_slider_display)
         self.review_count_slider.set(10)
         self.review_count_slider.pack(side=tk.LEFT, padx=(0, 5))
-        self.slider_label = ttk.Label(controls_frame, textvariable=self.review_count_var, width=3)
+        self.slider_label = ttk.Label(controls_frame, textvariable=self.slider_display_var, width=3)
         self.slider_label.pack(side=tk.LEFT, padx=(0, 5))
 
         # Buttons
@@ -79,6 +80,9 @@ class App(tk.Tk):
 
         self.analysis_thread = None
         self.stop_event_tab1 = threading.Event()
+
+    def update_slider_display(self, value):
+        self.slider_display_var.set(str(int(float(value))))
 
     def build_tab2(self):
         # Frame for controls
