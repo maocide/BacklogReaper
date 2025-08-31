@@ -239,7 +239,7 @@ def get_reviews_byname(game_name, count=5):
     price = app_info['price']
 
     steam_reviews = get_steam_reviews(appid, count)
-    sleep(1)
+    sleep(1) # Must be preserved to keep the api from chocking.
     gameinfo = get_steamspy_game_info(appid)
 
     return format_reviews_for_ai(price, steam_reviews, gameinfo)
@@ -458,6 +458,8 @@ def sort_and_crop(games):
     # Sort based on Values
     sorted_games = dict(sorted(games.items(), key=lambda x: (x[1]['playtime_forever'], -float(x[1]['approval']))))
 
+
+    # cropping of the list of games based on playtime and approval
     cropped = list()
     for game in sorted_games.items():
         if game[1]['playtime_forever'] <= game[1]['median_forever'] and float(game[1]['approval']) >= 0.7:
