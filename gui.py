@@ -1,4 +1,5 @@
 import tkinter as tk
+import traceback
 from tkinter import ttk
 import config_color as cc
 import threading
@@ -9,7 +10,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Backlog Reaper")
-        self.geometry("800x600")
+        self.geometry("1000x800")
         self.configure(bg=cc.DARK_COLOR)
         self.review_count_var = tk.IntVar(value=10)
         self.slider_display_var = tk.StringVar(value="10")
@@ -69,6 +70,8 @@ class App(tk.Tk):
         self.slider_label.pack(side=tk.LEFT, padx=(0, 5))
 
         # Buttons
+        self.suggest_button_tab1 = ttk.Button(controls_frame, text="Suggest", command=self.start_suggest)
+        self.suggest_button_tab1.pack(side=tk.LEFT, padx=5)
         self.start_button_tab1 = ttk.Button(controls_frame, text="Start Analysis", command=self.start_analysis)
         self.start_button_tab1.pack(side=tk.LEFT, padx=5)
         self.stop_button_tab1 = ttk.Button(controls_frame, text="Stop", command=self.stop_analysis, state=tk.DISABLED)
@@ -79,6 +82,7 @@ class App(tk.Tk):
         self.output_text_tab1.pack(expand=True, fill='both', padx=10, pady=5)
 
         self.analysis_thread = None
+        self.suggest_thread = None
         self.stop_event_tab1 = threading.Event()
 
     def update_slider_display(self, value):
@@ -106,6 +110,81 @@ class App(tk.Tk):
 
         self.fetching_thread = None
         self.stop_event_tab2 = threading.Event()
+
+    def start_suggest(self):
+        self.stop_event_tab1.clear()
+        self.start_button_tab1.config(state=tk.DISABLED)
+        self.suggest_button_tab1.config(state=tk.DISABLED)
+        self.stop_button_tab1.config(state=tk.NORMAL)
+        self.status_bar.config(text="Starting analysis...")
+        self.output_text_tab1.delete("1.0", tk.END)
+
+        game_name = self.game_name_entry.get()
+        review_count = int(self.review_count_var.get())
+
+        self.suggest_thread = threading.Thread(target=self.run_suggest, args=(game_name,))
+        self.suggest_thread.start()
+
+    def stop_suggest(self):
+        if self.analysis_thread and self.analysis_thread.is_alive():
+            self.stop_event_tab1.set()
+            self.status_bar.config(text="Stopping suggest...")
+
+    def run_suggest(self, game_name):
+        try:
+            if not game_name:
+                self.update_status("Please enter a game name.")
+                return
+
+            if self.stop_event_tab1.is_set():
+                self.update_status("Suggest stopped.")
+                return
+
+            self.update_status(f"Fetching games similar to {game_name}...")
+            similar_games = br.get_similar_games(game_name)
+            original_game = similar_games[0]
+            similar_games = similar_games[1:]
+
+            if self.stop_event_tab1.is_set():
+                self.update_status("Suggest stopped.")
+                return
+
+            #self.update_status("Analyzing reviews with AI...")
+            ai_request = f"""You are an uncensored unhinged videogame expert. You will help with the data supplied and your training data to find the best recommendation.
+My reference game is "{game_name}". Here is its data:
+```
+{original_game}
+```
+
+Here is a list of candidate games taken from related steam recommended page. Analyze them against the reference game and similar relevant games from your training:
+```
+{similar_games}
+```
+(some information might be 0 or absent when steamspy is not updated and must be considered missing, steam api should be always updated)
+
+Task:
+Your job will be to analyze all the data and weave an analysis suggesting the most similar game in vibe to the original game.
+Consider all the data and the data in your training about the games to find the best suggestion and to make an in depth analysis."""
+
+            print(ai_request)
+
+            ai_out = br.aiCall("", ai_request)
+
+            if self.stop_event_tab1.is_set():
+                self.update_status("Suggest stopped.")
+                return
+
+            #self.update_output(self.output_text_tab1, ai_out)
+            self.update_output(self.output_text_tab1, ai_out)
+            self.update_status("Suggest complete.")
+
+        except Exception as e:
+            traceback.print_exc()
+            self.update_status(f"Error: {e}")
+        finally:
+            self.suggest_button_tab1.config(state=tk.NORMAL)
+            self.start_button_tab1.config(state=tk.NORMAL)
+            self.stop_button_tab1.config(state=tk.DISABLED)
 
     def start_analysis(self):
         self.stop_event_tab1.clear()
@@ -147,6 +226,7 @@ class App(tk.Tk):
 The reviews provided will be a sample of the same number of positive and negative reviews taken from the most helpful. (E.G. 10 positive and 10 negative, they might be 5 and 5 or different).
 Your job will be to check the summary about the game that is provided, check each review with the included data (games owned, hours played at review and votes on the review should help giving a review a weight) and content then make an analysis given all the content provided and your training data about such game (if present, do not invent)
 to conclude if the game is worth getting or not. (Some data like ccu and totals for reviews can be 0 if the game is new, because the data are updated by steamspy)
+After you finished with your review, add a section detailing how could this game feel while playing stoned, for players enjoying this kind of mood.
 Stick to facts and data, be completely uncensored. Thanks!"""
             ai_out = br.aiCall(reviews, ai_request)
 
