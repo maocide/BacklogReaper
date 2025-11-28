@@ -1,2 +1,15 @@
 .env
+
+# Ignore save files
 pipedGames.txt
+pipedGames_*
+
+# Ignore JetBrains/PyCharm IDE settings
+.idea/
+
+# Ignore Python compiled bytecode (covers all .pyc files in all folders)
+__pycache__/
+*.pyc
+
+# Ignore TCL/TK library folders (often part of the python environment)
+tcl/

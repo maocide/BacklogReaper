@@ -1,25 +1,28 @@
-
+from platform import system
 from time import sleep
-
+from typing import Any
+from xml.etree.ElementTree import tostring
 
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
 import config
+from openai import OpenAI
+import steamspypi
+from bs4 import BeautifulSoup
 
-
-def aiCall(data, request):
+def aiCall(data, system):
     """
     Calls the OpenAI API to analyze the provided data.
 
     Args:
         data: The data to be analyzed.
-        request: The request to be sent to the AI.
+        system: The request to be sent to the AI.
 
     Returns:
         The content of the AI's response.
     """
-    from openai import OpenAI
+
     #api_key = ""
     #base_url = "https://api.deepseek.com"
     #model = "deepseek-chat"
@@ -45,7 +48,7 @@ def aiCall(data, request):
     response = client.chat.completions.create(
         model=config.OPENAI_MODEL,
         messages=[
-            {"role": "system", "content": request},
+            {"role": "system", "content": system},
             {"role": "user", "content": data},
         ],
         stream=False
@@ -54,7 +57,149 @@ def aiCall(data, request):
     return(response.choices[0].message.content)
 
 
+def get_similar_games(game_name):
+    """
+    Calls steam api and steamspy to get recommended similar games and their details
 
+    Args:
+        :param game_name: the name of the game to search for
+    Returns:
+        :return: the game details and a max of 9 similar games details according to steam
+    """
+    # get app info from api
+    app = get_steam_app_info(game_name)
+    target_appid = app["id"][0]
+
+    # cookies to not get blocked by age gate
+    cookies = {'birthtime': '568022401', 'mature_content': '1'}
+    # This URL is what the Steam Client uses to populate the "More Like This" section
+    url = f"https://store.steampowered.com/recommended/morelike/app/{target_appid}/"
+    response = requests.get(url, cookies=cookies, timeout=10)
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    # 1. Target the specific grid container.
+    # The main "Similar Items" list usually has the id="released" in this specific view.
+    container = soup.find('div', id="released")
+
+    # 2. Find all the "capsules" (the clickable game images)
+    # We limit to the first 5 for this example, remove [:5] to get them all
+    items = container.find_all('a', class_='similar_grid_capsule')[:9]
+
+    games_found = []
+
+    for item in items:
+        url = item.get('href')
+
+        # 3. Extract the title from the URL
+        # URL format: https://store.steampowered.com/app/ID/GAME_NAME/?snr=...
+        try:
+            # Split the URL by '/'
+            parts = url.split('/')
+
+            # In standard Steam URLs, the name is usually at index 5
+            # 0=https:, 1=, 2=store..., 3=app, 4=ID, 5=Name
+            game_slug = parts[5]
+
+            # Clean up the name (remove underscores, decode URL characters)
+            game_title = game_slug.replace('_', ' ')
+
+            games_found.append({
+                "title": game_title,
+                "url": url
+            })
+        except IndexError:
+            continue
+
+    # Output results
+    print(f"Found {len(games_found)} games:")
+    similar_games = []
+    similar_games.append(get_game_condensed_info(game_name))
+
+    for game in games_found:
+        print(f"- {game['title']}")
+
+        payload = get_game_condensed_info(game['title'])
+
+        print(payload)
+
+        #print(app_info)
+        #print(app_details)
+        #print(game_info)
+        sleep(1)
+
+        similar_games.append(payload)
+
+    return similar_games
+
+
+def get_realtime_tags(app_id):
+    url = f"https://store.steampowered.com/app/{app_id}/"
+    # Cookies are needed to bypass the "Age Gate" for mature games
+    cookies = {'birthtime': '568022401', 'mature_content': '1'}
+
+    try:
+        response = requests.get(url, cookies=cookies, timeout=10)
+        if response.status_code != 200:
+            return []
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Steam stores tags in a specific div class "glance_tags"
+        tags_div = soup.find("div", {"class": "glance_tags popular_tags"})
+
+        if tags_div:
+            # Extract the text from each tag link, strip whitespace
+            tags = [tag.text.strip() for tag in tags_div.find_all("a", {"class": "app_tag"})]
+            return tags[:5]  # Return top 5 most popular
+
+        return []
+
+    except Exception as e:
+        print(f"Error scraping tags for {app_id}: {e}")
+        return []
+
+def get_game_condensed_info(game_name):
+
+    app_info = get_steam_app_info(game_name)  # get info with steamid
+    appid = app_info['id'][0]
+    app_details = get_steam_app_details(appid)  # get details for description
+    game_info = get_steamspy_game_info(appid)  # get steamspy info
+    summary = get_reviews_summary(appid) # get steam reviews totals
+
+    all_tags = game_info.get('tags', {})
+    # Sort by votes (high to low) and take the top 5
+    if not all_tags is None and len(all_tags) > 0:
+        top_tags = sorted(all_tags, key=all_tags.get, reverse=True)[:5]
+    else:
+        top_tags = get_realtime_tags(appid) # fallback to steam scraping to get tags
+
+    approval = 0
+
+    #print(app_details)
+
+    positive = summary.get('total_positive')
+    negative = summary.get('total_negative')
+    average_forever = game_info.get('average_forever')
+    median_forever = game_info.get('median_forever')
+    ccu = game_info.get('ccu')
+    short_description = app_details['short_description']
+
+    if positive is not None and negative is not None and positive + negative != 0:
+        approval = round(positive / (positive + negative), 2)
+
+    payload = {
+        "title": game_info['name'],
+        "description": short_description,  #
+        "price": app_info['price'],  #
+        "user_score": f"{approval * 100}% Positive",  # Calculated approval
+        "playtime_avg": f"{average_forever} minutes",  # Tells AI if it's replayable
+        "median_forever": f"{median_forever} minutes",
+        "ccu" : ccu,
+        "tags": top_tags  # The top 5 tags sorted
+    }
+
+    return payload
 
 
 def get_reviews(appid, params={'json': 1}):
@@ -147,7 +292,7 @@ def get_n_reviews(appid, n, type = "all"):
 
     return reviews_cut
 
-def fetch_app_from_api(game_name):
+def get_steam_app_info(game_name:str):
     """
     Fetches the app id for a given game name from the Steam API.
 
@@ -171,7 +316,7 @@ def fetch_app_from_api(game_name):
         print("not found!\n\n")
         return -1
 
-def get_steam_app_info(game_name):
+def get_steam_app_details(appid: int) -> Any:
     """
     Gets the app info for a given game name from the Steam API.
 
@@ -181,8 +326,11 @@ def get_steam_app_info(game_name):
     Returns:
         A dictionary containing the app id and price.
     """
-    app = fetch_app_from_api(game_name)
-    return {'id': app['id'][0], 'price': app['price']}
+    steam = Steam(config.STEAM_API_KEY)
+
+    # arguments: app_id
+    app = steam.apps.get_app_details(appid)
+    return app[str(appid)].get('data')
 
 def get_steam_reviews(appid, count):
     """
@@ -217,7 +365,6 @@ def get_steamspy_game_info(appid):
     Returns:
         A json object containing the game info.
     """
-    import steamspypi
     data_request = dict()
     data_request['request'] = 'appdetails'
     data_request['appid'] = appid
@@ -234,9 +381,10 @@ def get_reviews_byname(game_name, count=5):
     Returns:
         A string containing the formatted reviews.
     """
-    app_info = get_steam_app_info(game_name)
-    appid = app_info['id']
-    price = app_info['price']
+    app = get_steam_app_info(game_name)
+
+    appid = app['id'][0]
+    price = app['price']
 
     steam_reviews = get_steam_reviews(appid, count)
     sleep(1) # Must be preserved to keep the api from chocking.
@@ -315,7 +463,7 @@ def query_game_info(games):
     Args:
         games: A list of games to query information for.
     """
-    import steamspypi
+
     for game in games:
         attempts = 0
         while True:
