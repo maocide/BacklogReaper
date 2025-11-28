@@ -1,6 +1,8 @@
+import json
 from platform import system
 from time import sleep
 from typing import Any
+from urllib.parse import unquote
 from xml.etree.ElementTree import tostring
 
 # Press Shift+F10 to execute it or replace it with your code.
@@ -9,6 +11,7 @@ from xml.etree.ElementTree import tostring
 import config
 from openai import OpenAI
 import steamspypi
+from howlongtobeatpy import HowLongToBeat
 from bs4 import BeautifulSoup
 
 def aiCall(data, system):
@@ -114,12 +117,12 @@ def get_similar_games(game_name):
     # Output results
     print(f"Found {len(games_found)} games:")
     similar_games = []
-    similar_games.append(get_game_condensed_info(game_name))
+    similar_games.append(get_global_game_info(game_name))
 
     for game in games_found:
         print(f"- {game['title']}")
 
-        payload = get_game_condensed_info(game['title'])
+        payload = get_global_game_info(game['title'])
 
         print(payload)
 
@@ -159,13 +162,126 @@ def get_realtime_tags(app_id):
         print(f"Error scraping tags for {app_id}: {e}")
         return []
 
-def get_game_condensed_info(game_name):
+
+def get_game_deals(title, appid):
+    # --- STEP 1: Find the Game ---
+    search_url = "https://www.cheapshark.com/api/1.0/games"
+    search_params = {
+        "title": title,
+        "steamAppID": appid
+    }
+
+    print("Searching CheapShark for game...")
+    try:
+        response = requests.get(search_url, params=search_params)
+        response.raise_for_status()
+
+        # Parse the JSON list
+        games_list = response.json()
+
+        if not games_list:
+            print("No games found!")
+            return
+
+        # The API returns a list, so we take the first item [0]
+        first_match = games_list[0]
+
+        # Extract the specific ID we need
+        raw_deal_id = first_match['cheapestDealID']
+        deal_id = unquote(raw_deal_id)
+        game_name = first_match['external']
+
+        print(f"   Found: {game_name}")
+        print(f"   Deal ID: {deal_id}")
+
+        # --- STEP 2: Use the ID for the Second Request ---
+        deal_url = "https://www.cheapshark.com/api/1.0/deals"
+        deal_params = {
+            "id": deal_id
+        }
+
+        print("\nFetching CheapShark specific deal details...")
+        deal_response = requests.get(deal_url, params=deal_params)
+        deal_response.raise_for_status()
+
+        deal_data = deal_response.json()
+
+        # Print the final details
+        print("\n--- Deal Details ---")
+        print(f"Store ID: {deal_data['gameInfo']['storeID']}")
+        print(f"Price: ${deal_data['gameInfo']['salePrice']}")
+        print(f"Retail: ${deal_data['gameInfo']['retailPrice']}")
+
+        store_url = "https://www.cheapshark.com/api/1.0/stores"
+        store_params = {}
+
+        store_response = requests.get(store_url)
+        store_response.raise_for_status()
+
+        store_data = store_response.json()
+        store_name = ""
+        for store in store_data:
+            if store["storeID"] == deal_data['gameInfo']['storeID']:
+                store_name = store["storeName"]
+                break
+
+
+        best_deal = {
+            "store" : store_name,
+            "price" : deal_data['gameInfo']['salePrice']
+        }
+
+
+        #print(best_deal)
+        return best_deal
+        # print(json.dumps(deal_data, indent=2))
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+    except (KeyError, IndexError) as e:
+        print(f"Error parsing JSON data: {e}")
+
+    except requests.exceptions.RequestException as e:
+        # Handle connection errors or bad responses
+        print(f"Error making request: {e}")
+
+
+def get_global_game_info(game_name):
+    """
+    Retrieves comprehensive information about a game from various sources.
+
+    This function aggregates data from Steam (app info, details, reviews summary),
+    SteamSpy (game info, tags), and HowLongToBeat.com to provide a detailed
+    payload for a given game. It handles cases where tags might not be available
+    from SteamSpy by falling back to real-time tag scraping from the Steam store.
+    It also calculates a user approval percentage based on positive and negative reviews.
+
+    Args:
+        game_name (str): The name of the game to retrieve information for.
+
+    Returns:
+        dict: A dictionary containing aggregated game information
+    """
 
     app_info = get_steam_app_info(game_name)  # get info with steamid
     appid = app_info['id'][0]
     app_details = get_steam_app_details(appid)  # get details for description
     game_info = get_steamspy_game_info(appid)  # get steamspy info
     summary = get_reviews_summary(appid) # get steam reviews totals
+    how_long_to_beat = HowLongToBeat().search("Risk of Rain 2")
+
+    if how_long_to_beat is not None and len(how_long_to_beat) > 0:
+        how_long_to_beat_hours = {
+            "main_story" : how_long_to_beat[0].main_story,
+            "main_extra" : how_long_to_beat[0].main_extra,
+            "completionist" : how_long_to_beat[0].completionist,
+            "all_styles" : how_long_to_beat[0].all_styles
+        }
+        print(how_long_to_beat_hours)
+    else:
+        how_long_to_beat_hours = {}
+
+    best_deal = get_game_deals(game_name, appid)
 
     all_tags = game_info.get('tags', {})
     # Sort by votes (high to low) and take the top 5
@@ -192,9 +308,16 @@ def get_game_condensed_info(game_name):
         "title": game_info['name'],
         "description": short_description,  #
         "price": app_info['price'],  #
+        "best_deal": best_deal,
+        "developer": game_info['developer'],
+        "publisher": game_info['publisher'],
+        "genre": game_info['genre'],
+        "total_positive": positive,
+        "total_negative": negative,
         "user_score": f"{approval * 100}% Positive",  # Calculated approval
         "playtime_avg": f"{average_forever} minutes",  # Tells AI if it's replayable
         "median_forever": f"{median_forever} minutes",
+        "how_long_to_beat_hours" : how_long_to_beat_hours, # Various values taken from how long to beat
         "ccu" : ccu,
         "tags": top_tags  # The top 5 tags sorted
     }
@@ -388,9 +511,11 @@ def get_reviews_byname(game_name, count=5):
 
     steam_reviews = get_steam_reviews(appid, count)
     sleep(1) # Must be preserved to keep the api from chocking.
-    gameinfo = get_steamspy_game_info(appid)
+    #gameinfo = get_steamspy_game_info(appid)
 
-    return format_reviews_for_ai(price, steam_reviews, gameinfo)
+    global_gameinfo = get_global_game_info(game_name)
+
+    return format_reviews_for_ai(price, steam_reviews, global_gameinfo)
 
 def format_reviews_for_ai(price, steam_reviews, gameinfo):
     """
@@ -415,25 +540,21 @@ def format_reviews_for_ai(price, steam_reviews, gameinfo):
     total_positive = summary['total_positive']
     total_negative = summary['total_negative']
 
-    name = gameinfo.get('name')
-    genre = gameinfo.get('genre')
-    developer = gameinfo.get('developer')
-    publisher = gameinfo.get('publisher')
-    median_forever = gameinfo.get('median_forever')
-    average_forever = gameinfo.get('average_forever')
-    ccu = gameinfo.get('ccu')
+    title = gameinfo.get('title')
 
     human_reviews = """\
+    "{title}" data will follow:
+    ```json
+    {gameinfo}
+    ```
+    
+    total positive reviews: {total_positive} total negative: {total_negative} score: {review_score} score description: {review_score_desc}
+    votes_up is how much a review is voted up, votes_funny is how much is voted funny.
+    Popular reviews, {count_positive} positive and {count_negative} negative as sample for {title} will follow:
     ```txt
-    {name}:
-    price: {price}
-    genre: {genre}
-    developer: {developer} publisher: {publisher}
-    reviews positive: {total_positive} negative: {total_negative} score: {review_score} score description: {review_score_desc}
-    All playtimes in document are to be intended in minutes, votes_up is how much a review is voted up, votes_funny is how much is voted funny.
-    (steamspy fields this line, might be 0 if not yet updated) average_forever: {average_forever} median_forever: {median_forever} ccu: {ccu}
-    Popular reviews, {count_positive} positive and {count_negative} negative as sample for {name} will follow:
-    """.format(name=name, count_positive=count_positive, count_negative=count_negative, price=price, total_positive=total_positive, total_negative=total_negative, review_score=review_score, review_score_desc=review_score_desc, average_forever=average_forever, median_forever=median_forever, ccu=ccu, developer=developer, publisher=publisher, genre=genre)
+    """.format(title=title, count_positive=count_positive, count_negative=count_negative, gameinfo=json.dumps(gameinfo),
+               total_positive=total_positive, total_negative=total_negative, review_score=review_score, review_score_desc=review_score_desc
+               )
 
     human_reviews = textwrap.dedent(human_reviews)
 
@@ -636,11 +757,3 @@ def count_games():
 
 import requests
 from steam_web_api import Steam
-
-
-
-
-
-
-
-

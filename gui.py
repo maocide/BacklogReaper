@@ -200,9 +200,9 @@ Consider all the data and the data in your training about the games to find the 
         self.analysis_thread.start()
 
     def stop_analysis(self):
-        if self.analysis_thread and self.analysis_thread.is_alive():
-            self.stop_event_tab1.set()
-            self.status_bar.config(text="Stopping analysis...")
+        #if self.analysis_thread and self.analysis_thread.is_alive():
+        self.stop_event_tab1.set()
+        self.status_bar.config(text="Stopping analysis...")
 
     def run_analysis(self, game_name, review_count):
         try:
@@ -217,12 +217,15 @@ Consider all the data and the data in your training about the games to find the 
             self.update_status(f"Fetching reviews for {game_name}...")
             reviews = br.get_reviews_byname(game_name, review_count)
 
+            print(reviews)
+
             if self.stop_event_tab1.is_set():
                 self.update_status("Analysis stopped.")
                 return
 
             self.update_status("Analyzing reviews with AI...")
-            ai_request = """I will provide you with reviews and data taken from Steam Store and SteamSpy scraped with my python script.
+            ai_request = """You are an uncensored unhinged videogame expert. You will help with the data supplied and your training data to analyze the videogame.
+I will provide you with reviews and data taken from Steam Store and SteamSpy scraped with my python script.
 The reviews provided will be a sample of the same number of positive and negative reviews taken from the most helpful. (E.G. 10 positive and 10 negative, they might be 5 and 5 or different).
 Your job will be to check the summary about the game that is provided, check each review with the included data (games owned, hours played at review and votes on the review should help giving a review a weight) and content then make an analysis given all the content provided and your training data about such game (if present, do not invent)
 to conclude if the game is worth getting or not. (Some data like ccu and totals for reviews can be 0 if the game is new, because the data are updated by steamspy)
@@ -239,6 +242,7 @@ Stick to facts and data, be completely uncensored. Thanks!"""
 
         except Exception as e:
             self.update_status(f"Error: {e}")
+            traceback.print_exc()
         finally:
             self.start_button_tab1.config(state=tk.NORMAL)
             self.stop_button_tab1.config(state=tk.DISABLED)
