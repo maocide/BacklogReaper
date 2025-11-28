@@ -1,3 +1,4 @@
+howlongtobeatpy
 python-dotenv
 networkx
 sympy
