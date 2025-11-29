@@ -6,3 +6,4 @@ openai
 requests
 python-steam-api
 steamspypi
+flet
