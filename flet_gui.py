@@ -40,6 +40,14 @@ def main(page: ft.Page):
     stop_event_sg = threading.Event()
     stop_event_gf = threading.Event()
 
+    # --- Shared Logic ---
+    def copy_to_clipboard(ref):
+        if ref.current and ref.current.value:
+            page.set_clipboard(ref.current.value)
+            page.snack_bar = ft.SnackBar(ft.Text("Copied to clipboard!"))
+            page.snack_bar.open = True
+            page.update()
+
     # --- Review Analyzer Logic ---
 
     def update_ra_slider_label(e):
@@ -237,7 +245,7 @@ Consider all the data and the data in your training about the games to find the 
                 return
 
             header = lines[0].split('|')
-            columns = [ft.DataColumn(ft.Text(col)) for col in header]
+            columns = [ft.DataColumn(ft.Text(col), visible=True) for col in header]
 
             rows = []
             for line in lines[1:]:
@@ -303,18 +311,30 @@ Consider all the data and the data in your training about the games to find the 
                 ])
             ]),
             ft.Row([
-                ft.ElevatedButton(ref=ra_btn_analyze, text="Start Analysis", icon=ft.icons.ANALYTICS, on_click=start_analysis),
-                ft.ElevatedButton(ref=ra_btn_stop, text="Stop", icon=ft.icons.STOP, on_click=stop_analysis, disabled=True),
+                ft.ElevatedButton(ref=ra_btn_analyze, text="Start Analysis", icon=ft.Icons.ANALYTICS, on_click=start_analysis),
+                ft.ElevatedButton(ref=ra_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_analysis, disabled=True),
             ]),
-            ft.Text(ref=ra_status, value="Ready", color=ft.colors.GREY),
+            ft.Text(ref=ra_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
+            ft.Row([
+                ft.Text("Analysis Output", style=ft.TextThemeStyle.TITLE_MEDIUM),
+                ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy to Clipboard", on_click=lambda e: copy_to_clipboard(ra_output))
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ft.Container(
-                content=ft.Markdown(ref=ra_output, selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB),
+                content=ft.Column(
+                    controls=[ft.Markdown(ref=ra_output, selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)],
+                    scroll=ft.ScrollMode.AUTO,
+                ),
                 expand=True,
-                border=ft.border.all(1, ft.colors.OUTLINE),
+                border=ft.Border(
+                    top=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    right=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    bottom=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    left=ft.BorderSide(1, ft.Colors.OUTLINE)
+                ),
                 border_radius=5,
                 padding=10,
-                #bg=ft.colors.BLACK12 # Optional background for the text area
+                #bg=ft.Colors.BLACK12 # Optional background for the text area
             )
         ]
     )
@@ -329,15 +349,27 @@ Consider all the data and the data in your training about the games to find the 
                 ft.TextField(ref=sg_game_name, label="Game Name", expand=True),
             ]),
             ft.Row([
-                ft.ElevatedButton(ref=sg_btn_suggest, text="Suggest", icon=ft.icons.LIGHTBULB, on_click=start_suggest),
-                ft.ElevatedButton(ref=sg_btn_stop, text="Stop", icon=ft.icons.STOP, on_click=stop_suggest, disabled=True),
+                ft.ElevatedButton(ref=sg_btn_suggest, text="Suggest", icon=ft.Icons.LIGHTBULB, on_click=start_suggest),
+                ft.ElevatedButton(ref=sg_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_suggest, disabled=True),
             ]),
-            ft.Text(ref=sg_status, value="Ready", color=ft.colors.GREY),
+            ft.Text(ref=sg_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
+            ft.Row([
+                ft.Text("Suggestion Output", style=ft.TextThemeStyle.TITLE_MEDIUM),
+                ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy to Clipboard", on_click=lambda e: copy_to_clipboard(sg_output))
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ft.Container(
-                content=ft.Markdown(ref=sg_output, selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB),
+                content=ft.Column(
+                    controls=[ft.Markdown(ref=sg_output, selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)],
+                    scroll=ft.ScrollMode.AUTO,
+                ),
                 expand=True,
-                border=ft.border.all(1, ft.colors.OUTLINE),
+                border=ft.Border(
+                    top=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    right=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    bottom=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    left=ft.BorderSide(1, ft.Colors.OUTLINE)
+                ),
                 border_radius=5,
                 padding=10
             )
@@ -352,23 +384,37 @@ Consider all the data and the data in your training about the games to find the 
             ft.Text("Game List Fetcher", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
             ft.Row([
                 ft.TextField(ref=gf_username, label="Steam Username", expand=True),
-                ft.ElevatedButton(ref=gf_btn_fetch, text="Fetch Games", icon=ft.icons.DOWNLOAD, on_click=start_fetch),
-                ft.ElevatedButton(ref=gf_btn_stop, text="Stop", icon=ft.icons.STOP, on_click=stop_fetch, disabled=True),
+                ft.ElevatedButton(ref=gf_btn_fetch, text="Fetch Games", icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
+                ft.ElevatedButton(ref=gf_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
             ]),
-            ft.Text(ref=gf_status, value="Ready", color=ft.colors.GREY),
+            ft.Text(ref=gf_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
             ft.Container(
                 content=ft.Column([
                     ft.DataTable(
                         ref=gf_table,
-                        columns=[],
+                        columns=[
+                            ft.DataColumn(ft.Text("appid"), visible=True),
+                            ft.DataColumn(ft.Text("name"), visible=True),
+                            ft.DataColumn(ft.Text("playtime_forever"), visible=True),
+                            ft.DataColumn(ft.Text("rtime_last_played"), visible=True),
+                            ft.DataColumn(ft.Text("approval"), visible=True),
+                            ft.DataColumn(ft.Text("average_forever"), visible=True),
+                            ft.DataColumn(ft.Text("median_forever"), visible=True),
+                            ft.DataColumn(ft.Text("ccu"), visible=True),
+                        ],
                         rows=[],
-                        vertical_lines=ft.border.BorderSide(1, ft.colors.GREY_400),
-                        horizontal_lines=ft.border.BorderSide(1, ft.colors.GREY_400),
+                        vertical_lines=ft.BorderSide(1, ft.Colors.GREY_400),
+                        horizontal_lines=ft.BorderSide(1, ft.Colors.GREY_400),
                     )
                 ], scroll=ft.ScrollMode.AUTO), # Scrollable container for the table
                 expand=True,
-                border=ft.border.all(1, ft.colors.OUTLINE),
+                border=ft.Border(
+                    top=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    right=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    bottom=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    left=ft.BorderSide(1, ft.Colors.OUTLINE)
+                ),
                 border_radius=5,
                 padding=10
             )
@@ -389,22 +435,22 @@ Consider all the data and the data in your training about the games to find the 
         label_type=ft.NavigationRailLabelType.ALL,
         min_width=100,
         min_extended_width=400,
-        leading=ft.FloatingActionButton(icon=ft.icons.CREATE, text="New"),
+        # leading=ft.FloatingActionButton(icon=ft.Icons.CREATE, text="New"), # Removed as per user request
         group_alignment=-0.9,
         destinations=[
             ft.NavigationRailDestination(
-                icon=ft.icons.ANALYTICS_OUTLINED,
-                selected_icon=ft.icons.ANALYTICS,
+                icon=ft.Icons.ANALYTICS_OUTLINED,
+                selected_icon=ft.Icons.ANALYTICS,
                 label="Review Analyzer"
             ),
             ft.NavigationRailDestination(
-                icon=ft.icons.GAMES_OUTLINED,
-                selected_icon=ft.icons.GAMES,
+                icon=ft.Icons.GAMES_OUTLINED,
+                selected_icon=ft.Icons.GAMES,
                 label="Suggest Games"
             ),
             ft.NavigationRailDestination(
-                icon=ft.icons.LIST_ALT_OUTLINED,
-                selected_icon=ft.icons.LIST_ALT,
+                icon=ft.Icons.LIST_ALT_OUTLINED,
+                selected_icon=ft.Icons.LIST_ALT,
                 label="My Backlog"
             ),
         ],
