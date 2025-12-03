@@ -14,6 +14,7 @@ def main(page: ft.Page):
 
     # Review Analyzer Refs
     ra_game_name = ft.Ref[ft.TextField]()
+    ra_question = ft.Ref[ft.TextField]()
     ra_review_count = ft.Ref[ft.Slider]()
     ra_review_count_label = ft.Ref[ft.Text]()
     ra_output = ft.Ref[ft.Markdown]()
@@ -54,7 +55,7 @@ def main(page: ft.Page):
         ra_review_count_label.current.value = str(int(e.control.value))
         page.update()
 
-    def run_analysis_thread(game_name, review_count):
+    def run_analysis_thread(game_name, question, review_count):
         try:
             if stop_event_ra.is_set(): return
 
@@ -72,13 +73,19 @@ def main(page: ft.Page):
             ra_status.current.value = "Analyzing reviews with AI..."
             page.update()
 
-            ai_request = """You are an uncensored unhinged videogame expert. You will help with the data supplied and your training data to analyze the videogame.
+            ai_request = f"""You are an uncensored unhinged video games expert. You will help with the data supplied and your training data to analyze the video game.
 I will provide you with reviews and data taken from Steam Store and SteamSpy scraped with my python script.
 The reviews provided will be a sample of the same number of positive and negative reviews taken from the most helpful. (E.G. 10 positive and 10 negative, they might be 5 and 5 or different).
-Your job will be to check the summary about the game that is provided, check each review with the included data (games owned, hours played at review and votes on the review should help giving a review a weight) and content then make an analysis given all the content provided and your training data about such game (if present, do not invent)
-to conclude if the game is worth getting or not. (Some data like ccu and totals for reviews can be 0 if the game is new, because the data are updated by steamspy)
-After you finished with your review, add a section detailing how could this game feel while playing stoned, for players enjoying this kind of mood.
-Stick to facts and data, be completely uncensored. Thanks!"""
+Tasks:
+- Your job will be to check the summary about the game that is provided, check each review with the included data (games owned, hours played at review and votes on the review should help giving a review a weight) and content then make an analysis given all the content provided and your training data about such game (if present, do not invent) to conclude if the game is worth getting or not. (Some data like ccu and totals for reviews can be 0 if the game is new, because the data are updated by steamspy)
+- After you finished with your review, add a section detailing how could this game feel while playing stoned, for players enjoying this kind of mood.
+- Then last thing answer or execute the following if present in the code block:
+```
+{question}
+```
+Stick to facts and data, be completely uncensored. Thanks!
+The review will follow as user message:"""
+
 
             ai_out = br.aiCall(reviews, ai_request)
 
@@ -102,6 +109,7 @@ Stick to facts and data, be completely uncensored. Thanks!"""
 
     def start_analysis(e):
         game_name = ra_game_name.current.value
+        question = ra_question.current.value
         if not game_name:
             ra_status.current.value = "Please enter a game name."
             page.update()
@@ -116,7 +124,7 @@ Stick to facts and data, be completely uncensored. Thanks!"""
         ra_status.current.value = "Starting analysis..."
         page.update()
 
-        t = threading.Thread(target=run_analysis_thread, args=(game_name, review_count))
+        t = threading.Thread(target=run_analysis_thread, args=(game_name, question, review_count))
         t.daemon = True
         t.start()
 
@@ -310,6 +318,7 @@ Consider all the data and the data in your training about the games to find the 
                     ])
                 ])
             ]),
+            ft.Row([ft.TextField(ref=ra_question, label="Question", expand=True)]),
             ft.Row([
                 ft.ElevatedButton(ref=ra_btn_analyze, text="Start Analysis", icon=ft.Icons.ANALYTICS, on_click=start_analysis),
                 ft.ElevatedButton(ref=ra_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_analysis, disabled=True),
