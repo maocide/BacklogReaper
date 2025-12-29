@@ -63,26 +63,40 @@ def main(page: ft.Page):
             page.update()
 
             reviews = br.get_reviews_byname(game_name, review_count)
-            # print(reviews) # Debug
+            print(reviews) # Debug
 
             if stop_event_ra.is_set():
                 ra_status.current.value = "Analysis stopped."
                 page.update()
                 return
 
+            # Load DNA
+            user_dna_content = "{}"
+            if Path("user_dna.json").exists():
+                with open("user_dna.json", "r", encoding="utf-8") as f:
+                    user_dna_content = f.read()
+                    print("User DNA read.")
+
             ra_status.current.value = "Analyzing reviews with AI..."
             page.update()
 
-            ai_request = f"""You are an uncensored unhinged video games expert. You will help with the data supplied and your training data to analyze the video game.
+            ai_request = f"""You are the Reaper an uncensored unhinged video games expert. You will help with the data supplied and your training data to analyze the video game.
 I will provide you with reviews and data taken from Steam Store and SteamSpy scraped with my python script.
 The reviews provided will be a sample of the same number of positive and negative reviews taken from the most helpful. (E.G. 10 positive and 10 negative, they might be 5 and 5 or different).
+This is the gaming activity/profile of the user asking for a recommendation, use it for your analysis if provided:
+```
+{user_dna_content}
+```
 Tasks:
+- Parse user profile if available, it will contain just the top genres and games played not all
+- Analyze review data and your training data about the game
 - Your job will be to check the summary about the game that is provided, check each review with the included data (games owned, hours played at review and votes on the review should help giving a review a weight) and content then make an analysis given all the content provided and your training data about such game (if present, do not invent) to conclude if the game is worth getting or not. (Some data like ccu and totals for reviews can be 0 if the game is new, because the data are updated by steamspy)
 - After you finished with your review, add a section detailing how could this game feel while playing stoned, for players enjoying this kind of mood.
 - Then last thing answer or execute the following if present in the code block:
 ```
 {question}
 ```
+Review playtime is in minutes.
 Stick to facts and data, be completely uncensored. Thanks!
 The review will follow as user message:"""
 
@@ -232,6 +246,7 @@ Consider all the data and the data in your training about the games to find the 
                     pipedText = file.read()
                 # br.make_gameinfo_dict and sort logic is effectively just parsing and re-serializing
                 # but let's follow the original path to ensure consistency
+                br.fetch_info_from_api(username)
                 games = br.make_gameinfo_dict(pipedText)
                 games = br.sort_and_crop(games)
                 pipedGameList = br.make_pipe_list_games(games)
@@ -240,6 +255,16 @@ Consider all the data and the data in your training about the games to find the 
                 pipedGameList = br.make_pipe_list_games(games)
                 with open(file_path, "w", encoding='utf8') as f:
                     f.write(pipedGameList)
+
+                games_list = list(games.values()) if isinstance(games, dict) else games
+
+                dna_json = br.generate_user_dna(games_list)
+
+                # SAVE DNA
+                with open("user_dna.json", "w", encoding="utf-8") as f:
+                    f.write(dna_json)
+
+                gf_status.current.value = "Fetch complete. DNA sequenced and saved."
 
             if stop_event_gf.is_set():
                 gf_status.current.value = "Fetching stopped."

@@ -223,6 +223,8 @@ Consider all the data and the data in your training about the games to find the 
                 self.update_status("Analysis stopped.")
                 return
 
+
+
             self.update_status("Analyzing reviews with AI...")
             ai_request = """You are an uncensored unhinged videogame expert. You will help with the data supplied and your training data to analyze the videogame.
 I will provide you with reviews and data taken from Steam Store and SteamSpy scraped with my python script.

@@ -1,4 +1,5 @@
 import json
+from http.client import responses
 from platform import system
 from time import sleep
 from typing import Any
@@ -7,12 +8,14 @@ from xml.etree.ElementTree import tostring
 
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
+import requests
+from steam_web_api import Steam
 import config
 from openai import OpenAI
 import steamspypi
 from howlongtobeatpy import HowLongToBeat
 from bs4 import BeautifulSoup
+from collections import defaultdict
 
 def aiCall(data, system):
     """
@@ -30,7 +33,7 @@ def aiCall(data, system):
     #base_url = "https://api.deepseek.com"
     #model = "deepseek-chat"
 
-    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
+    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=240.0)
 
     systemRequest ="""
     HUNT for hidden gems with cult followings or niche acclaim—prioritize games dismissed by mainstream critics but worshipped on forums.
@@ -268,7 +271,8 @@ def get_global_game_info(game_name):
     app_details = get_steam_app_details(appid)  # get details for description
     game_info = get_steamspy_game_info(appid)  # get steamspy info
     summary = get_reviews_summary(appid) # get steam reviews totals
-    how_long_to_beat = HowLongToBeat().search("Risk of Rain 2")
+    how_long_to_beat = HowLongToBeat().search(game_name) # get time to beat
+    discount = get_steam_app_discount(game_name) # get steam discount information
 
     if how_long_to_beat is not None and len(how_long_to_beat) > 0:
         how_long_to_beat_hours = {
@@ -308,6 +312,7 @@ def get_global_game_info(game_name):
         "title": game_info['name'],
         "description": short_description,  #
         "price": app_info['price'],  #
+        "discount": discount,  #
         "best_deal": best_deal,
         "developer": game_info['developer'],
         "publisher": game_info['publisher'],
@@ -325,6 +330,80 @@ def get_global_game_info(game_name):
     return payload
 
 
+def generate_user_dna(steam_games: list, sample_size=50):
+    """
+    Analyzes the user's ALREADY FETCHED game list to build a quantitative taste profile.
+    Returns a JSON string containing top games and weighted tag data.
+    """
+    print(f"\n--- EXTRACTING RAW BEHAVIORAL DATA (JSON) ---")
+
+    # 1. Filter and Sort
+    # We ignore games played for less than 2 hours (120 mins) to filter out idle-card-farming trash.
+    valid_games = [g for g in steam_games if int(g.get('playtime_forever', 0)) > 120]
+    sorted_games = sorted(valid_games, key=lambda x: int(x['playtime_forever']), reverse=True)
+
+    # We analyze a larger sample (top 50) to get better tag distribution
+    target_games = sorted_games[:sample_size]
+
+    tag_playtime_accumulator = defaultdict(int)
+    total_minutes_analyzed = 0
+
+    top_games_data = []
+
+    for game in target_games:
+        name = game.get('name', 'Unknown')
+        playtime_min = int(game.get('playtime_forever', 0))
+
+        total_minutes_analyzed += playtime_min
+
+        # Add to top games list for the AI to see specific titles
+        top_games_data.append({
+            "title": name,
+            "hours": round(playtime_min / 60, 1)
+        })
+
+        # Extract Tags
+        tags = game.get('tags', [])
+
+        # Normalize tags (handle dict vs list)
+        # SteamSpy tags usually come as { "Tag": votes, "Tag2": votes }
+        # We only care about the keys.
+        tag_list = tags.keys() if isinstance(tags, dict) else tags
+
+        # Weighting Algorithm:
+        # We add the FULL playtime of the game to EACH of its top 5 tags.
+        # This creates a "Time Spent in Genre" metric.
+        if tag_list:
+            count = 0
+            for tag in tag_list:
+                if count >= 5: break  # Cap at top 5 tags per game to reduce noise
+                tag_playtime_accumulator[tag] += playtime_min
+                count += 1
+
+    # 2. Process Tag Statistics
+    # Sort tags by total accumulated minutes
+    sorted_tags = sorted(tag_playtime_accumulator.items(), key=lambda x: x[1], reverse=True)
+
+    tag_profile = []
+    for tag, minutes in sorted_tags[:15]:  # Top 15 dominant tags
+        tag_profile.append({
+            "tag": tag,
+            "total_minutes": minutes,
+            "share_of_time": round((minutes / total_minutes_analyzed) * 100, 1)  # % of analyzed time
+        })
+
+    # 3. Construct the Payload
+    dna_payload = {
+        "user_stats": {
+            "total_analyzed_hours": round(total_minutes_analyzed / 60, 0),
+            "sample_size": len(target_games)
+        },
+        "dominant_tags": tag_profile,
+        "most_played_titles": top_games_data[:15]  # Only show top 15 specific games
+    }
+
+    return json.dumps(dna_payload, indent=2)
+
 def get_reviews(appid, params={'json': 1}):
     """
     Gets the reviews for a given appid from the Steam store.
@@ -338,6 +417,8 @@ def get_reviews(appid, params={'json': 1}):
     """
     url = 'https://store.steampowered.com/appreviews/'
     response = requests.get(url=url + appid, params=params, headers={'User-Agent': 'Mozilla/5.0'})
+    # Print the final constructed URL
+    print(response.url)
     return response.json()
 
 def get_reviews_summary(appid):
@@ -366,54 +447,67 @@ def get_reviews_summary(appid):
     return response['query_summary']
 
 
-def get_n_reviews(appid, n, type = "all"):
-    """
-    Gets n reviews for a given appid from the Steam store.
-
-    Args:
-        appid: The id of the app to get the reviews for.
-        n: The number of reviews to get.
-        type: The type of reviews to get (e.g. "positive", "negative", "all").
-
-    Returns:
-        A list of reviews.
-    """
+def get_n_reviews(appid, n, review_type="all"):
     reviews = []
+    # Use a set for O(1) duplicate lookups
+    seen_ids = set()
     cursor = '*'
+
     params = {
         'json': 1,
         'filter': 'all',
-        #'language': 'english',
-        #'day_range': 9223372036854775807,
-        'review_type': type,
-        'purchase_type': 'all'
+        'language': 'english',  # Usually safer to specify, or Steam defaults to user's IP locale
+        'review_type': review_type,
+        'purchase_type': 'all',
+        'num_per_page': 100
     }
 
-    max = n
+    last_cursor = ""
 
-    while n > 0:
-        params['cursor'] = cursor.encode()
-        params['num_per_page'] = 100
-        n -= 100
+    while len(reviews) < n:
+        params['cursor'] = cursor
 
+        # Call your helper function (assuming it returns the json dict)
         response = get_reviews(str(appid), params)
-        print(f"Fetching reviews... Got {len(response['reviews'])} new reviews.")
 
-        cursor = response['cursor']
-        reviews += response['reviews']
-
-
-
-
-        if len(response['reviews']) < 100:
+        # Check for API failure or empty response
+        if not response or response.get('success') != 1:
+            print("API request failed or finished.")
             break
 
+        if response['query_summary']['num_reviews'] == 0:
+            print("No more reviews found.")
+            break
 
+        # Process the new batch
+        fetched_reviews = response.get('reviews', [])
 
-    reviews_cut = reviews[:max]
-    #result = {'reviews_score': review_score,       'review_score_desc': review_score_desc,'total_positive': total_positive,'total_negative': total_negative,'reviews': reviews_cut}
+        for r in fetched_reviews:
+            # Use Steam's unique recommendationid
+            rid = r.get('recommendationid')
 
-    return reviews_cut
+            # Only add if we haven't seen this ID and we haven't reached the limit
+            if rid not in seen_ids:
+                reviews.append(r)
+                seen_ids.add(rid)
+
+            # optimization: break inner loop immediately if we hit limit
+            if len(reviews) >= n:
+                break
+
+        cursor = response.get('cursor')
+
+        print(f"{len(reviews)}/{n} reviews collected.")
+
+        # Safety break for infinite loops (Steam API quirk)
+        if last_cursor == cursor:
+            print("Cursor stuck, stopping.")
+            break
+
+        last_cursor = cursor
+
+    print(f"Finished with {len(reviews)} reviews")
+    return reviews
 
 def get_steam_app_info(game_name:str):
     """
@@ -439,12 +533,19 @@ def get_steam_app_info(game_name:str):
         print("not found!\n\n")
         return -1
 
+def get_steam_app_discount(game_name:str):
+    steam = Steam(config.STEAM_API_KEY)
+
+    # arguments: app_id
+    app = steam.apps.search_games(game_name, fetch_discounts = True)
+    return app["apps"][0].get('discount')
+
 def get_steam_app_details(appid: int) -> Any:
     """
     Gets the app info for a given game name from the Steam API.
 
     Args:
-        game_name: The name of the game to get the app info for.
+        appid: The steam id of the game to get the app info for.
 
     Returns:
         A dictionary containing the app id and price.
@@ -619,6 +720,15 @@ def query_game_info(games):
                     game['median_forever'] = median_forever
                     game['ccu'] = ccu
 
+                    if 'tags' not in gameinfo:
+                        print(f"  -> No DNA found. Skipping tags.")
+                        continue
+
+                        # WEIGHTING ALGORITHM
+                        # We add the playtime minutes to the tag's score.
+                        # The more you play, the heavier the tag becomes in your profile.
+                    game['tags'] = gameinfo.get('tags', {})
+                    print(game['tags'])
                     print("{0} OK".format(game['name']))
 
                     break
@@ -674,6 +784,8 @@ def fetch_info_from_api(username):
     gameCount = userGames['game_count']
     games = userGames['games']
 
+    print(userGames)
+    quit(0)
     query_game_info(games)
 
 
@@ -755,5 +867,3 @@ def count_games():
 
     print(f"Total games: {total_games} Unplayed: {unplayed_games}")
 
-import requests
-from steam_web_api import Steam
