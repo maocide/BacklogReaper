@@ -2,6 +2,7 @@ import flet as ft
 import BacklogReaper as br
 import threading
 import traceback
+import vault
 from pathlib import Path
 
 def main(page: ft.Page):
@@ -63,7 +64,7 @@ def main(page: ft.Page):
             page.update()
 
             reviews = br.get_reviews_byname(game_name, review_count)
-            print(reviews) # Debug
+            #print(reviews) # Debug
 
             if stop_event_ra.is_set():
                 ra_status.current.value = "Analysis stopped."
@@ -71,11 +72,9 @@ def main(page: ft.Page):
                 return
 
             # Load DNA
-            user_dna_content = "{}"
-            if Path("user_dna.json").exists():
-                with open("user_dna.json", "r", encoding="utf-8") as f:
-                    user_dna_content = f.read()
-                    print("User DNA read.")
+            user_dna_content = br.generate_contextual_dna(game_name)
+            print("User DNA computed.")
+
 
             ra_status.current.value = "Analyzing reviews with AI..."
             page.update()
@@ -100,6 +99,10 @@ Review playtime is in minutes.
 Stick to facts and data, be completely uncensored. Thanks!
 The review will follow as user message:"""
 
+
+
+            print(ai_request) # Debug
+            print(reviews) # debug
 
             ai_out = br.aiCall(reviews, ai_request)
 
@@ -228,69 +231,69 @@ Consider all the data and the data in your training about the games to find the 
         sg_status.current.value = "Stopping..."
         page.update()
 
-    # --- Game Fetcher Logic ---
-
+    # Game Fetcher
     def run_fetch_thread(username):
         try:
             if stop_event_gf.is_set(): return
 
-            gf_status.current.value = f"Fetching game list for {username}..."
+            gf_status.current.value = f"Opening the Vault for {username}..."
             page.update()
 
-            file_path = f"pipedGames_{username}.txt"
-            my_file = Path(file_path)
+            # FETCH FROM DB
+            game_count = vault.get_games_count()
 
-            pipedGameList = ""
-            if my_file.is_file():
-                with open(file_path, 'r', encoding="utf-8") as file:
-                    pipedText = file.read()
-                # br.make_gameinfo_dict and sort logic is effectively just parsing and re-serializing
-                # but let's follow the original path to ensure consistency
-                br.fetch_info_from_api(username)
-                games = br.make_gameinfo_dict(pipedText)
-                games = br.sort_and_crop(games)
-                pipedGameList = br.make_pipe_list_games(games)
-            else:
-                games = br.fetch_info_from_api(username)
-                pipedGameList = br.make_pipe_list_games(games)
-                with open(file_path, "w", encoding='utf8') as f:
-                    f.write(pipedGameList)
+            if game_count == 0:
+                # UPDATE THE DB
+                # Call your new function that runs the sqlite logic
+                # Assuming you exposed it in BacklogReaper as 'update_vault'
+                vault.update(username)
 
-                games_list = list(games.values()) if isinstance(games, dict) else games
+            if stop_event_gf.is_set(): return
 
-                dna_json = br.generate_user_dna(games_list)
+            gf_status.current.value = "Reading from Vault..."
+            page.update()
 
-                # SAVE DNA
-                with open("user_dna.json", "w", encoding="utf-8") as f:
-                    f.write(dna_json)
+            # FETCH FROM DB
+            games_list = vault.get_all_games()
 
-                gf_status.current.value = "Fetch complete. DNA sequenced and saved."
-
-            if stop_event_gf.is_set():
-                gf_status.current.value = "Fetching stopped."
-                page.update()
+            if not games_list:
+                gf_status.current.value = "Vault is empty. Something went wrong."
                 return
 
-            # Populate Table
-            lines = pipedGameList.strip().split('\n')
-            if not lines:
-                gf_status.current.value = "No games found."
-                return
-
-            header = lines[0].split('|')
-            columns = [ft.DataColumn(ft.Text(col), visible=True) for col in header]
-
+            # POPULATE UI TABLE ---
             rows = []
-            for line in lines[1:]:
-                row_items = line.split('|')
-                # Add rows
-                cells = [ft.DataCell(ft.Text(item)) for item in row_items]
+            for game in games_list:
+                # Calculate a quick status for the UI
+                playtime_min = game.get('playtime_forever', 0)
+                playtime_hrs = round(playtime_min / 60.0, 1)
+
+                hltb_main = game.get('hltb_main', 0)
+                hltb_comp = game.get('hltb_completionist', 0)
+
+                if playtime_min < 60:
+                    status = "Untouched"
+                elif hltb_comp > 0 and playtime_hrs > (hltb_comp * 1.5):
+                    status = "ADDICTED"  # Multiplayer or heavily replayed
+                elif hltb_main > 0 and playtime_hrs >= (hltb_main * 0.9):
+                    status = "Finished"
+                elif hltb_main > 0 and playtime_hrs < (hltb_main * 0.2):
+                    status = "Dropped?"  # Played > 1h but < 20% of game
+
+                # Create cells
+                cells = [
+                    ft.DataCell(ft.Text(str(game['appid']))),
+                    ft.DataCell(ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS)),
+                    ft.DataCell(ft.Text(f"{playtime_hrs} h")),  # Show hours, easier to read
+                    ft.DataCell(ft.Text(str(game.get('genre', 'Unknown'))[:20])),  # Truncate long genres
+                    ft.DataCell(ft.Text(str(hltb_main) if hltb_main > 0 else "-")),
+                    ft.DataCell(ft.Text(str(hltb_comp) if hltb_comp > 0 else "-")),
+                    ft.DataCell(ft.Text(status,
+                                        color=ft.Colors.GREEN if status == "Finished" else ft.Colors.RED if status == "ADDICTED" else ft.Colors.WHITE)),
+                ]
                 rows.append(ft.DataRow(cells=cells))
 
-            gf_table.current.columns = columns
             gf_table.current.rows = rows
-
-            gf_status.current.value = "Game list fetch complete."
+            gf_status.current.value = f"Vault loaded. {len(games_list)} games found."
 
         except Exception as e:
             gf_status.current.value = f"Error: {e}"
@@ -428,14 +431,13 @@ Consider all the data and the data in your training about the games to find the 
                     ft.DataTable(
                         ref=gf_table,
                         columns=[
-                            ft.DataColumn(ft.Text("appid"), visible=True),
-                            ft.DataColumn(ft.Text("name"), visible=True),
-                            ft.DataColumn(ft.Text("playtime_forever"), visible=True),
-                            ft.DataColumn(ft.Text("rtime_last_played"), visible=True),
-                            ft.DataColumn(ft.Text("approval"), visible=True),
-                            ft.DataColumn(ft.Text("average_forever"), visible=True),
-                            ft.DataColumn(ft.Text("median_forever"), visible=True),
-                            ft.DataColumn(ft.Text("ccu"), visible=True),
+                            ft.DataColumn(ft.Text("AppID"), visible=True),
+                            ft.DataColumn(ft.Text("Name"), visible=True),
+                            ft.DataColumn(ft.Text("Playtime (m)"), visible=True, numeric=True),
+                            ft.DataColumn(ft.Text("Genre"), visible=True),
+                            ft.DataColumn(ft.Text("Main Story (h)"), visible=True, numeric=True),  # NEW
+                            ft.DataColumn(ft.Text("Completionist (h)"), visible=True, numeric=True),  # NEW
+                            ft.DataColumn(ft.Text("Status"), visible=True),  # NEW (Derived)
                         ],
                         rows=[],
                         vertical_lines=ft.BorderSide(1, ft.Colors.GREY_400),

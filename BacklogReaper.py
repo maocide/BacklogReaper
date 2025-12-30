@@ -1,3 +1,4 @@
+import difflib
 import json
 from http.client import responses
 from platform import system
@@ -16,6 +17,9 @@ import steamspypi
 from howlongtobeatpy import HowLongToBeat
 from bs4 import BeautifulSoup
 from collections import defaultdict
+
+import vault
+from vault import get_realtime_tags
 
 def aiCall(data, system):
     """
@@ -137,33 +141,6 @@ def get_similar_games(game_name):
         similar_games.append(payload)
 
     return similar_games
-
-
-def get_realtime_tags(app_id):
-    url = f"https://store.steampowered.com/app/{app_id}/"
-    # Cookies are needed to bypass the "Age Gate" for mature games
-    cookies = {'birthtime': '568022401', 'mature_content': '1'}
-
-    try:
-        response = requests.get(url, cookies=cookies, timeout=10)
-        if response.status_code != 200:
-            return []
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Steam stores tags in a specific div class "glance_tags"
-        tags_div = soup.find("div", {"class": "glance_tags popular_tags"})
-
-        if tags_div:
-            # Extract the text from each tag link, strip whitespace
-            tags = [tag.text.strip() for tag in tags_div.find_all("a", {"class": "app_tag"})]
-            return tags[:5]  # Return top 5 most popular
-
-        return []
-
-    except Exception as e:
-        print(f"Error scraping tags for {app_id}: {e}")
-        return []
 
 
 def get_game_deals(title, appid):
@@ -305,14 +282,34 @@ def get_global_game_info(game_name):
     ccu = game_info.get('ccu')
     short_description = app_details['short_description']
 
+    def fmt_price(p):
+        try:
+            if not p: return "0.00"
+            val = int(p)
+            if val == 0: return "Free"
+            return f"{val / 100:.2f}"
+        except:
+            return p
+
+    # Default price values
+    price_data = {}
+    final_formatted = fmt_price(game_info.get('price', 0))
+    initial_formatted = fmt_price(game_info.get('initialprice', 0))
+    discount_percent = game_info.get('discount', 0)
+
+    if int(discount_percent, 0) > 0:
+        price_str = f"{final_formatted} (MSRP: {initial_formatted} | -{discount_percent}% OFF)"
+    else:
+        price_str = final_formatted
+
     if positive is not None and negative is not None and positive + negative != 0:
         approval = round(positive / (positive + negative), 2)
 
     payload = {
         "title": game_info['name'],
-        "description": short_description,  #
-        "price": app_info['price'],  #
-        "discount": discount,  #
+        "description": short_description,
+        "price": price_str,
+        "discount": discount,
         "best_deal": best_deal,
         "developer": game_info['developer'],
         "publisher": game_info['publisher'],
@@ -330,79 +327,167 @@ def get_global_game_info(game_name):
     return payload
 
 
-def generate_user_dna(steam_games: list, sample_size=50):
+def generate_user_dna():
     """
-    Analyzes the user's ALREADY FETCHED game list to build a quantitative taste profile.
-    Returns a JSON string containing top games and weighted tag data.
+    Fetches all games from Vault, calculates taste profile on the fly.
+    Returns a formatted string for the AI.
     """
-    print(f"\n--- EXTRACTING RAW BEHAVIORAL DATA (JSON) ---")
+    games = vault.get_all_games()
 
-    # 1. Filter and Sort
-    # We ignore games played for less than 2 hours (120 mins) to filter out idle-card-farming trash.
-    valid_games = [g for g in steam_games if int(g.get('playtime_forever', 0)) > 120]
-    sorted_games = sorted(valid_games, key=lambda x: int(x['playtime_forever']), reverse=True)
+    # 1. Filter out idle trash (< 2 hours)
+    valid_games = [g for g in games if g['playtime_forever'] > 120]
 
-    # We analyze a larger sample (top 50) to get better tag distribution
-    target_games = sorted_games[:sample_size]
+    total_games = len(valid_games)
+    if total_games == 0: return "User has no significant playtime history."
 
-    tag_playtime_accumulator = defaultdict(int)
-    total_minutes_analyzed = 0
+    # 2. Aggregators
+    tag_scores = defaultdict(int)
+    genre_scores = defaultdict(int)
+    finished_count = 0
+    abandoned_count = 0
 
-    top_games_data = []
+    top_played = sorted(valid_games, key=lambda x: x['playtime_forever'], reverse=True)[:10]
 
-    for game in target_games:
-        name = game.get('name', 'Unknown')
-        playtime_min = int(game.get('playtime_forever', 0))
+    for game in valid_games:
+        minutes = game['playtime_forever']
 
-        total_minutes_analyzed += playtime_min
+        # --- HLTB ANALYSIS ---
+        # Calculate if user actually finishes games
+        main_story = game.get('hltb_main', 0)
+        if main_story > 0:
+            # If played > 80% of main story -> Count as Finished
+            if (minutes / 60) > (main_story * 0.8):
+                finished_count += 1
+            # If played < 20% of main story (but > 2 hours) -> Count as Abandoned
+            elif (minutes / 60) < (main_story * 0.2):
+                abandoned_count += 1
 
-        # Add to top games list for the AI to see specific titles
-        top_games_data.append({
-            "title": name,
-            "hours": round(playtime_min / 60, 1)
-        })
+        # --- TAG/GENRE WEIGHTING ---
+        # We weight by log of playtime? No, let's just use raw hours for now.
+        # Use existing tags in DB
+        if game['tags']:
+            for tag in game['tags'].split(','):
+                tag_scores[tag.strip()] += minutes
 
-        # Extract Tags
-        tags = game.get('tags', [])
+    # 3. Format Top Tags
+    sorted_tags = sorted(tag_scores.items(), key=lambda x: x[1], reverse=True)[:10]
+    top_tags_str = ", ".join([f"{t[0]}" for t in sorted_tags])
 
-        # Normalize tags (handle dict vs list)
-        # SteamSpy tags usually come as { "Tag": votes, "Tag2": votes }
-        # We only care about the keys.
-        tag_list = tags.keys() if isinstance(tags, dict) else tags
+    # 4. Format Top Games
+    top_games_str = "\n".join([f"- {g['name']} ({int(g['playtime_forever'] / 60)}h)" for g in top_played])
 
-        # Weighting Algorithm:
-        # We add the FULL playtime of the game to EACH of its top 5 tags.
-        # This creates a "Time Spent in Genre" metric.
-        if tag_list:
-            count = 0
-            for tag in tag_list:
-                if count >= 5: break  # Cap at top 5 tags per game to reduce noise
-                tag_playtime_accumulator[tag] += playtime_min
-                count += 1
+    # 5. Construct The Persona
+    completion_rate = round((finished_count / total_games) * 100, 1)
 
-    # 2. Process Tag Statistics
-    # Sort tags by total accumulated minutes
-    sorted_tags = sorted(tag_playtime_accumulator.items(), key=lambda x: x[1], reverse=True)
+    dna_report = f"""
+[USER PSYCH PROFILE]
+- Total Games Analyzed: {total_games}
+- Completion Rate: {completion_rate}% (User finishes {finished_count} games, drops {abandoned_count})
+- Top Genres/Vibes (by time spent): {top_tags_str}
+- The "God Tier" (Most Played):
+{top_games_str}
+"""
 
-    tag_profile = []
-    for tag, minutes in sorted_tags[:15]:  # Top 15 dominant tags
-        tag_profile.append({
-            "tag": tag,
-            "total_minutes": minutes,
-            "share_of_time": round((minutes / total_minutes_analyzed) * 100, 1)  # % of analyzed time
-        })
+    return dna_report
 
-    # 3. Construct the Payload
-    dna_payload = {
-        "user_stats": {
-            "total_analyzed_hours": round(total_minutes_analyzed / 60, 0),
-            "sample_size": len(target_games)
-        },
-        "dominant_tags": tag_profile,
-        "most_played_titles": top_games_data[:15]  # Only show top 15 specific games
-    }
+def generate_contextual_dna(game_name, limit=10):
+    """
+    Generates a DNA report specific to the GENRE of the target game.
+    Ignores your 5000 hours in Dota if the target is a Racing game.
+    """
+    target_payload = get_global_game_info(game_name)
 
-    return json.dumps(dna_payload, indent=2)
+    # Extract tags from the payload
+    # (Your payload has 'tags': ['Action', 'Indie'...])
+    target_tags = target_payload.get('tags', [])
+    print(f"Target Tags: {target_tags}")
+
+    games = vault.get_all_games()
+
+    # 1. Clean Target Tags
+    # Ensure list format and lowercase for matching
+    if not target_tags: return "NO DATA!"  # RETURN NOTHING!
+
+    target_set = {t.lower() for t in target_tags}
+
+    relevant_games = []
+
+    for game in games:
+        if not game['tags']: continue
+
+        # 2. Calculate Relevance (Jaccard Index)
+        # How many tags does this library game share with the target?
+        lib_tags = {t.strip().lower() for t in game['tags'].split(',')}
+
+        intersection = len(target_set.intersection(lib_tags))
+
+        # We only care if there is meaningful overlap (at least 2 shared tags)
+        if intersection >= 2:
+            # Score = Overlap * Playtime Weight (so we see favorites first)
+            # But we cap playtime weight so 1000h doesn't crush 20h
+            relevant_games.append({
+                "name": game['name'],
+                "playtime": game['playtime_forever'],
+                "shared_tags": intersection,
+                "status": _calculate_status(game)  # Helper function for status
+            })
+
+    # 3. Sort by Relevance (Shared Tags) then Playtime
+    relevant_games.sort(key=lambda x: (x['shared_tags'], x['playtime']), reverse=True)
+
+    # 4. Construct the Report
+    top_relevant = relevant_games[:limit]
+
+    if not top_relevant:
+        return "[GENRE WARNING] User has ZERO experience in this genre. They are a tourist."
+
+
+    report = f"""
+[RELEVANT GAMING HISTORY]
+The user is looking at a game with tags: {list(target_set)[:5]}
+Here is their track record with SIMILAR games:
+"""
+
+    for g in top_relevant:
+        playtime_hr = int(g['playtime'] / 60)
+        # Add HLTB context: "111h (ADDICTED | Story: 15h)"
+        hltb_context = f" | Story: {g.get('hltb_main', '?')}h" if g.get('hltb_main') else ""
+
+        report += f"- {g['name']}: {playtime_hr}h ({g['status']}{hltb_context}) [Matches {g['shared_tags']} tags]\n"
+
+    return report
+
+
+def _calculate_status(game):
+    """
+    Classifies the relationship with the game based on HLTB data.
+    """
+    playtime_min = game.get('playtime_forever', 0)
+    playtime_hrs = playtime_min / 60.0
+
+    hltb_main = game.get('hltb_main', 0)
+    hltb_comp = game.get('hltb_completionist', 0)
+
+    # The "Tourist" (Bought it, barely touched it)
+    if playtime_min < 60:
+        return "Untouched"
+
+    # The "Addict" (Played way past the completionist time)
+    # Multiplayer games, Roguelikes, or obsessive behaviors fall here.
+    if hltb_comp > 0 and playtime_hrs > (hltb_comp * 1.2):
+        return "ADDICTED"
+
+    # The "Finisher" (Beat the main story)
+    if hltb_main > 0 and playtime_hrs >= (hltb_main * 0.8):
+        return "Finished"
+
+    # The "Dropper" (Played significantly but stopped before the end)
+    # If you played > 2 hours but < 30% of the story, you likely bounced off.
+    if hltb_main > 0 and playtime_hrs > 2 and playtime_hrs < (hltb_main * 0.3):
+        return "DROPPED"
+
+    # 5. Default
+    return "Played"
 
 def get_reviews(appid, params={'json': 1}):
     """
@@ -509,29 +594,63 @@ def get_n_reviews(appid, n, review_type="all"):
     print(f"Finished with {len(reviews)} reviews")
     return reviews
 
-def get_steam_app_info(game_name:str):
-    """
-    Fetches the app id for a given game name from the Steam API.
 
-    Args:
-        game_name: The name of the game to fetch the app id for.
-
-    Returns:
-        The app id for the given game name, or -1 if not found.
+def get_steam_app_info(game_name: str):
     """
-    print("contacting STEAM API for a appid...\n")
+    Fetches the app id for a given game name, using fuzzy logic to find the
+    best match among the search results.
+    """
+    print(f"Hunting appid for '{game_name}'...")
 
     steam = Steam(config.STEAM_API_KEY)
 
-    # arguments: search
-    apps = steam.apps.search_games(game_name)
-    print(apps)
-    if 'apps' in apps and len(apps['apps']) > 0:
-        print("done.. appid=" + str(apps['apps'][0]['id']) + "\n\n")
-        return apps['apps'][0]
-    else:
-        print("not found!\n\n")
+    # Fetch list of candidates (Steam usually returns 5-20 results)
+    results = steam.apps.search_games(game_name)
+
+    if 'apps' not in results or not results['apps']:
+        print(" -> Not found in the Steam void.\n")
         return -1
+
+    candidates = results['apps']
+    best_match = None
+    highest_score = 0.0
+
+    # Clean the input once
+    target_clean = game_name.lower().strip()
+
+    print(f" -> Analyzing {len(candidates)} candidates...")
+
+    for app in candidates:
+        title = app['name']
+        title_clean = title.lower().strip()
+
+        # 1. THE GOLDEN TICKET: Exact Match
+        if title_clean == target_clean:
+            print(f" -> EXACT MATCH FOUND: {title} ({app['id']})")
+            return app
+
+        # 2. The "Close Enough" Metric (0.0 to 1.0)
+        # SequenceMatcher calculates how many edits it takes to turn A into B
+        score = difflib.SequenceMatcher(None, target_clean, title_clean).ratio()
+
+        # Bonus: specific fix for "The" (e.g., "Witcher 3" vs "The Witcher 3")
+        if target_clean in title_clean:
+            score += 0.1  # Boost partial contains
+
+        print(f"    - Checking: '{title}' | Score: {score:.2f}")
+
+        if score > highest_score:
+            highest_score = score
+            best_match = app
+
+    # Threshold Check: If the best match is trash, trust Steam's sorting (index 0)
+    # 0.6 is a decent cutoff for "vaguely similar"
+    if highest_score < 0.4:
+        print(f" -> Best match score ({highest_score:.2f}) is pathetic. Defaulting to Steam's top pick.")
+        return candidates[0]
+
+    print(f" -> Winner: {best_match['name']} ({best_match['id']}) with score {highest_score:.2f}\n")
+    return best_match
 
 def get_steam_app_discount(game_name:str):
     steam = Steam(config.STEAM_API_KEY)
@@ -643,7 +762,7 @@ def format_reviews_for_ai(price, steam_reviews, gameinfo):
 
     title = gameinfo.get('title')
 
-    human_reviews = """\
+    human_reviews = f"""\
     "{title}" data will follow:
     ```json
     {gameinfo}
@@ -652,10 +771,8 @@ def format_reviews_for_ai(price, steam_reviews, gameinfo):
     total positive reviews: {total_positive} total negative: {total_negative} score: {review_score} score description: {review_score_desc}
     votes_up is how much a review is voted up, votes_funny is how much is voted funny.
     Popular reviews, {count_positive} positive and {count_negative} negative as sample for {title} will follow:
-    ```txt
-    """.format(title=title, count_positive=count_positive, count_negative=count_negative, gameinfo=json.dumps(gameinfo),
-               total_positive=total_positive, total_negative=total_negative, review_score=review_score, review_score_desc=review_score_desc
-               )
+    ```
+    """
 
     human_reviews = textwrap.dedent(human_reviews)
 
