@@ -30,6 +30,13 @@ def main(page: ft.Page):
     sg_btn_suggest = ft.Ref[ft.ElevatedButton]()
     sg_btn_stop = ft.Ref[ft.ElevatedButton]()
 
+    # Backlog Reaping Refs
+    br_mood = ft.Ref[ft.TextField]()
+    br_output = ft.Ref[ft.Markdown]()
+    br_status = ft.Ref[ft.Text]()
+    br_btn_start = ft.Ref[ft.ElevatedButton]()
+    br_btn_stop = ft.Ref[ft.ElevatedButton]()
+
     # Game Fetcher Refs
     gf_username = ft.Ref[ft.TextField]()
     gf_table = ft.Ref[ft.DataTable]()
@@ -41,6 +48,7 @@ def main(page: ft.Page):
     # Threading Events
     stop_event_ra = threading.Event()
     stop_event_sg = threading.Event()
+    stop_event_br = threading.Event()
     stop_event_gf = threading.Event()
 
     # --- Shared Logic ---
@@ -232,6 +240,80 @@ Consider all the data and the data in your training about the games to find the 
         sg_status.current.value = "Stopping..."
         page.update()
 
+    # --- Backlog Reaping Logic ---
+
+    def run_backlog_reaping_thread(mood):
+        try:
+            if stop_event_br.is_set(): return
+
+            br_status.current.value = "Analyzing mood and consulting the Oracle..."
+            page.update()
+
+            # --- SKELETON LOGIC ---
+            # 1. Ask AI for filters
+            # Input: Mood/Question, DB Schema (games table: appid, name, playtime_forever, genre, tags, hltb_main, hltb_completionist, is_multiplayer)
+            # Output: JSON or structured filter criteria (e.g., genre='RPG', playtime<20h)
+
+            # response_filters = br.aiCall(..., "Extract filters from this mood: " + mood)
+
+            if stop_event_br.is_set():
+                br_status.current.value = "Reaping stopped."
+                page.update()
+                return
+
+            br_status.current.value = "Filtering backlog and generating suggestions..."
+            page.update()
+
+            # 2. Fetch data & Send to AI
+            # filtered_games = vault.query_games(response_filters)
+            # ai_request = f"Here are the games matching the mood: {filtered_games}. Suggest the best ones."
+            # ai_out = br.aiCall(filtered_games, ai_request)
+
+            # MOCK OUTPUT FOR SKELETON
+            import time
+            time.sleep(1) # Simulate network delay
+            ai_out = f"### Skeleton Response\n\n**Mood:** {mood}\n\n*Simulated AI analysis would appear here, suggesting games from your backlog based on the mood provided.*"
+
+            if stop_event_br.is_set():
+                br_status.current.value = "Reaping stopped."
+                page.update()
+                return
+
+            br_output.current.value = ai_out
+            br_status.current.value = "Reaping complete."
+        except Exception as e:
+            traceback.print_exc()
+            br_status.current.value = f"Error: {e}"
+        finally:
+            if br_btn_start.current:
+                br_btn_start.current.disabled = False
+            if br_btn_stop.current:
+                br_btn_stop.current.disabled = True
+            page.update()
+
+    def start_backlog_reaping(e):
+        mood = br_mood.current.value
+        if not mood:
+            br_status.current.value = "Please enter your mood or a question."
+            page.update()
+            return
+
+        stop_event_br.clear()
+        br_btn_start.current.disabled = True
+        br_btn_stop.current.disabled = False
+        br_output.current.value = ""
+        br_status.current.value = "Starting reaping..."
+        page.update()
+
+        t = threading.Thread(target=run_backlog_reaping_thread, args=(mood,))
+        t.daemon = True
+        t.start()
+
+    def stop_backlog_reaping(e):
+        stop_event_br.set()
+        br_status.current.value = "Stopping..."
+        page.update()
+
     # Game Fetcher
     def run_fetch_thread(username):
         try:
@@ -414,6 +496,43 @@ Consider all the data and the data in your training about the games to find the 
         ]
     )
 
+    # Backlog Reaping View
+    view_br = ft.Column(
+        visible=False,
+        expand=True,
+        controls=[
+            ft.Text("Backlog Reaping", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Row([
+                ft.TextField(ref=br_mood, label="Mood / Question", expand=True),
+            ]),
+            ft.Row([
+                ft.ElevatedButton(ref=br_btn_start, text="Reap Backlog", icon=ft.Icons.SEARCH, on_click=start_backlog_reaping),
+                ft.ElevatedButton(ref=br_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_backlog_reaping, disabled=True),
+            ]),
+            ft.Text(ref=br_status, value="Ready", color=ft.Colors.GREY),
+            ft.Divider(),
+            ft.Row([
+                ft.Text("Reaper Output", style=ft.TextThemeStyle.TITLE_MEDIUM),
+                ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy to Clipboard", on_click=lambda e: copy_to_clipboard(br_output))
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ft.Container(
+                content=ft.Column(
+                    controls=[ft.Markdown(ref=br_output, selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)],
+                    scroll=ft.ScrollMode.AUTO,
+                ),
+                expand=True,
+                border=ft.Border(
+                    top=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    right=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    bottom=ft.BorderSide(1, ft.Colors.OUTLINE),
+                    left=ft.BorderSide(1, ft.Colors.OUTLINE)
+                ),
+                border_radius=5,
+                padding=10
+            )
+        ]
+    )
+
     # Game Fetcher View
     view_gf = ft.Column(
         visible=False,
@@ -465,7 +584,8 @@ Consider all the data and the data in your training about the games to find the 
         index = e.control.selected_index
         view_ra.visible = (index == 0)
         view_sg.visible = (index == 1)
-        view_gf.visible = (index == 2)
+        view_br.visible = (index == 2)
+        view_gf.visible = (index == 3)
         page.update()
 
     rail = ft.NavigationRail(
@@ -487,6 +607,11 @@ Consider all the data and the data in your training about the games to find the 
                 label="Suggest Games"
             ),
             ft.NavigationRailDestination(
+                icon=ft.Icons.EXPLORE_OUTLINED,
+                selected_icon=ft.Icons.EXPLORE,
+                label="Backlog Reaping"
+            ),
+            ft.NavigationRailDestination(
                 icon=ft.Icons.LIST_ALT_OUTLINED,
                 selected_icon=ft.Icons.LIST_ALT,
                 label="My Backlog"
@@ -502,6 +627,7 @@ Consider all the data and the data in your training about the games to find the 
                 ft.VerticalDivider(width=1),
                 view_ra,
                 view_sg,
+                view_br,
                 view_gf
             ],
             expand=True,
