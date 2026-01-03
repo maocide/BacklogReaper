@@ -60,10 +60,19 @@ def get_realtime_tags(app_id):
 
 
 def update(username):
+    """
+    Updates or inserts inside the local database
+    """
     print("--- OPENING THE VAULT ---")
 
     # Initialize DB just in case
     init_db()
+
+    MP_TAGS = {
+        "multiplayer", "co-op", "online co-op", "coop",
+        "local co-op", "online pvp", "pvp", "mmo",
+        "massively multiplayer", "cross-platform multiplayer"
+    }
 
     steam = Steam(config.STEAM_API_KEY)
     user_data = steam.users.search_user(username)
@@ -82,6 +91,11 @@ def update(username):
             playtime = game['playtime_forever']
             last_played = game.get('rtime_last_played', 0)
 
+            main_story = 0
+            completionist = 0
+            is_multiplayer = 0
+
+
             # Check cache
             c.execute("SELECT last_updated FROM games WHERE appid=?", (appid,))
             row = c.fetchone()
@@ -92,7 +106,7 @@ def update(username):
                 conn.commit()
                 continue
 
-                # Slow Path: New Game
+            # Slow Path: New Game
             print(f"New recruit detected: {name} ({appid})")
 
             tags_str = ""
@@ -100,11 +114,19 @@ def update(username):
                 # Use the LOCAL function, not the one from 'br'
                 tags_list = get_realtime_tags(appid)
                 tags_str = ",".join(tags_list)
+
+                time.sleep(1)
             except:
                 pass
 
-            main_story = 0
-            completionist = 0
+            if tags_str:
+                # Convert string "Action, Indie" -> set("action", "indie")
+                current_tags = {t.strip().lower() for t in tags_str.split(',')}
+
+                # Check for intersection
+                if not current_tags.isdisjoint(MP_TAGS):
+                    is_multiplayer = 1
+
             try:
                 # HLTB is slow, maybe wrap this in a try/catch block for connection errors
                 hltb_results = HowLongToBeat().search(name)
@@ -115,23 +137,38 @@ def update(username):
             except Exception as e:
                 print(f"HLTB failed: {e}")
 
-            c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?)''',
-                      (appid, name, playtime, last_played, "", tags_str, main_story, completionist, time.time()))
+            c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                      (appid, name, playtime, last_played, "", tags_str, main_story, completionist, is_multiplayer, time.time()))
             conn.commit()
 
-            time.sleep(1)  # Be nice to Valve (they don't deserve it)
 
     print("Vault update complete.")
 
+
 def get_games_count():
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT count(0) AS 'c' FROM games ORDER BY playtime_forever DESC")
-        rows = c.fetchall()
-        if rows:
-            return dict(rows[0])['c']
-        else:
-            return 0
+    try:
+        # If the DB file doesn't exist, SQLite usually creates it automatically here,
+        # but it will be empty (no tables).
+        with get_connection() as conn:
+            c = conn.cursor()
+
+            # This will raise an OperationalError if the 'games' table is missing
+            c.execute("SELECT count(0) AS 'c' FROM games")
+
+            rows = c.fetchall()
+            if rows:
+                return dict(rows[0])['c']
+            else:
+                return 0
+
+    except sqlite3.OperationalError:
+        # This catches errors like "no such table: games"
+        return 0
+
+    except Exception as e:
+        # Catch connection errors if the DB server is down or unreachable
+        print(f"An unexpected error occurred: {e}")
+        return 0
 
 
 def get_all_games():
