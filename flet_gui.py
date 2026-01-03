@@ -36,6 +36,7 @@ def main(page: ft.Page):
     gf_status = ft.Ref[ft.Text]()
     gf_btn_fetch = ft.Ref[ft.ElevatedButton]()
     gf_btn_stop = ft.Ref[ft.ElevatedButton]()
+    gf_chk_force = ft.Ref[ft.Checkbox]()
 
     # Threading Events
     stop_event_ra = threading.Event()
@@ -239,13 +240,13 @@ Consider all the data and the data in your training about the games to find the 
             gf_status.current.value = f"Opening the Vault for {username}..."
             page.update()
 
+            force_update = gf_chk_force.current.value
+
             # FETCH FROM DB
             game_count = vault.get_games_count()
 
-            if game_count == 0:
+            if game_count == 0 or force_update:
                 # UPDATE THE DB
-                # Call your new function that runs the sqlite logic
-                # Assuming you exposed it in BacklogReaper as 'update_vault'
                 vault.update(username)
 
             if stop_event_gf.is_set(): return
@@ -423,6 +424,7 @@ Consider all the data and the data in your training about the games to find the 
                 ft.TextField(ref=gf_username, label="Steam Username", expand=True),
                 ft.ElevatedButton(ref=gf_btn_fetch, text="Fetch Games", icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
                 ft.ElevatedButton(ref=gf_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
+                ft.Checkbox(ref=gf_chk_force, label="Force Update", tooltip="Force Update"),
             ]),
             ft.Text(ref=gf_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),

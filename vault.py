@@ -23,7 +23,7 @@ def get_connection():
 
 def init_db():
     """
-    Run this once on app startup to ensure the vault exists.
+    Creates local sql lite db
     """
     with get_connection() as conn:
         c = conn.cursor()
@@ -31,10 +31,12 @@ def init_db():
             appid INTEGER PRIMARY KEY,
             name TEXT,
             playtime_forever INTEGER,
+            rtime_last_played INTEGER,  -- <--- (Unix Timestamp)
             genre TEXT,
             tags TEXT,
             hltb_main INTEGER,
             hltb_completionist INTEGER,
+            is_multiplayer INTEGER DEFAULT 0, -- <--- NEEDS TO BE POPULATED
             last_updated REAL
         )''')
         conn.commit()
@@ -78,6 +80,7 @@ def update(username):
             appid = game['appid']
             name = game['name']
             playtime = game['playtime_forever']
+            last_played = game.get('rtime_last_played', 0)
 
             # Check cache
             c.execute("SELECT last_updated FROM games WHERE appid=?", (appid,))
@@ -112,8 +115,8 @@ def update(username):
             except Exception as e:
                 print(f"HLTB failed: {e}")
 
-            c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?)''',
-                      (appid, name, playtime, "", tags_str, main_story, completionist, time.time()))
+            c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?)''',
+                      (appid, name, playtime, last_played, "", tags_str, main_story, completionist, time.time()))
             conn.commit()
 
             time.sleep(1)  # Be nice to Valve (they don't deserve it)
