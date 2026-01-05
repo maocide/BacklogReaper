@@ -12,59 +12,13 @@ from xml.etree.ElementTree import tostring
 import requests
 from steam_web_api import Steam
 import config
-from openai import OpenAI
 import steamspypi
 from howlongtobeatpy import HowLongToBeat
 from bs4 import BeautifulSoup
 from collections import defaultdict
 
 import vault
-from vault import get_realtime_tags
-
-def aiCall(data, system):
-    """
-    Calls the OpenAI API to analyze the provided data.
-
-    Args:
-        data: The data to be analyzed.
-        system: The request to be sent to the AI.
-
-    Returns:
-        The content of the AI's response.
-    """
-
-    #api_key = ""
-    #base_url = "https://api.deepseek.com"
-    #model = "deepseek-chat"
-
-    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=240.0)
-
-    systemRequest ="""
-    HUNT for hidden gems with cult followings or niche acclaim—prioritize games dismissed by mainstream critics but worshipped on forums.
-    Input format: Pipe-separated values (PSV) with column headers in first line
-    Processing instructions:
-    1. Calculate backlog_score = (1000000 - playtime_forever) / 100  
-    2. Flag games in 'best indie gems' or 'underrated masterpieces' lists with '[CULT]'
-    3. Sort all records by backlog_score (descending)
-    4. Format output as PSV with columns: appid|name|playtime_forever|backlog_score
-    5. Limit output to top 100 rows if results exceed 100
-    6. Output raw data only (no commentary)
-    
-    Expected output format:
-    appid|name|playtime_forever|backlog_score
-    [calculated data rows...]
-    """
-
-    response = client.chat.completions.create(
-        model=config.OPENAI_MODEL,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": data},
-        ],
-        stream=False
-    )
-
-    return(response.choices[0].message.content)
+from vault import get_realtime_tags, calculate_status
 
 
 def get_similar_games(game_name):
@@ -244,6 +198,8 @@ def get_global_game_info(game_name):
     """
 
     app_info = get_steam_app_info(game_name)  # get info with steamid
+    if not app_info:
+        return {}
     appid = app_info['id'][0]
     app_details = get_steam_app_details(appid)  # get details for description
     game_info = get_steamspy_game_info(appid)  # get steamspy info
@@ -365,7 +321,7 @@ def generate_contextual_dna(game_name, limit=10):
                 "name": game['name'],
                 "playtime": game['playtime_forever'],
                 "shared_tags": intersection,
-                "status": _calculate_status(game)  # Helper function for status
+                "status": calculate_status(game)  # Helper function for status
             })
 
     # 3. Sort by Relevance (Shared Tags) then Playtime
@@ -392,38 +348,6 @@ Here is their track record with SIMILAR games:
         report += f"- {g['name']}: {playtime_hr}h ({g['status']}{hltb_context}) [Matches {g['shared_tags']} tags]\n"
 
     return report
-
-
-def _calculate_status(game):
-    """
-    Classifies the relationship with the game based on HLTB data.
-    """
-    playtime_min = game.get('playtime_forever', 0)
-    playtime_hrs = playtime_min / 60.0
-
-    hltb_main = game.get('hltb_main', 0)
-    hltb_comp = game.get('hltb_completionist', 0)
-
-    # The "Tourist" (Bought it, barely touched it)
-    if playtime_min < 60:
-        return "Untouched"
-
-    # The "Addict" (Played way past the completionist time)
-    # Multiplayer games, Roguelikes, or obsessive behaviors fall here.
-    if hltb_comp > 0 and playtime_hrs > (hltb_comp * 1.2):
-        return "ADDICTED"
-
-    # The "Finisher" (Beat the main story)
-    if hltb_main > 0 and playtime_hrs >= (hltb_main * 0.8):
-        return "Finished"
-
-    # The "Dropper" (Played significantly but stopped before the end)
-    # If you played > 2 hours but < 30% of the story, you likely bounced off.
-    if hltb_main > 0 and playtime_hrs > 2 and playtime_hrs < (hltb_main * 0.3):
-        return "DROPPED"
-
-    # 5. Default
-    return "Played"
 
 def get_reviews(appid, params={'json': 1}):
     """
@@ -545,7 +469,7 @@ def get_steam_app_info(game_name: str):
 
     if 'apps' not in results or not results['apps']:
         print(" -> Not found in the Steam void.\n")
-        return -1
+        return None
 
     candidates = results['apps']
     best_match = None

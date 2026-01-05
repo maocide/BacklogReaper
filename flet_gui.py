@@ -1,5 +1,6 @@
 import flet as ft
 import BacklogReaper as br
+import agent
 import threading
 import traceback
 import vault
@@ -113,7 +114,7 @@ The review will follow as user message:"""
             print(ai_request) # Debug
             print(reviews) # debug
 
-            ai_out = br.aiCall(reviews, ai_request)
+            ai_out = agent.aiCall(reviews, ai_request)
 
             if stop_event_ra.is_set():
                 ra_status.current.value = "Analysis stopped."
@@ -198,7 +199,7 @@ Consider all the data and the data in your training about the games to find the 
 
             # print(ai_request)
 
-            ai_out = br.aiCall("", ai_request)
+            ai_out = agent.aiCall("", ai_request)
 
             if stop_event_sg.is_set():
                 sg_status.current.value = "Suggest stopped."
@@ -246,33 +247,15 @@ Consider all the data and the data in your training about the games to find the 
         try:
             if stop_event_br.is_set(): return
 
-            br_status.current.value = "Analyzing mood and consulting the Oracle..."
+            br_status.current.value = "Analyzing input and consulting the Reaper..."
             page.update()
-
-            # --- SKELETON LOGIC ---
-            # 1. Ask AI for filters
-            # Input: Mood/Question, DB Schema (games table: appid, name, playtime_forever, genre, tags, hltb_main, hltb_completionist, is_multiplayer)
-            # Output: JSON or structured filter criteria (e.g., genre='RPG', playtime<20h)
-
-            # response_filters = br.aiCall(..., "Extract filters from this mood: " + mood)
 
             if stop_event_br.is_set():
                 br_status.current.value = "Reaping stopped."
                 page.update()
                 return
 
-            br_status.current.value = "Filtering backlog and generating suggestions..."
-            page.update()
-
-            # 2. Fetch data & Send to AI
-            # filtered_games = vault.query_games(response_filters)
-            # ai_request = f"Here are the games matching the mood: {filtered_games}. Suggest the best ones."
-            # ai_out = br.aiCall(filtered_games, ai_request)
-
-            # MOCK OUTPUT FOR SKELETON
-            import time
-            time.sleep(1) # Simulate network delay
-            ai_out = f"### Skeleton Response\n\n**Mood:** {mood}\n\n*Simulated AI analysis would appear here, suggesting games from your backlog based on the mood provided.*"
+            ai_out = agent.agent_chat_loop(mood, None)[0]
 
             if stop_event_br.is_set():
                 br_status.current.value = "Reaping stopped."

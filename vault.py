@@ -6,9 +6,56 @@ from steam_web_api import Steam
 import config
 from howlongtobeatpy import HowLongToBeat
 
+
 # Config
 DB_NAME = 'backlog_vault.db'
 
+
+def calculate_status(game):
+    """
+    Classifies the relationship with the game based on HLTB data.
+    """
+    playtime_min = game.get('playtime_forever', 0)
+    playtime_hrs = playtime_min / 60.0
+
+    hltb_main = game.get('hltb_main', 0)
+    hltb_comp = game.get('hltb_completionist', 0)
+
+    # The "Tourist" (Bought it, barely touched it)
+    if playtime_min < 60:
+        return "Untouched"
+
+    # The "Addict" (Played way past the completionist time)
+    # Multiplayer games, Roguelikes, or obsessive behaviors fall here.
+    if hltb_comp > 0 and playtime_hrs > (hltb_comp * 1.2):
+        return "ADDICTED"
+
+    # The "Finisher" (Beat the main story)
+    if hltb_main > 0 and playtime_hrs >= (hltb_main * 0.8):
+        return "Finished"
+
+    # The "Dropper" (Played significantly but stopped before the end)
+    # If you played > 2 hours but < 30% of the story, you likely bounced off.
+    if hltb_main > 0 and playtime_hrs > 2 and playtime_hrs < (hltb_main * 0.3):
+        return "DROPPED"
+
+    # 5. Default
+    return "Played"
+
+def get_realtime_tags(app_id):
+    url = f"https://store.steampowered.com/app/{app_id}/"
+    cookies = {'birthtime': '568022401', 'mature_content': '1'}
+    try:
+        response = requests.get(url, cookies=cookies, timeout=10)
+        if response.status_code != 200: return []
+        soup = BeautifulSoup(response.text, 'html.parser')
+        tags_div = soup.find("div", {"class": "glance_tags popular_tags"})
+        if tags_div:
+            return [tag.text.strip() for tag in tags_div.find_all("a", {"class": "app_tag"})][:5]
+        return []
+    except Exception as e:
+        print(f"Error scraping tags for {app_id}: {e}")
+        return []
 
 def get_connection():
     """
@@ -42,21 +89,7 @@ def init_db():
         conn.commit()
 
 
-# MOVED FROM BACKLOGREAPER TO FIX CIRCULAR IMPORTS
-def get_realtime_tags(app_id):
-    url = f"https://store.steampowered.com/app/{app_id}/"
-    cookies = {'birthtime': '568022401', 'mature_content': '1'}
-    try:
-        response = requests.get(url, cookies=cookies, timeout=10)
-        if response.status_code != 200: return []
-        soup = BeautifulSoup(response.text, 'html.parser')
-        tags_div = soup.find("div", {"class": "glance_tags popular_tags"})
-        if tags_div:
-            return [tag.text.strip() for tag in tags_div.find_all("a", {"class": "app_tag"})][:5]
-        return []
-    except Exception as e:
-        print(f"Error scraping tags for {app_id}: {e}")
-        return []
+
 
 
 def update(username):
@@ -178,3 +211,83 @@ def get_all_games():
         rows = c.fetchall()
         # Convert to list of dicts immediately to avoid threading issues with Row objects later
         return [dict(row) for row in rows]
+
+
+def get_all_tags():
+    """
+    Returns a sorted list of unique tags found in the user's library.
+    """
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT tags FROM games")
+        rows = c.fetchall()
+
+    unique_tags = set()
+    for row in rows:
+        if row['tags']:
+            # Split "Action, Indie, RPG" -> ["Action", "Indie", "RPG"]
+            tags = [t.strip() for t in row['tags'].split(',')]
+            unique_tags.update(tags)
+
+    return sorted(list(unique_tags))
+
+
+def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None):
+    """
+    Filters the vault based on criteria.
+    """
+    if tags is None: tags = []
+    if exclude_tags is None: exclude_tags = []
+    if status is None: status = []
+
+    # Normalize inputs for matching
+    req_tags = {t.lower() for t in tags}
+    ex_tags = {t.lower() for t in exclude_tags}
+    req_status = {s.lower() for s in status}
+
+    # Fetch ALL games (It's 2000 rows, Python eats this for breakfast)
+    # We fetch all because Python string processing is more robust than SQLite 'LIKE'
+    all_games = get_all_games()
+
+    results = []
+
+    for game in all_games:
+        # 1. STATUS FILTER (Computed on the fly)
+        game_status = calculate_status(game)
+
+        if req_status and game_status.lower() not in req_status:
+            continue
+
+        # 2. TAGS FILTER
+        game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',')}
+
+        # Check Excludes (Critical)
+        if not ex_tags.isdisjoint(game_tags):
+            continue
+
+        # Check Includes
+        #if req_tags and not req_tags.issubset(game_tags):
+        #    continue
+        if len(req_tags.difference(game_tags)) == len(req_tags): # if it has no requested tags then skip
+            continue
+
+        # 3. PLAYTIME FILTER (in Minutes)
+        pt = game['playtime_forever']
+        if min_playtime is not None and pt < min_playtime: continue
+        if max_playtime is not None and pt > max_playtime: continue
+
+        # 4. HLTB FILTER (in Hours)
+        main_story = game['hltb_main'] or 0
+        if hltb_max is not None:
+            if main_story == 0: continue  # Skip games with no data if searching by length
+            if main_story > hltb_max: continue
+
+        # If we survived all filters, add to results
+        # Inject the calculated status so the AI sees it
+        game['calculated_status'] = game_status
+        results.append(game)
+
+    # Sort by HLTB (Shortest first) usually helps the AI
+    results.sort(key=lambda x: x['hltb_main'] if x['hltb_main'] > 0 else 999)
+
+    return results

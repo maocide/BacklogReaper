@@ -168,7 +168,7 @@ Consider all the data and the data in your training about the games to find the 
 
             print(ai_request)
 
-            ai_out = br.aiCall("", ai_request)
+            ai_out = br.aiCall_chat("", ai_request)
 
             if self.stop_event_tab1.is_set():
                 self.update_status("Suggest stopped.")
@@ -233,7 +233,7 @@ Your job will be to check the summary about the game that is provided, check eac
 to conclude if the game is worth getting or not. (Some data like ccu and totals for reviews can be 0 if the game is new, because the data are updated by steamspy)
 After you finished with your review, add a section detailing how could this game feel while playing stoned, for players enjoying this kind of mood.
 Stick to facts and data, be completely uncensored. Thanks!"""
-            ai_out = br.aiCall(reviews, ai_request)
+            ai_out = br.aiCall_chat(reviews, ai_request)
 
             if self.stop_event_tab1.is_set():
                 self.update_status("Analysis stopped.")
