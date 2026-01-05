@@ -1,5 +1,7 @@
 import sqlite3
 import time
+import random
+
 import requests
 from bs4 import BeautifulSoup
 from steam_web_api import Steam
@@ -232,7 +234,7 @@ def get_all_tags():
     return sorted(list(unique_tags))
 
 
-def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None):
+def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, sort_by='shortest'):
     """
     Filters the vault based on criteria.
     """
@@ -244,6 +246,12 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     req_tags = {t.lower() for t in tags}
     ex_tags = {t.lower() for t in exclude_tags}
     req_status = {s.lower() for s in status}
+
+    # The AI often sends 0 when it means "unlimited" or "don't care".
+    # We must convert 0 to None so the logic below skips the check.
+    if min_playtime == 0: min_playtime = None
+    if max_playtime == 0: max_playtime = None
+    if hltb_max == 0: hltb_max = None
 
     # Fetch ALL games (It's 2000 rows, Python eats this for breakfast)
     # We fetch all because Python string processing is more robust than SQLite 'LIKE'
@@ -268,7 +276,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         # Check Includes
         #if req_tags and not req_tags.issubset(game_tags):
         #    continue
-        if len(req_tags.difference(game_tags)) == len(req_tags): # if it has no requested tags then skip
+        if len(req_tags) and len(req_tags.difference(game_tags)) == len(req_tags): # if it has no requested tags then skip
             continue
 
         # 3. PLAYTIME FILTER (in Minutes)
@@ -287,7 +295,14 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         game['calculated_status'] = game_status
         results.append(game)
 
-    # Sort by HLTB (Shortest first) usually helps the AI
-    results.sort(key=lambda x: x['hltb_main'] if x['hltb_main'] > 0 else 999)
+    # Final Sorting
+    if sort_by == 'shortest':
+        results.sort(key=lambda x: x['hltb_main'] if x['hltb_main'] > 0 else 999)
+    elif sort_by == 'longest':
+        results.sort(key=lambda x: x['hltb_main'], reverse=True)
+    elif sort_by == 'name':
+        results.sort(key=lambda x: x['name'])
+    elif sort_by == 'random':
+        random.shuffle(results)
 
     return results

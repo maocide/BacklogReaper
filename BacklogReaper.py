@@ -20,6 +20,8 @@ from collections import defaultdict
 import vault
 from vault import get_realtime_tags, calculate_status
 
+max_tags = 10
+
 
 def get_similar_games(game_name):
     """
@@ -223,7 +225,7 @@ def get_global_game_info(game_name):
     all_tags = game_info.get('tags', {})
     # Sort by votes (high to low) and take the top 5
     if not all_tags is None and len(all_tags) > 0:
-        top_tags = sorted(all_tags, key=all_tags.get, reverse=True)[:5]
+        top_tags = sorted(all_tags, key=all_tags.get, reverse=True)[:max_tags]
     else:
         top_tags = get_realtime_tags(appid) # fallback to steam scraping to get tags
 
@@ -277,7 +279,7 @@ def get_global_game_info(game_name):
         "median_forever": f"{median_forever} minutes",
         "how_long_to_beat_hours" : how_long_to_beat_hours, # Various values taken from how long to beat
         "ccu" : ccu,
-        "tags": top_tags  # The top 5 tags sorted
+        "tags": top_tags  # The top tags sorted
     }
 
     return payload
@@ -336,7 +338,7 @@ def generate_contextual_dna(game_name, limit=10):
 
     report = f"""
 [RELEVANT GAMING HISTORY]
-The user is looking at a game with tags: {list(target_set)[:5]}
+The user is looking at a game with tags: {list(target_set)[:max_tags]}
 Here is their track record with SIMILAR games:
 """
 
