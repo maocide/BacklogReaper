@@ -90,7 +90,9 @@ def parse_and_render_message(text, is_user):
                         card_row.controls.append(create_game_card(game))
 
                     # Height removal: Let it grow naturally with content
-                    controls.append(ft.Container(content=card_row, padding=5))
+                    # We set a fixed width here to force the wrap=True to trigger.
+                    # Without constraints, the Row expands infinitely.
+                    controls.append(ft.Container(content=card_row, padding=5, width=700))
                 else:
                     controls.append(ft.Markdown(f"```json{json_str}```")) # Not a list, render raw
             except json.JSONDecodeError:
