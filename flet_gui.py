@@ -92,7 +92,7 @@ def parse_and_render_message(text, is_user):
                     # Height removal: Let it grow naturally with content
                     # We set a fixed width here to force the wrap=True to trigger.
                     # Without constraints, the Row expands infinitely.
-                    controls.append(ft.Container(content=card_row, padding=5, width=1100))
+                    controls.append(ft.Container(content=card_row, padding=5))
                 else:
                     controls.append(ft.Markdown(f"```json{json_str}```")) # Not a list, render raw
             except json.JSONDecodeError:
@@ -115,6 +115,7 @@ def parse_and_render_message(text, is_user):
         padding=15,
         border_radius=10,
         bgcolor=ft.Colors.BLUE_GREY_900 if is_user else ft.Colors.BLACK38,
+        width=750, # Constrain width to fit in view (1200 - 400 sidebar)
     )
 
     # Avatar Label
