@@ -14,7 +14,7 @@ You have access to the following tools. To use one, reply ONLY with a JSON objec
 TOOLS:
 1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, status=[], sort_by='relevance')
    - Use this to find games in the database, the steam library.
-   - 'status' options: 'Unplayed', 'Backlog', 'Bounced', 'Abandoned', 'Finished', 'Addicted', 'Testing', 'Active', 'Played'.
+   - 'status' options: 'Unplayed', 'Bounced', 'Testing', 'Addicted', 'Finished', 'Active', 'Abandoned', 'Played'.
    - min_playtime, max_playtime and hltb_max are parameters taken from HowLongToBeat
    - sort_by options: 'random', 'shortest' (default), 'longest', 'recent' (last played), 'name'.
    
