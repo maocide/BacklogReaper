@@ -4,6 +4,7 @@ import re
 import BacklogReaper as br
 import vault
 import config
+import time
 from openai import OpenAI
 
 AGENT_SYSTEM_PROMPT = """
@@ -15,7 +16,7 @@ TOOLS:
    - Use this to find games in the database, the steam library.
    - 'status' options: 'Untouched', 'Backlog', 'Finished', 'Addicted'.
    - min_playtime, max_playtime and hltb_max are parameters taken from HowLongToBeat
-   - sort_by options: 'random', 'shortest' (default), 'longest', 'name'.
+   - sort_by options: 'random', 'shortest' (default), 'longest', 'recent' (last played), 'name'.
    
 2. get_user_tags()
    - Use this to get all possible user tags in his library to use in vault_search, use this to know what tags to use before using vault_search
@@ -83,7 +84,7 @@ def extract_json(response_text):
     except json.JSONDecodeError:
         return None
 
-def aiCall(data, system, chat_history=None):
+def aiCall(data, system):
     """
     Calls the OpenAI API to analyze the provided data.
 
@@ -134,10 +135,10 @@ def agent_chat_loop(user_input, chat_history):
 
     chat_history.append({"role": "user", "content": user_input})
 
-    MAX_TURNS = 20
+    max_turns = 20
     turn = 0
 
-    while turn < MAX_TURNS:
+    while turn < max_turns:
         # Call AI
         response = aiCall_chat(chat_history)
         tool_request = extract_json(response)
@@ -208,7 +209,7 @@ def agent_chat_loop(user_input, chat_history):
 
             # We inject the Turn Number and the Hint into the system message
             feedback_msg = (
-                f"Turn {turn + 1}/{MAX_TURNS}. "
+                f"Turn {turn + 1}/{max_turns}. "
                 f"You called {tool_name}, with parameters: {params}.\n"
                 f"TOOL_OUTPUT:\n```\n{tool_output_str}\n```"
                 f"{system_hint}"

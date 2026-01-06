@@ -8,41 +8,81 @@ from steam_web_api import Steam
 import config
 from howlongtobeatpy import HowLongToBeat
 
-
 # Config
 DB_NAME = 'backlog_vault.db'
+
+import time
+from datetime import datetime
 
 
 def calculate_status(game):
     """
-    Classifies the relationship with the game based on HLTB data.
+    Classifies the game state using Playtime, HLTB, Recency, and Tags.
+    Returns a single string label.
     """
     playtime_min = game.get('playtime_forever', 0)
-    playtime_hrs = playtime_min / 60.0
-
+    last_played_ts = game.get('rtime_last_played', 0)
     hltb_main = game.get('hltb_main', 0)
     hltb_comp = game.get('hltb_completionist', 0)
+    tags = game.get('tags', '').lower()
 
-    # The "Tourist" (Bought it, barely touched it)
-    if playtime_min < 60:
-        return "Untouched"
+    # Derived Metrics
+    playtime_hrs = playtime_min / 60.0
 
-    # The "Addict" (Played way past the completionist time)
-    # Multiplayer games, Roguelikes, or obsessive behaviors fall here.
-    if hltb_comp > 0 and playtime_hrs > (hltb_comp * 1.2):
-        return "ADDICTED"
+    # Days since last launch (86400 seconds = 1 day)
+    # If last_played is 0, treat as ancient history (9999 days)
+    days_since_played = (time.time() - last_played_ts) / 86400 if last_played_ts > 0 else 9999
 
-    # The "Finisher" (Beat the main story)
-    if hltb_main > 0 and playtime_hrs >= (hltb_main * 0.8):
-        return "Finished"
+    # THE "GHOST" (Pure Backlog)
+    if playtime_min < 1:
+        return "Unplayed"
 
-    # The "Dropper" (Played significantly but stopped before the end)
-    # If you played > 2 hours but < 30% of the story, you likely bounced off.
-    if hltb_main > 0 and playtime_hrs > 2 and playtime_hrs < (hltb_main * 0.3):
-        return "DROPPED"
+    # THE "TOURIST" (Bought, tried, quit immediately)
+    # Played less than 2 hours...
+    if playtime_min < 120:
+        # ...and hasn't touched it in 2 weeks.
+        if days_since_played > 14:
+            return "Bounced"
+        return "Testing"  # Recently bought/installed
 
-    # 5. Default
+    # THE "ADDICT" (Multiplayer / Endless)
+    # Logic: If it's a multiplayer game with significant hours,
+    # OR if you've played 3x the completionist time.
+    is_multiplayer = "multiplayer" in tags or "mmo" in tags or "co-op" in tags
+
+    if (is_multiplayer and playtime_hrs > 50) or (hltb_comp > 0 and playtime_hrs > hltb_comp * 3):
+        return "Addicted"
+
+    # HLTB PROGRESS LOGIC
+    if hltb_main > 0:
+        ratio = playtime_hrs / hltb_main
+
+        # > 80% of Main Story length -> Likely Finished
+        if ratio >= 0.8:
+            return "Finished"
+
+        # 10% to 80% -> In Progress
+        if ratio > 0.1:
+            # The Critical Distinction: Active vs Abandoned
+            if days_since_played < 60:
+                return "Active"  # Playing it this month/recently
+            else:
+                return "Abandoned"  # Stopped midway ages ago
+
+    # FALLBACK (No HLTB Data)
+    # We can only judge by recency if we don't know how long the game is
+    if days_since_played < 30: return "Active"
+
     return "Played"
+
+def format_time_ago(ts):
+    if ts == 0: return "Never"
+    days = int((time.time() - ts) / 86400)
+    if days == 0: return "Today"
+    if days < 30: return f"{days} days ago"
+    if days < 365: return f"{int(days/30)} months ago"
+    return f"{int(days/365)} years ago"
+
 
 def get_realtime_tags(app_id):
     url = f"https://store.steampowered.com/app/{app_id}/"
@@ -262,6 +302,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     for game in all_games:
         # 1. STATUS FILTER (Computed on the fly)
         game_status = calculate_status(game)
+        last_played_str = format_time_ago(game.get('rtime_last_played', 0))
 
         if req_status and game_status.lower() not in req_status:
             continue
@@ -291,8 +332,11 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
             if main_story > hltb_max: continue
 
         # If we survived all filters, add to results
-        # Inject the calculated status so the AI sees it
+        # Inject the calculated fields so the AI sees them
         game['calculated_status'] = game_status
+        game['hours'] = round(float(game['playtime_forever']) / 60.0, 1)
+        game['last_played'] = last_played_str
+
         results.append(game)
 
     # Final Sorting
@@ -302,6 +346,8 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         results.sort(key=lambda x: x['hltb_main'], reverse=True)
     elif sort_by == 'name':
         results.sort(key=lambda x: x['name'])
+    elif sort_by == 'recent':
+        results.sort(key=lambda x: x['rtime_last_played'], reverse=True)
     elif sort_by == 'random':
         random.shuffle(results)
 
