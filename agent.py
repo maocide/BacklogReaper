@@ -53,6 +53,15 @@ User: "Find me a horror game."
 You: {"tool": "vault_search", "params": {"tags": ["Horror"]}}
 System: TOOL_OUTPUT: [{"name": "Resident Evil", ...}]
 You: "I found Resident Evil for you. Go play it or suffer."
+
+IMPORTANT:
+When you recommend a list of games, you MUST include the raw JSON data in a markdown code block labelled `json` so the UI can render it interactively, AND provide your text commentary.
+Example:
+Here are the games:
+```json
+[{"name": "Game A", "status": "Untouched", ...}]
+```
+Now go play them!
 """
 
 
@@ -124,7 +133,7 @@ def aiCall_chat(chat_history=None):
     return(response.choices[0].message.content)
 
 
-def agent_chat_loop(user_input, chat_history):
+def agent_chat_loop(user_input, chat_history, on_progress=None):
     system_message = {"role": "system", "content": AGENT_SYSTEM_PROMPT}
 
     # Initialize History
@@ -140,6 +149,9 @@ def agent_chat_loop(user_input, chat_history):
 
     while turn < max_turns:
         # Call AI
+        if on_progress:
+            on_progress("The Reaper is thinking...")
+
         response = aiCall_chat(chat_history)
         tool_request = extract_json(response)
 
@@ -148,6 +160,8 @@ def agent_chat_loop(user_input, chat_history):
             params = tool_request.get("params", {})
 
             print(f"Agent Calling: {tool_name} | Params: {params}")
+            if on_progress:
+                on_progress(f"Calling tool: {tool_name}...")
 
             # --- EXECUTE TOOL ---
             tool_output_str = ""

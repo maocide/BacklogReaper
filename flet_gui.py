@@ -1,3 +1,4 @@
+import json
 import flet as ft
 import BacklogReaper as br
 import agent
@@ -5,6 +6,94 @@ import threading
 import traceback
 import vault
 from pathlib import Path
+
+def create_game_card(game_data):
+    """Creates a stylized card for a single game."""
+    status = game_data.get("status", "Unknown")
+    status_color = ft.Colors.GREEN if status == "Finished" else ft.Colors.RED if status == "ADDICTED" else ft.Colors.BLUE
+
+    return ft.Card(
+        content=ft.Container(
+            width=220,
+            padding=10,
+            content=ft.Column([
+                ft.Text(game_data.get("name", "Unknown"), weight="bold", size=16, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS, tooltip=game_data.get("name", "Unknown")),
+                ft.Row([
+                    ft.Icon(ft.Icons.CIRCLE, size=10, color=status_color),
+                    ft.Text(status, size=12, color=status_color),
+                ]),
+                ft.Text(f"{game_data.get('hours_played', 0)}h played", size=12),
+                ft.Text(f"Story: {game_data.get('hltb_story', 0)}h", size=12, color=ft.Colors.GREY),
+                ft.Container(height=5), # Spacer
+                ft.ElevatedButton("Launch", icon=ft.Icons.PLAY_ARROW, height=30, style=ft.ButtonStyle(padding=5), on_click=lambda e: print(f"Launch {game_data.get('name')}"))
+            ])
+        )
+    )
+
+def parse_and_render_message(text, is_user):
+    """
+    Analyzes the text. If it finds a JSON block of games, renders Cards.
+    Otherwise, renders Markdown.
+    """
+    controls = []
+
+    # 1. Simple JSON extraction logic (looks for code blocks marked as json)
+    if "```json" in text and not is_user:
+        # Split text into parts: Pre-JSON, JSON, Post-JSON
+        try:
+            parts = text.split("```json")
+            pre_text = parts[0]
+
+            # Find the end of the json block
+            json_and_post = parts[1].split("```")
+            json_str = json_and_post[0]
+            post_text = json_and_post[1] if len(json_and_post) > 1 else ""
+
+            # Handle multiple JSON blocks? For now, let's assume one main block or handle the first one.
+            # Ideally we should iterate, but let's stick to the requirements for now.
+            # If there are more parts, append them to post_text?
+            if len(json_and_post) > 2:
+                 post_text += "```" + "```".join(json_and_post[2:])
+
+            # Render Pre-Text
+            if pre_text.strip():
+                controls.append(ft.Markdown(pre_text.strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+
+            # Render Cards
+            try:
+                games_list = json.loads(json_str)
+                if isinstance(games_list, list):
+                    card_row = ft.Row(scroll=ft.ScrollMode.HIDDEN)
+                    for game in games_list:
+                        card_row.controls.append(create_game_card(game))
+                    controls.append(ft.Container(content=card_row, height=190, padding=5))
+                else:
+                    controls.append(ft.Markdown(f"```json{json_str}```")) # Not a list, render raw
+            except json.JSONDecodeError:
+                 controls.append(ft.Markdown(f"```json{json_str}```")) # Failed to parse
+
+            # Render Post-Text
+            if post_text.strip():
+                controls.append(ft.Markdown(post_text.strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+
+        except Exception as e:
+            # Fallback if parsing fails: just show original text
+            controls.append(ft.Markdown(text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+    else:
+        # Standard Text Message
+        controls.append(ft.Markdown(text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+
+    return ft.Container(
+        content=ft.Column(controls),
+        padding=15,
+        border_radius=10,
+        bgcolor=ft.Colors.BLUE_GREY_900 if is_user else ft.Colors.BLACK38,
+        margin=ft.margin.only(
+            left=50 if is_user else 0,
+            right=0 if is_user else 50,
+            bottom=10
+        )
+    )
 
 def main(page: ft.Page):
     page.title = "Backlog Reaper"
@@ -32,11 +121,11 @@ def main(page: ft.Page):
     sg_btn_stop = ft.Ref[ft.ElevatedButton]()
 
     # Backlog Reaping Refs
-    br_mood = ft.Ref[ft.TextField]()
-    br_output = ft.Ref[ft.Markdown]()
+    br_chat_history = [] # OpenAI Message History
+    br_chat_list = ft.Ref[ft.ListView]()
+    br_input = ft.Ref[ft.TextField]()
     br_status = ft.Ref[ft.Text]()
-    br_btn_start = ft.Ref[ft.ElevatedButton]()
-    br_btn_stop = ft.Ref[ft.ElevatedButton]()
+    br_btn_send = ft.Ref[ft.IconButton]()
 
     # Game Fetcher Refs
     gf_username = ft.Ref[ft.TextField]()
@@ -243,59 +332,80 @@ Consider all the data and the data in your training about the games to find the 
 
     # --- Backlog Reaping Logic ---
 
-    def run_backlog_reaping_thread(mood):
+    def run_backlog_reaping_thread(user_message):
         try:
             if stop_event_br.is_set(): return
 
-            br_status.current.value = "Analyzing input and consulting the Reaper..."
+            # Add user message to UI immediately
+            if br_chat_list.current:
+                br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
+                page.update()
+
+            br_status.current.value = "Reaper is thinking..."
             page.update()
 
+            def on_progress(msg):
+                if stop_event_br.is_set(): return
+                # Append a small system message for progress
+                if br_chat_list.current:
+                    br_chat_list.current.controls.append(
+                        ft.Text(msg, size=10, italic=True, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
+                    )
+                    page.update()
+
+            # Call Agent
+            # Note: We pass the mutable list `br_chat_history`.
+            # `agent_chat_loop` appends to it and returns (response, updated_history).
+            # Since it modifies the list in-place (if it's the same object), we might not strictly need the return value for history,
+            # but let's be safe and assign it back or just rely on the reference.
+            # However, `br_chat_history` is a local variable in main, so we need to access it properly.
+            # In Python nested functions, we can modify list contents.
+
+            response_text, updated_history = agent.agent_chat_loop(user_message, br_chat_history, on_progress=on_progress)
+
+            # Update the global history reference (though list mutation handles it)
+            # br_chat_history[:] = updated_history[:] # Not strictly needed if agent appends, but safe.
+
             if stop_event_br.is_set():
                 br_status.current.value = "Reaping stopped."
                 page.update()
                 return
 
-            ai_out = agent.agent_chat_loop(mood, None)[0]
+            # Add Agent Response to UI
+            if br_chat_list.current:
+                br_chat_list.current.controls.append(parse_and_render_message(response_text, is_user=False))
 
-            if stop_event_br.is_set():
-                br_status.current.value = "Reaping stopped."
-                page.update()
-                return
+            br_status.current.value = "Ready"
+            page.update()
 
-            br_output.current.value = ai_out
-            br_status.current.value = "Reaping complete."
         except Exception as e:
             traceback.print_exc()
             br_status.current.value = f"Error: {e}"
+            if br_chat_list.current:
+                br_chat_list.current.controls.append(ft.Text(f"Error: {e}", color=ft.Colors.RED))
         finally:
-            if br_btn_start.current:
-                br_btn_start.current.disabled = False
-            if br_btn_stop.current:
-                br_btn_stop.current.disabled = True
+            if br_btn_send.current:
+                br_btn_send.current.disabled = False
+            if br_input.current:
+                 br_input.current.disabled = False
+                 br_input.current.focus()
             page.update()
 
-    def start_backlog_reaping(e):
-        mood = br_mood.current.value
-        if not mood:
-            br_status.current.value = "Please enter your mood or a question."
-            page.update()
+    def send_message(e):
+        user_message = br_input.current.value
+        if not user_message:
             return
 
-        stop_event_br.clear()
-        br_btn_start.current.disabled = True
-        br_btn_stop.current.disabled = False
-        br_output.current.value = ""
-        br_status.current.value = "Starting reaping..."
+        br_input.current.value = ""
+        br_input.current.disabled = True
+        br_btn_send.current.disabled = True
         page.update()
 
-        t = threading.Thread(target=run_backlog_reaping_thread, args=(mood,))
+        stop_event_br.clear()
+
+        t = threading.Thread(target=run_backlog_reaping_thread, args=(user_message,))
         t.daemon = True
         t.start()
-
-    def stop_backlog_reaping(e):
-        stop_event_br.set()
-        br_status.current.value = "Stopping..."
-        page.update()
 
     # Game Fetcher
     def run_fetch_thread(username):
@@ -485,23 +595,13 @@ Consider all the data and the data in your training about the games to find the 
         expand=True,
         controls=[
             ft.Text("Backlog Reaping", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
-            ft.Row([
-                ft.TextField(ref=br_mood, label="Mood / Question", expand=True),
-            ]),
-            ft.Row([
-                ft.ElevatedButton(ref=br_btn_start, text="Reap Backlog", icon=ft.Icons.SEARCH, on_click=start_backlog_reaping),
-                ft.ElevatedButton(ref=br_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_backlog_reaping, disabled=True),
-            ]),
-            ft.Text(ref=br_status, value="Ready", color=ft.Colors.GREY),
-            ft.Divider(),
-            ft.Row([
-                ft.Text("Reaper Output", style=ft.TextThemeStyle.TITLE_MEDIUM),
-                ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy to Clipboard", on_click=lambda e: copy_to_clipboard(br_output))
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ft.Container(
-                content=ft.Column(
-                    controls=[ft.Markdown(ref=br_output, selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)],
-                    scroll=ft.ScrollMode.AUTO,
+                content=ft.ListView(
+                    ref=br_chat_list,
+                    expand=True,
+                    spacing=10,
+                    padding=10,
+                    auto_scroll=True,
                 ),
                 expand=True,
                 border=ft.Border(
@@ -511,8 +611,20 @@ Consider all the data and the data in your training about the games to find the 
                     left=ft.BorderSide(1, ft.Colors.OUTLINE)
                 ),
                 border_radius=5,
-                padding=10
-            )
+                bgcolor=ft.Colors.BLACK12
+            ),
+            ft.Text(ref=br_status, value="Ready", color=ft.Colors.GREY, size=12),
+            ft.Row([
+                ft.TextField(
+                    ref=br_input,
+                    hint_text="Ask the Reaper...",
+                    expand=True,
+                    multiline=True,
+                    shift_enter=True,
+                    on_submit=send_message
+                ),
+                ft.IconButton(ref=br_btn_send, icon=ft.Icons.SEND, icon_color=ft.Colors.BLUE_400, on_click=send_message)
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
         ]
     )
 
