@@ -84,10 +84,13 @@ def parse_and_render_message(text, is_user):
             try:
                 games_list = json.loads(json_str)
                 if isinstance(games_list, list):
-                    card_row = ft.Row(scroll=ft.ScrollMode.HIDDEN)
+                    # Use wrap=True for natural flow instead of horizontal scrolling
+                    card_row = ft.Row(wrap=True, spacing=10, run_spacing=10)
                     for game in games_list:
                         card_row.controls.append(create_game_card(game))
-                    controls.append(ft.Container(content=card_row, height=190, padding=5))
+
+                    # Height removal: Let it grow naturally with content
+                    controls.append(ft.Container(content=card_row, padding=5))
                 else:
                     controls.append(ft.Markdown(f"```json{json_str}```")) # Not a list, render raw
             except json.JSONDecodeError:
@@ -110,7 +113,6 @@ def parse_and_render_message(text, is_user):
         padding=15,
         border_radius=10,
         bgcolor=ft.Colors.BLUE_GREY_900 if is_user else ft.Colors.BLACK38,
-        constraints=ft.BoxConstraints(max_width=600), # Prevent full width
     )
 
     # Avatar Label

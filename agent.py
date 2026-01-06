@@ -190,6 +190,7 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
                             hours_played = round(res['playtime_forever'] / 60, 1)
 
                             lean_results.append({
+                                "appid": res['appid'],
                                 "name": res['name'],
                                 "hours_played": hours_played,  # RENAME this key so AI knows it's hours
                                 # "playtime_forever": res['playtime_forever'], # Remove the raw minutes
