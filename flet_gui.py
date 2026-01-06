@@ -116,18 +116,20 @@ def parse_and_render_message(text, is_user):
     avatar_name = "User" if is_user else "Reaper"
     avatar_alignment = ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START
 
-    return ft.Column(
-        controls=[
-            ft.Row(
-                [ft.Text(avatar_name, size=12, color=ft.Colors.GREY, weight="bold")],
-                alignment=avatar_alignment
-            ),
-            ft.Row(
-                [bubble],
-                alignment=avatar_alignment
-            )
-        ],
-        spacing=2,
+    return ft.Container(
+        content=ft.Column(
+            controls=[
+                ft.Row(
+                    [ft.Text(avatar_name, size=12, color=ft.Colors.GREY, weight="bold")],
+                    alignment=avatar_alignment
+                ),
+                ft.Row(
+                    [bubble],
+                    alignment=avatar_alignment
+                )
+            ],
+            spacing=2,
+        ),
         margin=ft.margin.only(bottom=15)
     )
 
