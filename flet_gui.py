@@ -106,10 +106,11 @@ def parse_and_render_message(text, is_user):
 
     # Message Bubble
     bubble = ft.Container(
-        content=ft.Column(controls),
+        content=ft.Column(controls, tight=True, spacing=5),
         padding=15,
         border_radius=10,
         bgcolor=ft.Colors.BLUE_GREY_900 if is_user else ft.Colors.BLACK38,
+        constraints=ft.BoxConstraints(max_width=600), # Prevent full width
     )
 
     # Avatar Label
@@ -648,7 +649,7 @@ Consider all the data and the data in your training about the games to find the 
         expand=True,
         controls=[
             ft.Row([
-                ft.Text("Backlog Reaping", style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True),
+                ft.Text("Reaper Chat", style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True),
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=lambda e: copy_chat_history(br_chat_history))
             ]),
             ft.Container(
@@ -758,9 +759,9 @@ Consider all the data and the data in your training about the games to find the 
                 label="Suggest Games"
             ),
             ft.NavigationRailDestination(
-                icon=ft.Icons.EXPLORE_OUTLINED,
-                selected_icon=ft.Icons.EXPLORE,
-                label="Backlog Reaping"
+                icon=ft.Icons.CHAT_BUBBLE_OUTLINE,
+                selected_icon=ft.Icons.CHAT_BUBBLE,
+                label="Reaper Chat"
             ),
             ft.NavigationRailDestination(
                 icon=ft.Icons.LIST_ALT_OUTLINED,
