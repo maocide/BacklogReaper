@@ -1,4 +1,5 @@
 import json
+import webbrowser
 import flet as ft
 import BacklogReaper as br
 import agent
@@ -7,10 +8,24 @@ import traceback
 import vault
 from pathlib import Path
 
+def launch_game(appid):
+    """Launches the game using the steam protocol."""
+    try:
+        url = f"steam://run/{appid}"
+        print(f"Launching: {url}")
+        webbrowser.open(url)
+    except Exception as e:
+        print(f"Error launching game: {e}")
+
 def create_game_card(game_data):
     """Creates a stylized card for a single game."""
     status = game_data.get("status", "Unknown")
     status_color = ft.Colors.GREEN if status == "Finished" else ft.Colors.RED if status == "ADDICTED" else ft.Colors.BLUE
+
+    # Try to find an appid if available, though simple search might not return it directly in all cases
+    # The agent might need to pass it. For now, let's assume 'appid' is in the data or we can't launch.
+    # We'll use a safe get.
+    appid = game_data.get("appid") # Ensure agent passes this!
 
     return ft.Card(
         content=ft.Container(
@@ -25,7 +40,13 @@ def create_game_card(game_data):
                 ft.Text(f"{game_data.get('hours_played', 0)}h played", size=12),
                 ft.Text(f"Story: {game_data.get('hltb_story', 0)}h", size=12, color=ft.Colors.GREY),
                 ft.Container(height=5), # Spacer
-                ft.ElevatedButton("Launch", icon=ft.Icons.PLAY_ARROW, height=30, style=ft.ButtonStyle(padding=5), on_click=lambda e: print(f"Launch {game_data.get('name')}"))
+                ft.ElevatedButton(
+                    "Launch",
+                    icon=ft.Icons.PLAY_ARROW,
+                    height=30,
+                    style=ft.ButtonStyle(padding=5),
+                    on_click=lambda e: launch_game(appid) if appid else print("No AppID found")
+                )
             ])
         )
     )
@@ -83,16 +104,31 @@ def parse_and_render_message(text, is_user):
         # Standard Text Message
         controls.append(ft.Markdown(text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
 
-    return ft.Container(
+    # Message Bubble
+    bubble = ft.Container(
         content=ft.Column(controls),
         padding=15,
         border_radius=10,
         bgcolor=ft.Colors.BLUE_GREY_900 if is_user else ft.Colors.BLACK38,
-        margin=ft.margin.only(
-            left=50 if is_user else 0,
-            right=0 if is_user else 50,
-            bottom=10
-        )
+    )
+
+    # Avatar Label
+    avatar_name = "User" if is_user else "Reaper"
+    avatar_alignment = ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START
+
+    return ft.Column(
+        controls=[
+            ft.Row(
+                [ft.Text(avatar_name, size=12, color=ft.Colors.GREY, weight="bold")],
+                alignment=avatar_alignment
+            ),
+            ft.Row(
+                [bubble],
+                alignment=avatar_alignment
+            )
+        ],
+        spacing=2,
+        margin=ft.margin.only(bottom=15)
     )
 
 def main(page: ft.Page):
@@ -148,6 +184,20 @@ def main(page: ft.Page):
             page.snack_bar = ft.SnackBar(ft.Text("Copied to clipboard!"))
             page.snack_bar.open = True
             page.update()
+
+    def copy_chat_history(chat_history):
+        if not chat_history: return
+
+        full_log = ""
+        for msg in chat_history:
+            role = msg.get("role", "unknown").upper()
+            content = msg.get("content", "")
+            full_log += f"**{role}**: {content}\n\n"
+
+        page.set_clipboard(full_log)
+        page.snack_bar = ft.SnackBar(ft.Text("Chat history copied to clipboard!"))
+        page.snack_bar.open = True
+        page.update()
 
     # --- Review Analyzer Logic ---
 
@@ -347,6 +397,7 @@ Consider all the data and the data in your training about the games to find the 
             def on_progress(msg):
                 if stop_event_br.is_set(): return
                 # Append a small system message for progress
+                # Remove generic "thinking" messages if you only want actionable updates
                 if br_chat_list.current:
                     br_chat_list.current.controls.append(
                         ft.Text(msg, size=10, italic=True, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
@@ -594,7 +645,10 @@ Consider all the data and the data in your training about the games to find the 
         visible=False,
         expand=True,
         controls=[
-            ft.Text("Backlog Reaping", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Row([
+                ft.Text("Backlog Reaping", style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True),
+                ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=lambda e: copy_chat_history(br_chat_history))
+            ]),
             ft.Container(
                 content=ft.ListView(
                     ref=br_chat_list,

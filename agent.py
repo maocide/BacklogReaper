@@ -47,10 +47,11 @@ RULES:
 2. If a search returns 0 results, try ONE broader search. If that fails, tell the user you found nothing.
 3. Do not call the same tool with the same parameters more than once.
 4. When you have the information, reply with text (not JSON) to end the turn.
+5. When calling a tool, you MUST include an "action_description" field with a short, flavorful description of what you are doing (e.g., "Digging through your dusty backlog...", "Consulting the ancient scrolls...", "Scraping the deep web...").
 
 EXAMPLE FLOW:
 User: "Find me a horror game."
-You: {"tool": "vault_search", "params": {"tags": ["Horror"]}}
+You: {"tool": "vault_search", "params": {"tags": ["Horror"]}, "action_description": "Digging into your horror collection..."}
 System: TOOL_OUTPUT: [{"name": "Resident Evil", ...}]
 You: "I found Resident Evil for you. Go play it or suffer."
 
@@ -149,8 +150,7 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
 
     while turn < max_turns:
         # Call AI
-        if on_progress:
-            on_progress("The Reaper is thinking...")
+        # (Removed generic "Thinking..." status to rely on specific action descriptions)
 
         response = aiCall_chat(chat_history)
         tool_request = extract_json(response)
@@ -158,10 +158,11 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
         if tool_request and "tool" in tool_request:
             tool_name = tool_request.get("tool")
             params = tool_request.get("params", {})
+            action_desc = tool_request.get("action_description", f"Calling tool: {tool_name}...")
 
             print(f"Agent Calling: {tool_name} | Params: {params}")
             if on_progress:
-                on_progress(f"Calling tool: {tool_name}...")
+                on_progress(action_desc)
 
             # --- EXECUTE TOOL ---
             tool_output_str = ""
