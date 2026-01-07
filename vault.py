@@ -177,7 +177,7 @@ def update(username):
 
             # Fast Path: Update playtime and move on
             if row:
-                c.execute("UPDATE games SET playtime_forever=? WHERE appid=?", (playtime, appid))
+                c.execute("UPDATE games SET playtime_forever=?, rtime_last_played=? WHERE appid=?", (playtime, last_played, appid))
                 conn.commit()
                 continue
 

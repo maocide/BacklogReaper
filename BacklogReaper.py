@@ -23,6 +23,64 @@ from vault import get_realtime_tags, calculate_status
 max_tags = 10
 
 
+def search_steam_store(term, limit=10):
+    """
+    Scrapes the Steam Search page for games matching the term.
+    Returns: List of dicts {name, price, review_summary, url, img}
+    """
+    # URL Encode the search term
+    encoded_term = urllib.parse.quote(term)
+    url = f"https://store.steampowered.com/search/?term={encoded_term}&category1=998"  # 998 = Games only (no DLC)
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        results = []
+        rows = soup.select('#search_resultsRows > a')
+
+        for row in rows[:limit]:
+            title = row.select_one('.title').text.strip()
+
+            # Extract AppID from URL
+            href = row['href']
+            appid_match = re.search(r'/app/(\d+)', href)
+            appid = appid_match.group(1) if appid_match else "Unknown"
+
+            # Extract Price (Handle sales and free games)
+            price_div = row.select_one('.search_price')
+            price = "N/A"
+            if price_div:
+                # If discounted, text might be "$19.99$9.99". We want the last part.
+                raw_price = price_div.text.strip().split('$')
+                price = f"${raw_price[-1]}" if len(raw_price) > 1 else price_div.text.strip()
+                if "Free" in price: price = "Free"
+
+            # Extract Reviews (e.g., "Very Positive")
+            review_span = row.select_one('.search_review_summary')
+            reviews = "Unknown"
+            if review_span:
+                # The data-tooltip-html attribute often has the detailed score
+                reviews = review_span.get('data-tooltip-html', '').split('<br>')[0]
+
+            results.append({
+                "appid": appid,
+                "name": title,
+                "price": price,
+                "reviews": reviews,
+                "link": href
+            })
+
+        return results
+
+    except Exception as e:
+        print(f"Error scraping Steam: {e}")
+        return []
+
+
 def get_similar_games(game_name):
     """
     Calls steam api and steamspy to get recommended similar games and their details
