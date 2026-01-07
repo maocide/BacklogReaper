@@ -1,6 +1,7 @@
 import sqlite3
 import time
 import random
+import difflib
 
 import requests
 from bs4 import BeautifulSoup
@@ -303,7 +304,7 @@ def get_all_tags():
     return sorted(list(unique_tags))
 
 
-def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, min_review_score=None, sort_by='shortest'):
+def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, min_review_score=None, name=None, sort_by='shortest'):
     """
     Filters the vault based on criteria.
     """
@@ -337,7 +338,22 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         if req_status and game_status.lower() not in req_status:
             continue
 
-        # 2. TAGS FILTER
+        # 2. NAME FILTER (Fuzzy Match)
+        if name:
+             game_name_lower = game['name'].lower()
+             target_name_lower = name.lower()
+
+             # Check for substring match
+             is_substring = target_name_lower in game_name_lower
+
+             # Check for fuzzy match using difflib
+             similarity = difflib.SequenceMatcher(None, target_name_lower, game_name_lower).ratio()
+             is_fuzzy = similarity > 0.6
+
+             if not (is_substring or is_fuzzy):
+                 continue
+
+        # 3. TAGS FILTER
         game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',')}
 
         # Check Excludes (Critical)
