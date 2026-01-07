@@ -14,13 +14,16 @@ The vault, the database, contains basic user play data taken from steam and the 
 Extra game info from different sources can be retrieved with the functions provided.
 
 TOOLS:
-1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, min_review_score=0, name="", status=[], sort_by='relevance')
+1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, min_review_score=0, name="", status=[], sort_by='relevance', page=0, page_size=10, seed=None)
    - Use this to find games in the database, the steam library.
    - 'status' options: 'Unplayed', 'Bounced', 'Testing', 'Addicted', 'Finished', 'Active', 'Abandoned', 'Played'.
    - min_playtime, max_playtime and hltb_max are parameters taken from HowLongToBeat
    - min_review_score is an integer from 0-100 representing the Steam positive review percentage.
    - name is a string to filter by game title (fuzzy match).
    - sort_by options: 'random', 'shortest' (default), 'longest', 'recent' (last played), 'name'.
+   - page: integer (default 0). Use for pagination.
+   - page_size: integer (default 10). Number of results per page.
+   - seed: integer. REQUIRED if sort_by='random' to maintain order across pages. Generate a random integer and reuse it for subsequent pages.
    
 2. get_user_tags()
    - Use this to get all possible user tags in his library to use in vault_search, use this to know what tags to use before using vault_search
@@ -173,7 +176,7 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
             # --- EXECUTE TOOL ---
             tool_output_str = ""
             system_hint = ""
-            result_limit = 30
+            # result_limit = 30 # Removed in favor of pagination
             reviews_limit = 10
 
             try:
@@ -188,10 +191,12 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
                         system_hint = "System Note: Search returned 0 results. Try removing tags or changing status. If this keeps happening, tell the user."
                         tool_output_str = "[]"
                     else:
-                        system_hint = f"System Note: Search returned {count} games, result limited to {result_limit}."
+                        # system_hint = f"System Note: Search returned {count} games, result limited to {result_limit}."
+                        system_hint = f"System Note: Search returned {count} games."
 
                         lean_results = []
-                        for res in results[:result_limit]:  # Limit
+                        # for res in results[:result_limit]:  # Limit (Removed)
+                        for res in results:
                             # Minutes -> Hours
                             hours_played = round(res['playtime_forever'] / 60, 1)
 
@@ -233,7 +238,7 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
             feedback_msg = (
                 f"Turn {turn + 1}/{max_turns}. "
                 f"You called {tool_name}, with parameters: {params}.\n"
-                f"TOOL_OUTPUT:\n```\n{tool_output_str}\n```"
+                f"TOOL_OUTPUT:\n```\n{tool_output_str}\n```\n"
                 f"{system_hint}"
             )
 

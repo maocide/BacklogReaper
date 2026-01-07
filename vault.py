@@ -304,7 +304,7 @@ def get_all_tags():
     return sorted(list(unique_tags))
 
 
-def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, min_review_score=None, name=None, sort_by='shortest'):
+def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, min_review_score=None, name=None, sort_by='shortest', page=0, page_size=10, seed=None):
     """
     Filters the vault based on criteria.
     """
@@ -401,6 +401,15 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     elif sort_by == 'recent':
         results.sort(key=lambda x: x['rtime_last_played'], reverse=True)
     elif sort_by == 'random':
-        random.shuffle(results)
+        if seed is not None:
+             random.Random(seed).shuffle(results)
+        else:
+             random.shuffle(results)
+
+    # Slice for pagination
+    if page_size > 0:
+        start_idx = page * page_size
+        end_idx = start_idx + page_size
+        results = results[start_idx:end_idx]
 
     return results
