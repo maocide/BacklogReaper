@@ -14,11 +14,15 @@ The vault, the database, contains basic user play data taken from steam and the 
 Extra game info from different sources can be retrieved with the functions provided.
 
 TOOLS:
-1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, status=[], sort_by='relevance')
+1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, min_review_score=0, name="", status=[], sort_by='relevance', page=0, seed=None)
    - Use this to find games in the database, the steam library.
    - 'status' options: 'Unplayed', 'Bounced', 'Testing', 'Addicted', 'Finished', 'Active', 'Abandoned', 'Played'.
    - min_playtime, max_playtime and hltb_max are parameters taken from HowLongToBeat
+   - min_review_score is an integer from 0-100 representing the Steam positive review percentage.
+   - name is a string to filter by game title (fuzzy match).
    - sort_by options: 'random', 'shortest' (default), 'longest', 'recent' (last played), 'name'.
+   - page: integer (default 0). Use for pagination. The page is 10 results default, when 10 results are received you might ask for the following page.
+   - seed: integer. REQUIRED if sort_by='random' to maintain order across pages. Generate a random integer and reuse it for subsequent pages.
    
 2. get_user_tags()
    - Use this to get all possible user tags in his library to use in vault_search, use this to know what tags to use before using vault_search
@@ -52,12 +56,15 @@ RULES:
 3. Do not call the same tool with the same parameters more than once.
 4. When you have the information, reply with text (not JSON) to end the turn.
 5. When calling a tool, you MUST include an "action_description" field with a short, flavorful description of what you are doing (e.g., "Digging through your dusty backlog...", "Consulting the ancient scrolls...", "Scraping the deep web...").
+6. Handle tool pagination gracefully, user might not know about this optimization.
 
 EXAMPLE FLOW:
 User: "Find me a horror game in my backlog/library."
-You: {"tool": "vault_search", "params": {"tags": ["Horror"]}, "action_description": "Digging into your horror collection..."}
+You: {"tool": "vault_search", "params": {"tags": ["Horror"]}, "action_description": "Digging into your horror collection...", page=0 }
 System: TOOL_OUTPUT: [{"name": "Resident Evil", ...}]
-You: "I found Resident Evil [...your response]"
+You: {"tool": "vault_search", "params": {"tags": ["Horror"]}, "action_description": "Interesting let me see more...", page=1 }
+System: TOOL_OUTPUT: [{"name": "Silent Hill", ...}]
+You: "I found Resident Evil but also [...your response]"
 
 IMPORTANT:
 When you recommend a list of games, you MUST include the raw JSON data in a markdown code block labelled `json` so the UI can render it interactively, AND provide your text commentary.
@@ -171,7 +178,7 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
             # --- EXECUTE TOOL ---
             tool_output_str = ""
             system_hint = ""
-            result_limit = 30
+            # result_limit = 30 # Removed in favor of pagination
             reviews_limit = 10
 
             try:
@@ -186,10 +193,14 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
                         system_hint = "System Note: Search returned 0 results. Try removing tags or changing status. If this keeps happening, tell the user."
                         tool_output_str = "[]"
                     else:
-                        system_hint = f"System Note: Search returned {count} games, result limited to {result_limit}."
+                        # system_hint = f"System Note: Search returned {count} games, result limited to {result_limit}."
+                        system_hint = f"System Note: Search returned {count} games."
+                        if count == 10:
+                            system_hint = system_hint + " You might try to get the next page."
 
                         lean_results = []
-                        for res in results[:result_limit]:  # Limit
+                        # for res in results[:result_limit]:  # Limit (Removed)
+                        for res in results:
                             # Minutes -> Hours
                             hours_played = round(res['playtime_forever'] / 60, 1)
 
@@ -231,7 +242,7 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
             feedback_msg = (
                 f"Turn {turn + 1}/{max_turns}. "
                 f"You called {tool_name}, with parameters: {params}.\n"
-                f"TOOL_OUTPUT:\n```\n{tool_output_str}\n```"
+                f"TOOL_OUTPUT:\n```\n{tool_output_str}\n```\n"
                 f"{system_hint}"
             )
 

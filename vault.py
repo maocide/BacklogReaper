@@ -1,6 +1,7 @@
 import sqlite3
 import time
 import random
+import difflib
 
 import requests
 from bs4 import BeautifulSoup
@@ -99,6 +100,31 @@ def get_realtime_tags(app_id):
         print(f"Error scraping tags for {app_id}: {e}")
         return []
 
+
+def fetch_review_summary(appid):
+    """
+    Fetches review summary from Steam Store API to calculate a score percentage.
+    Returns: Integer 0-100 or -1 if unavailable.
+    """
+    url = f"https://store.steampowered.com/appreviews/{appid}?json=1&num_per_page=0&purchase_type=all"
+    try:
+        # No sleep needed for Store API usually, but be mindful if loop is tight.
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            summary = data.get('query_summary', {})
+            total_positive = summary.get('total_positive', 0)
+            total_negative = summary.get('total_negative', 0)
+            total = total_positive + total_negative
+            if total > 0:
+                # Calculate percentage
+                return int((total_positive / total) * 100)
+    except Exception as e:
+        print(f"Error fetching reviews for {appid}: {e}")
+
+    return -1
+
+
 def get_connection():
     """
     Creates a fresh connection.
@@ -126,7 +152,8 @@ def init_db():
             hltb_main INTEGER,
             hltb_completionist INTEGER,
             is_multiplayer INTEGER DEFAULT 0, -- <--- NEEDS TO BE POPULATED
-            last_updated REAL
+            last_updated REAL,
+            review_score INTEGER DEFAULT -1
         )''')
         conn.commit()
 
@@ -184,6 +211,9 @@ def update(username):
             # Slow Path: New Game
             print(f"New recruit detected: {name} ({appid})")
 
+            # Fetch Review Score
+            review_score = fetch_review_summary(appid)
+
             tags_str = ""
             try:
                 # Use the LOCAL function, not the one from 'br'
@@ -212,8 +242,8 @@ def update(username):
             except Exception as e:
                 print(f"HLTB failed: {e}")
 
-            c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                      (appid, name, playtime, last_played, "", tags_str, main_story, completionist, is_multiplayer, time.time()))
+            c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+                      (appid, name, playtime, last_played, "", tags_str, main_story, completionist, is_multiplayer, time.time(), review_score))
             conn.commit()
 
 
@@ -274,7 +304,7 @@ def get_all_tags():
     return sorted(list(unique_tags))
 
 
-def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, sort_by='shortest'):
+def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, min_review_score=None, name=None, sort_by='shortest', page=0, page_size=10, seed=None):
     """
     Filters the vault based on criteria.
     """
@@ -292,6 +322,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     if min_playtime == 0: min_playtime = None
     if max_playtime == 0: max_playtime = None
     if hltb_max == 0: hltb_max = None
+    if min_review_score == 0: min_review_score = None
 
     # Fetch ALL games (It's 2000 rows, Python eats this for breakfast)
     # We fetch all because Python string processing is more robust than SQLite 'LIKE'
@@ -307,7 +338,22 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         if req_status and game_status.lower() not in req_status:
             continue
 
-        # 2. TAGS FILTER
+        # 2. NAME FILTER (Fuzzy Match)
+        if name:
+             game_name_lower = game['name'].lower()
+             target_name_lower = name.lower()
+
+             # Check for substring match
+             is_substring = target_name_lower in game_name_lower
+
+             # Check for fuzzy match using difflib
+             similarity = difflib.SequenceMatcher(None, target_name_lower, game_name_lower).ratio()
+             is_fuzzy = similarity > 0.6
+
+             if not (is_substring or is_fuzzy):
+                 continue
+
+        # 3. TAGS FILTER
         game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',')}
 
         # Check Excludes (Critical)
@@ -331,6 +377,12 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
             if main_story == 0: continue  # Skip games with no data if searching by length
             if main_story > hltb_max: continue
 
+        # 5. REVIEW SCORE FILTER
+        if min_review_score is not None:
+             score = game.get('review_score', -1)
+             if score != -1 and score < min_review_score:
+                 continue
+
         # If we survived all filters, add to results
         # Inject the calculated fields so the AI sees them
         game['calculated_status'] = game_status
@@ -349,6 +401,15 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     elif sort_by == 'recent':
         results.sort(key=lambda x: x['rtime_last_played'], reverse=True)
     elif sort_by == 'random':
-        random.shuffle(results)
+        if seed is not None:
+             random.Random(seed).shuffle(results)
+        else:
+             random.shuffle(results)
+
+    # Slice for pagination
+    if page_size > 0:
+        start_idx = page * page_size
+        end_idx = start_idx + page_size
+        results = results[start_idx:end_idx]
 
     return results
