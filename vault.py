@@ -190,7 +190,7 @@ def update(username):
                 tags_list = get_realtime_tags(appid)
                 tags_str = ",".join(tags_list)
 
-                time.sleep(1)
+                time.sleep(0.25)
             except:
                 pass
 
