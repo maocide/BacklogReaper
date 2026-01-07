@@ -14,10 +14,11 @@ The vault, the database, contains basic user play data taken from steam and the 
 Extra game info from different sources can be retrieved with the functions provided.
 
 TOOLS:
-1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, status=[], sort_by='relevance')
+1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, min_review_score=0, status=[], sort_by='relevance')
    - Use this to find games in the database, the steam library.
    - 'status' options: 'Unplayed', 'Bounced', 'Testing', 'Addicted', 'Finished', 'Active', 'Abandoned', 'Played'.
    - min_playtime, max_playtime and hltb_max are parameters taken from HowLongToBeat
+   - min_review_score is an integer from 0-100 representing the Steam positive review percentage.
    - sort_by options: 'random', 'shortest' (default), 'longest', 'recent' (last played), 'name'.
    
 2. get_user_tags()

@@ -99,6 +99,31 @@ def get_realtime_tags(app_id):
         print(f"Error scraping tags for {app_id}: {e}")
         return []
 
+
+def fetch_review_summary(appid):
+    """
+    Fetches review summary from Steam Store API to calculate a score percentage.
+    Returns: Integer 0-100 or -1 if unavailable.
+    """
+    url = f"https://store.steampowered.com/appreviews/{appid}?json=1&num_per_page=0&purchase_type=all"
+    try:
+        # No sleep needed for Store API usually, but be mindful if loop is tight.
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            summary = data.get('query_summary', {})
+            total_positive = summary.get('total_positive', 0)
+            total_negative = summary.get('total_negative', 0)
+            total = total_positive + total_negative
+            if total > 0:
+                # Calculate percentage
+                return int((total_positive / total) * 100)
+    except Exception as e:
+        print(f"Error fetching reviews for {appid}: {e}")
+
+    return -1
+
+
 def get_connection():
     """
     Creates a fresh connection.
@@ -126,7 +151,8 @@ def init_db():
             hltb_main INTEGER,
             hltb_completionist INTEGER,
             is_multiplayer INTEGER DEFAULT 0, -- <--- NEEDS TO BE POPULATED
-            last_updated REAL
+            last_updated REAL,
+            review_score INTEGER DEFAULT -1
         )''')
         conn.commit()
 
@@ -184,6 +210,9 @@ def update(username):
             # Slow Path: New Game
             print(f"New recruit detected: {name} ({appid})")
 
+            # Fetch Review Score
+            review_score = fetch_review_summary(appid)
+
             tags_str = ""
             try:
                 # Use the LOCAL function, not the one from 'br'
@@ -212,8 +241,8 @@ def update(username):
             except Exception as e:
                 print(f"HLTB failed: {e}")
 
-            c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                      (appid, name, playtime, last_played, "", tags_str, main_story, completionist, is_multiplayer, time.time()))
+            c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+                      (appid, name, playtime, last_played, "", tags_str, main_story, completionist, is_multiplayer, time.time(), review_score))
             conn.commit()
 
 
@@ -274,7 +303,7 @@ def get_all_tags():
     return sorted(list(unique_tags))
 
 
-def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, sort_by='shortest'):
+def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, min_review_score=None, sort_by='shortest'):
     """
     Filters the vault based on criteria.
     """
@@ -292,6 +321,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     if min_playtime == 0: min_playtime = None
     if max_playtime == 0: max_playtime = None
     if hltb_max == 0: hltb_max = None
+    if min_review_score == 0: min_review_score = None
 
     # Fetch ALL games (It's 2000 rows, Python eats this for breakfast)
     # We fetch all because Python string processing is more robust than SQLite 'LIKE'
@@ -330,6 +360,12 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         if hltb_max is not None:
             if main_story == 0: continue  # Skip games with no data if searching by length
             if main_story > hltb_max: continue
+
+        # 5. REVIEW SCORE FILTER
+        if min_review_score is not None:
+             score = game.get('review_score', -1)
+             if score != -1 and score < min_review_score:
+                 continue
 
         # If we survived all filters, add to results
         # Inject the calculated fields so the AI sees them

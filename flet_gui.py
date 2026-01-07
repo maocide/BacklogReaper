@@ -6,6 +6,8 @@ import agent
 import threading
 import traceback
 import vault
+import config
+import settings
 from pathlib import Path
 
 def launch_game(appid):
@@ -172,12 +174,20 @@ def main(page: ft.Page):
     br_btn_send = ft.Ref[ft.IconButton]()
 
     # Game Fetcher Refs
-    gf_username = ft.Ref[ft.TextField]()
+    # gf_username = ft.Ref[ft.TextField]() # Removed, now in Settings
     gf_table = ft.Ref[ft.DataTable]()
     gf_status = ft.Ref[ft.Text]()
     gf_btn_fetch = ft.Ref[ft.ElevatedButton]()
     gf_btn_stop = ft.Ref[ft.ElevatedButton]()
     gf_chk_force = ft.Ref[ft.Checkbox]()
+
+    # Settings Refs
+    set_steam_api = ft.Ref[ft.TextField]()
+    set_openai_api = ft.Ref[ft.TextField]()
+    set_openai_base = ft.Ref[ft.TextField]()
+    set_openai_model = ft.Ref[ft.TextField]()
+    set_steam_user = ft.Ref[ft.TextField]()
+    set_status = ft.Ref[ft.Text]()
 
     # Threading Events
     stop_event_ra = threading.Event()
@@ -541,11 +551,22 @@ Consider all the data and the data in your training about the games to find the 
             page.update()
 
     def start_fetch(e):
-        username = gf_username.current.value
+        # username = gf_username.current.value # Removed
+        username = config.STEAM_USER
+
         if not username:
-            gf_status.current.value = "Please enter a username."
+            gf_status.current.value = "Please configure Steam Username in Settings."
+            page.snack_bar = ft.SnackBar(ft.Text("Please configure Steam Username in Settings!"))
+            page.snack_bar.open = True
             page.update()
             return
+
+        if not config.STEAM_API_KEY:
+             gf_status.current.value = "Please configure Steam API Key in Settings."
+             page.snack_bar = ft.SnackBar(ft.Text("Please configure Steam API Key in Settings!"))
+             page.snack_bar.open = True
+             page.update()
+             return
 
         stop_event_gf.clear()
         gf_btn_fetch.current.disabled = True
@@ -697,7 +718,7 @@ Consider all the data and the data in your training about the games to find the 
         controls=[
             ft.Text("Game List Fetcher", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
             ft.Row([
-                ft.TextField(ref=gf_username, label="Steam Username", expand=True),
+                # ft.TextField(ref=gf_username, label="Steam Username", expand=True), # Removed
                 ft.ElevatedButton(ref=gf_btn_fetch, text="Fetch Games", icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
                 ft.ElevatedButton(ref=gf_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
                 ft.Checkbox(ref=gf_chk_force, label="Force Update", tooltip="Force Update"),
@@ -735,6 +756,58 @@ Consider all the data and the data in your training about the games to find the 
         ]
     )
 
+    # --- Settings View ---
+
+    def save_settings_click(e):
+        new_settings = {
+            "STEAM_API_KEY": set_steam_api.current.value,
+            "OPENAI_API_KEY": set_openai_api.current.value,
+            "OPENAI_BASE_URL": set_openai_base.current.value,
+            "OPENAI_MODEL": set_openai_model.current.value,
+            "STEAM_USER": set_steam_user.current.value
+        }
+
+        if settings.save_settings(new_settings):
+            config.reload() # Refresh live config
+            set_status.current.value = "Settings Saved!"
+            set_status.current.color = ft.Colors.GREEN
+        else:
+            set_status.current.value = "Error saving settings."
+            set_status.current.color = ft.Colors.RED
+
+        page.update()
+
+    # Load initial values
+    current_settings = settings.load_settings()
+    # Use config values as default to show env vars if json is empty
+    init_steam_key = current_settings.get("STEAM_API_KEY") or config.STEAM_API_KEY or ""
+    init_openai_key = current_settings.get("OPENAI_API_KEY") or config.OPENAI_API_KEY or ""
+    init_openai_base = current_settings.get("OPENAI_BASE_URL") or config.OPENAI_BASE_URL or ""
+    init_openai_model = current_settings.get("OPENAI_MODEL") or config.OPENAI_MODEL or ""
+    init_steam_user = current_settings.get("STEAM_USER") or config.STEAM_USER or ""
+
+
+    view_settings = ft.Column(
+        visible=False,
+        expand=True,
+        scroll=ft.ScrollMode.AUTO,
+        controls=[
+            ft.Text("Settings", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Divider(),
+            ft.Text("Steam API", style=ft.TextThemeStyle.TITLE_MEDIUM),
+            ft.TextField(ref=set_steam_api, label="Steam API Key", password=True, can_reveal_password=True, value=init_steam_key),
+            ft.TextField(ref=set_steam_user, label="Steam Username", value=init_steam_user),
+            ft.Divider(),
+            ft.Text("OpenAI API (or Compatible)", style=ft.TextThemeStyle.TITLE_MEDIUM),
+            ft.TextField(ref=set_openai_api, label="OpenAI API Key", password=True, can_reveal_password=True, value=init_openai_key),
+            ft.TextField(ref=set_openai_base, label="Base URL", hint_text="https://api.openai.com/v1", value=init_openai_base),
+            ft.TextField(ref=set_openai_model, label="Model Name", hint_text="gpt-4", value=init_openai_model),
+            ft.Divider(),
+            ft.ElevatedButton("Save Settings", icon=ft.Icons.SAVE, on_click=save_settings_click),
+            ft.Text(ref=set_status, value="")
+        ]
+    )
+
     # --- Navigation Logic ---
 
     def on_nav_change(e):
@@ -743,6 +816,7 @@ Consider all the data and the data in your training about the games to find the 
         view_sg.visible = (index == 1)
         view_br.visible = (index == 2)
         view_gf.visible = (index == 3)
+        view_settings.visible = (index == 4)
         page.update()
 
     rail = ft.NavigationRail(
@@ -773,6 +847,11 @@ Consider all the data and the data in your training about the games to find the 
                 selected_icon=ft.Icons.LIST_ALT,
                 label="My Backlog"
             ),
+            ft.NavigationRailDestination(
+                icon=ft.Icons.SETTINGS_OUTLINED,
+                selected_icon=ft.Icons.SETTINGS,
+                label="Settings"
+            ),
         ],
         on_change=on_nav_change,
     )
@@ -785,7 +864,8 @@ Consider all the data and the data in your training about the games to find the 
                 view_ra,
                 view_sg,
                 view_br,
-                view_gf
+                view_gf,
+                view_settings
             ],
             expand=True,
         )
