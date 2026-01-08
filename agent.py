@@ -215,6 +215,11 @@ INSTRUCTIONS:
                 })
                 msg_index += 1
                 continue
+        # Remove notes
+        elif msg['role'] == 'system' and "System Note" in msg.get('content', ''):
+            if msg_index < tool_cut_boundary:
+                msg_index += 1
+                continue
 
         final_history.append(msg)
         msg_index += 1
@@ -259,6 +264,15 @@ def aiCall_chat(chat_history=None):
     )
 
     return(response.choices[0].message.content)
+
+def ai_chat_stream(chat_history=None):
+    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
+    stream = client.chat.completions.create(
+        model=config.OPENAI_MODEL,
+        messages=chat_history,
+        stream=True
+    )
+    return stream
 
 
 def agent_chat_loop(user_input, chat_history, on_progress=None):
@@ -380,3 +394,183 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
             return response, chat_history
 
     return "I'm looping too much. Here is what I have so far.", chat_history
+
+
+def execute_tool(tool_request, params):
+    tool_name = tool_request.get("tool")
+    params = tool_request.get("params", {})
+    action_desc = tool_request.get("action_description", f"Calling tool: {tool_name}...")
+
+    print(f"Agent Calling: {tool_name} | Params: {params}")
+
+    # --- EXECUTE TOOL ---
+    tool_output_str = ""
+    system_hint = ""
+    # result_limit = 30 # Removed in favor of pagination
+    reviews_limit = 10
+    result_limit = 10
+
+    try:
+        if tool_name == "vault_search":
+            results = vault.advanced_search(**params)
+            count = len(results)
+
+            print(f"Agent Calling: {count} results.")
+
+            # Create the Hint
+            if count == 0:
+                system_hint = "System Note: Search returned 0 results. Try removing tags or changing status. If this keeps happening, tell the user."
+                tool_output_str = "[]"
+            else:
+                # system_hint = f"System Note: Search returned {count} games, result limited to {result_limit}."
+                system_hint = f"System Note: Search returned {count} games."
+                if count == 10:
+                    system_hint = system_hint + " You might try to get the next page."
+
+                lean_results = []
+                # for res in results[:result_limit]:  # Limit (Removed)
+                for res in results:
+                    # Minutes -> Hours
+                    hours_played = round(res['playtime_forever'] / 60, 1)
+
+                    lean_results.append({
+                        "appid": res['appid'],
+                        "name": res['name'],
+                        "hours_played": hours_played,  # RENAME this key so AI knows it's hours
+                        # "playtime_forever": res['playtime_forever'], # Remove the raw minutes
+                        "status": res['calculated_status'],
+                        "review_score": res['review_score'],
+                        "hltb_story": res.get('hltb_main', 0)  # Rename for clarity
+                    })
+
+                tool_output_str = json.dumps(lean_results)
+
+        elif tool_name == "get_user_tags":
+            tags = vault.get_all_tags()
+            tool_output_str = json.dumps(tags)
+            system_hint = "System Note: Here are the valid tags."
+
+        elif tool_name == "find_similar_games":
+            # This function already returns a nice string report
+            tool_output_str = br.generate_contextual_dna(params.get('game_name'), result_limit)
+            system_hint = f"System Note: These are {result_limit} games in the user's library that match the target."
+
+        elif tool_name == "search_steam_store":
+            tool_output_str = json.dumps(br.search_steam_store(params.get('search_term'), result_limit))
+            system_hint = f"System Note: These are {result_limit} from the steam store search."
+
+        elif tool_name == "get_game_details":
+            tool_output_str = json.dumps(br.get_global_game_info(params.get('game_name')))
+            system_hint = "System Note: Details retrieved."
+
+        elif tool_name == "get_reviews":
+            tool_output_str = br.get_reviews_byname(params.get('game_name'), reviews_limit)
+
+
+    except Exception as e:
+        tool_output_str = f"Error: {str(e)}"
+
+    return tool_output_str, system_hint, action_desc
+
+def agent_chat_loop_stream(user_input, chat_history):
+    """
+    Generator that yields:
+    ("status", "Description") -> When a tool is running
+    ("text", "chunk")         -> When the final answer is streaming
+    """
+    system_message = {"role": "system", "content": AGENT_SYSTEM_PROMPT}
+
+    # Initialize History
+    if not chat_history:
+        chat_history.append(system_message)
+
+    # Clean history (Summarization logic)
+    chat_history[:] = clean_history(chat_history)
+
+    chat_history.append({"role": "user", "content": user_input})
+
+    max_turns = 20
+    turn = 0
+
+    while turn < max_turns:
+        # 1. Start the Stream for this turn
+        stream = ai_chat_stream(chat_history)
+
+        buffer = ""
+        is_tool_call = False
+        is_streaming_text = False
+
+        # 2. Process the Stream
+        for chunk in stream:
+            content = chunk.choices[0].delta.content or ""
+            if not content: continue
+
+            # DECISION PHASE: Tool or Text?
+            # We buffer the first few tokens until we know what it is.
+            if not is_tool_call and not is_streaming_text:
+                buffer += content
+                stripped = buffer.lstrip()
+
+                # Check if we have enough characters to decide (e.g. 5 chars)
+                # If it starts with '{' or '`', it's likely a JSON tool
+                if len(stripped) > 0:
+                    if stripped.startswith("{") or stripped.startswith("`"):
+                        is_tool_call = True
+                        yield "status", "🧠 The Reaper is thinking..."
+                    else:
+                        is_streaming_text = True
+                        # Flush the buffer as text, then continue streaming
+                        yield "text", buffer
+                        buffer = ""
+
+                        # EXECUTION PHASE
+            elif is_streaming_text:
+                # It's the final answer, yield immediately
+                yield "text", content
+                buffer += content  # Keep accumulating for history
+
+            elif is_tool_call:
+                # It's a tool, just buffer it silently
+                buffer += content
+
+        # 3. End of Turn Logic
+        if is_tool_call:
+            # We have the full JSON in 'buffer'. Parse it.
+            tool_request = extract_json(buffer)
+
+            if tool_request:
+                tool_name = tool_request.get("tool")
+                params = tool_request.get("params", {})
+                action_desc = tool_request.get("action_description", f"Calling {tool_name}...")
+
+                # Tell UI what we are doing
+                yield "action", f"{action_desc}"
+                print(f"Agent Calling: {tool_name}")
+
+                # Execute Tool (Same logic as before)
+                tool_result = execute_tool(tool_request,
+                                           params)  # Refactor your huge if/else block into this helper function!
+
+                tool_output_str = tool_result[0]
+                system_hint = tool_result[1]
+
+                # Update History
+                chat_history.append({"role": "assistant", "content": buffer})
+                chat_history.append({"role": "system", "content": f"TOOL_OUTPUT: {tool_output_str}"})
+                chat_history.append({"role": "system", "content": system_hint})
+
+                turn += 1
+            else:
+                # JSON parse failed? Fallback to treating it as text
+                yield "text", buffer
+                chat_history.append({"role": "assistant", "content": buffer})
+                yield "status", "Ready."
+                return  # Stop looping
+
+        else:
+            # It was text (Final Answer). We are done.
+            chat_history.append({"role": "assistant", "content": buffer})
+            return  # Exit generator
+
+    yield "text", "\n\n(I looped too many times and gave up.)"
+    yield "status", "Error :("

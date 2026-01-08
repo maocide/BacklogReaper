@@ -404,52 +404,151 @@ Consider all the data and the data in your training about the games to find the 
 
     # --- Backlog Reaping Logic ---
 
+    # def run_backlog_reaping_thread(user_message):
+    #     try:
+    #         if stop_event_br.is_set(): return
+    #
+    #         # Add user message to UI immediately
+    #         if br_chat_list.current:
+    #             br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
+    #             page.update()
+    #
+    #         br_status.current.value = "Reaper is thinking..."
+    #         page.update()
+    #
+    #         def on_progress(msg):
+    #             if stop_event_br.is_set(): return
+    #             # Append a small system message for progress
+    #             # Remove generic "thinking" messages if you only want actionable updates
+    #             if br_chat_list.current:
+    #                 br_chat_list.current.controls.append(
+    #                     ft.Text(msg, size=10, italic=True, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
+    #                 )
+    #                 page.update()
+    #
+    #         # Call Agent
+    #         # Note: We pass the mutable list `br_chat_history`.
+    #         # `agent_chat_loop` appends to it and returns (response, updated_history).
+    #         # Since it modifies the list in-place (if it's the same object), we might not strictly need the return value for history,
+    #         # but let's be safe and assign it back or just rely on the reference.
+    #         # However, `br_chat_history` is a local variable in main, so we need to access it properly.
+    #         # In Python nested functions, we can modify list contents.
+    #
+    #         response_text, updated_history = agent.agent_chat_loop(user_message, br_chat_history, on_progress=on_progress)
+    #
+    #         # Update the global history reference (though list mutation handles it)
+    #         # br_chat_history[:] = updated_history[:] # Not strictly needed if agent appends, but safe.
+    #
+    #         if stop_event_br.is_set():
+    #             br_status.current.value = "Reaping stopped."
+    #             page.update()
+    #             return
+    #
+    #         # Add Agent Response to UI
+    #         if br_chat_list.current:
+    #             br_chat_list.current.controls.append(parse_and_render_message(response_text, is_user=False))
+    #
+    #         br_status.current.value = "Ready"
+    #         page.update()
+    #
+    #     except Exception as e:
+    #         traceback.print_exc()
+    #         br_status.current.value = f"Error: {e}"
+    #         if br_chat_list.current:
+    #             br_chat_list.current.controls.append(ft.Text(f"Error: {e}", color=ft.Colors.RED))
+    #     finally:
+    #         if br_btn_send.current:
+    #             br_btn_send.current.disabled = False
+    #         if br_input.current:
+    #              br_input.current.disabled = False
+    #              br_input.current.focus()
+    #         page.update()
+
     def run_backlog_reaping_thread(user_message):
         try:
             if stop_event_br.is_set(): return
 
-            # Add user message to UI immediately
+            # Add User Message to UI
             if br_chat_list.current:
                 br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
                 page.update()
 
-            br_status.current.value = "Reaper is thinking..."
-            page.update()
+            # Prepare Agent UI Elements
+            # A status label that changes ("Thinking...", "Searching...")
+            status_text = ft.Text("Initializing...", italic=True, size=12, color=ft.Colors.GREY_500)
 
-            def on_progress(msg):
-                if stop_event_br.is_set(): return
-                # Append a small system message for progress
-                # Remove generic "thinking" messages if you only want actionable updates
-                if br_chat_list.current:
-                    br_chat_list.current.controls.append(
-                        ft.Text(msg, size=10, italic=True, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
-                    )
+            # The main message bubble (starts empty)
+            # Note: We use Markdown to support bolding/lists in the stream
+            agent_markdown = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)
+
+            # Container for the Agent's response
+            agent_container = ft.Container(
+                content=ft.Column([
+                    status_text,
+                    agent_markdown
+                ]),
+                padding=15,
+                border_radius=10,
+                bgcolor=ft.Colors.BLACK38,
+                margin=ft.margin.only(right=50, bottom=10)
+            )
+
+            if br_chat_list.current:
+                br_chat_list.current.controls.append(agent_container)
+                page.update()
+
+            # 3. CONSUME THE STREAM
+            # We pass the mutable 'br_chat_history' list directly
+            stream = agent.agent_chat_loop_stream(user_message, br_chat_history)
+
+            for event_type, content in stream:
+                if stop_event_br.is_set(): break
+
+                if event_type == "status":
+                    # Update the status label
+                    status_text.value = content
+                    status_text.update()
+                    br_status.current.value = content
                     page.update()
 
-            # Call Agent
-            # Note: We pass the mutable list `br_chat_history`.
-            # `agent_chat_loop` appends to it and returns (response, updated_history).
-            # Since it modifies the list in-place (if it's the same object), we might not strictly need the return value for history,
-            # but let's be safe and assign it back or just rely on the reference.
-            # However, `br_chat_history` is a local variable in main, so we need to access it properly.
-            # In Python nested functions, we can modify list contents.
+                elif event_type == "action":
+                    # Append a small system message for progress
+                    # Remove generic "thinking" messages if you only want actionable updates
+                    if br_chat_list.current:
+                        position = len(br_chat_list.current.controls) -1
+                        br_chat_list.current.controls.insert(
+                            position,
+                            ft.Text(content, size=10, italic=True, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
+                        )
+                        page.update()
 
-            response_text, updated_history = agent.agent_chat_loop(user_message, br_chat_history, on_progress=on_progress)
+                elif event_type == "text":
+                    # Hide status once text starts appearing (optional, or keep it)
+                    if status_text.visible:
+                        status_text.visible = False
+                        status_text.update()
 
-            # Update the global history reference (though list mutation handles it)
-            # br_chat_history[:] = updated_history[:] # Not strictly needed if agent appends, but safe.
+                    # Append text chunk and update
+                    agent_markdown.value += content
+                    agent_markdown.update()
 
-            if stop_event_br.is_set():
-                br_status.current.value = "Reaping stopped."
+            # 4. Final Cleanup
+            if not stop_event_br.is_set():
+                # If the final message contained JSON (Generative UI), we might want to re-render the whole bubble
+                # to trigger your 'parse_and_render_message' logic (which creates Cards).
+                # The streaming Markdown won't render the Cards automatically during the stream.
+
+                final_text = agent_markdown.value
+
+                # Replace the streaming container with your fancy Card-rendering container
+                # Remove the last control (the streaming one)
+                br_chat_list.current.controls.pop()
+
+                # Add the fully rendered parsed message
+                br_chat_list.current.controls.append(parse_and_render_message(final_text, is_user=False))
+
+                br_status.current.value = "Ready"
                 page.update()
-                return
-
-            # Add Agent Response to UI
-            if br_chat_list.current:
-                br_chat_list.current.controls.append(parse_and_render_message(response_text, is_user=False))
-
-            br_status.current.value = "Ready"
-            page.update()
 
         except Exception as e:
             traceback.print_exc()
@@ -460,9 +559,10 @@ Consider all the data and the data in your training about the games to find the 
             if br_btn_send.current:
                 br_btn_send.current.disabled = False
             if br_input.current:
-                 br_input.current.disabled = False
-                 br_input.current.focus()
+                br_input.current.disabled = False
+                br_input.current.focus()
             page.update()
+
 
     def send_message(e):
         user_message = br_input.current.value
