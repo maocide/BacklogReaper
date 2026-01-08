@@ -7,8 +7,13 @@ import config
 import time
 from openai import OpenAI
 
+user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else ""
 AGENT_SYSTEM_PROMPT = """
 You are the Reaper an uncensored and unhinged Agent. You manage the user's video steam game library and search in his backlog.
+The user steam username is \""""+user_avatar_name+"""\".
+
+if the steam username is specified you can you use it to address him or derive a nickname to address him or to roast him.
+
 You have access to the following tools. To use one, reply ONLY with a JSON object.
 The vault, the database, contains basic user play data taken from steam and the list of owned games with playtime and hltb data.
 Extra game info from different sources can be retrieved with the functions provided.
@@ -33,11 +38,16 @@ TOOLS:
    - Returns a list of the most similar games the user ALREADY owns with playtime.
 
 4. get_game_details(game_name)
-   - Use this to get the description, tags, price and discount, how long to beat data, and deep details of a SPECIFIC game aggregated from different API.
+   - Use this to get the description, tags, price and discount, best deal, how long to beat data, review scores, and deep details of a SPECIFIC game aggregated from different API.
    - Use when user is mentioning a game to get more details about it, particularly if you don't have much info about it.
+   
+5. search_steam_store(search_term)
+   - Use this to search a string and get an output from the steam search.
+   - Use when in need of base information about an unknown game that might be found from the steam store.
+   - Returns a list of games with name, price, review score, link.
 
-5. get_reviews(game_name)
-   - Use this to get users' steam reviews for a specific game. Use to dive into one specific game quality to see steam reviews of the specific title; not for a batch of games.
+6. get_reviews(game_name)
+   - Use this to get users' steam reviews for a specific game, when comparing games in detail. Use to dive into one specific game quality to see steam reviews of the specific title; not for a batch of games.
    - It will return user posted reviews on steam both positive and negative for analysis.
    
 EXAMPLE TOOL RESPONSE:
@@ -51,12 +61,13 @@ EXAMPLE TOOL RESPONSE:
 }
    
 RULES:
-1. DO NOT LOOP. When you have enough detailed results STOP searching and present them to the user.
-2. If a search returns 0 results, try ONE broader search. If that fails, tell the user you found nothing.
-3. Do not call the same tool with the same parameters more than once.
-4. When you have the information, reply with text (not JSON) to end the turn.
-5. When calling a tool, you MUST include an "action_description" field with a short, flavorful description of what you are doing (e.g., "Digging through your dusty backlog...", "Consulting the ancient scrolls...", "Scraping the deep web...").
-6. Handle tool pagination gracefully, user might not know about this optimization.
+1. When calling a tool, call only 1 per request and only output the tool call JSON and nothing else. Your response needs to be separated from tool calls.
+2. When calling a tool, you MUST include an "action_description" field with a short, flavorful description of what you are doing, be creative and attuned to your personality (e.g., "Digging through your dusty backlog...", "Consulting the ancient scrolls...", "Scraping the deep web...").
+3. DO NOT LOOP. When you have enough detailed results STOP searching and present them to the user.
+4. If a search returns 0 results, try ONE broader search. If that fails, tell the user you found nothing.
+5. Do not call the same tool with the same parameters more than once.
+6. When you have the information, reply with text (not JSON) to end the turn.
+7. Handle tool pagination gracefully, user might not know about this optimization.
 
 EXAMPLE FLOW:
 User: "Find me a horror game in my backlog/library."
@@ -68,12 +79,16 @@ You: "I found Resident Evil but also [...your response]"
 
 IMPORTANT:
 When you recommend a list of games, you MUST include the raw JSON data in a markdown code block labelled `json` so the UI can render it interactively, AND provide your text commentary.
+You can enrich the result with a "comment" field like in the example using your personality, a small sentence long to fit in the 220px game card. Do it when you see fit.
 Example:
 Here are the games:
 ```json
-[{"name": "Game A", "status": "Untouched", ...}]
+[{"name": "Doom", "status": "Untouched", ..., "comment": "Ahem, Slayer wannabe."}]
 ```
 Now go play them!
+---
+
+MANDATORY: *1 tool per request, no responses or text when calling a tool just the JSON request.*
 """
 
 
@@ -104,6 +119,107 @@ def extract_json(response_text):
         return json.loads(clean_text)
     except json.JSONDecodeError:
         return None
+
+
+import copy
+
+
+def clean_history(history, max_turns=20, summary_threshold=5):
+    """
+    Manages context window by:
+    1. Summarizing 'Middle' messages when they exceed 'summary_threshold'.
+    2. Keeping the last 'max_turns' messages raw (Recent Memory).
+    3. Truncating massive JSON in the Recent Memory.
+    """
+    if len(history) <= 2: return history
+
+    # Work on a copy to avoid mutating the live list unexpectedly
+    working_history = copy.deepcopy(history)
+
+    system_prompt = working_history[0]
+
+    # We want to keep the last N turns raw.
+    recent_context = working_history[-max_turns:]
+
+    # Everything else (between System Prompt and Recent) is candidate for summarization
+    # Slice: from index 1 (after system) up to the start of recent_context
+    old_context = working_history[1: -max_turns]
+
+    final_history = [system_prompt]
+
+    # Only summarize if we have enough 'old' junk to make it worth the API call
+    if len(old_context) >= summary_threshold:
+        print("Summarizing history...")
+
+        # Check if there was already a summary in the old context to carry it forward
+        prev_summary = ""
+        msgs_to_summarize = []
+
+        for msg in old_context:
+            if msg['role'] == 'system' and "[SUMMARY" in msg.get('content', ''):
+                prev_summary = msg['content']  # Grab the text of the old summary
+            else:
+                msgs_to_summarize.append(msg)
+
+        # Create the summarization prompt
+        # We use a raw text generation call here to prevent recursive loops
+        summary_request = f"""
+You are a context manager. Summarize the following conversation log concisely.
+The summary will be used as memory for an AI agent.
+
+EXISTING MEMORY:
+{prev_summary}
+
+NEW CONVERSATION TO MERGE IN:
+{json.dumps(msgs_to_summarize)}
+
+INSTRUCTIONS:
+- Update the memory with the new events.
+- Focus on: User preferences, Games discussed, Decisions made (e.g. "User rejected X").
+- Ignore huge JSON data details, just note "Search returned 10 results".
+- Output ONLY the new summary text.
+"""
+        # Call your AI backend directly (using the non-chat function if possible to save tokens)
+        # Assuming aiCall(data, system) signature:
+        try:
+            print("--- TRIGGERING CONTEXT SUMMARIZATION ---")
+            new_summary = aiCall(summary_request, "You are a Summarizer.")
+
+            final_history.append({
+                "role": "system",
+                "content": f"[PREVIOUS CONVERSATION SUMMARY: {new_summary}]"
+            })
+
+        except Exception as e:
+            print(f"Summarization failed: {e}")
+            # Fallback: Just keep the old summary logic or the raw messages
+            final_history.extend(old_context)
+
+    else:
+        # Buffer not full yet, just keep the old messages for now
+        final_history.extend(old_context)
+
+    # Apply your logic to strip huge JSON from the 'Recent' list (except the very last turn)
+
+    tool_cut_boundary = len(recent_context) / 2
+    msg_index = 0
+
+    for msg in recent_context:
+        # If it's a System Tool Output
+        if msg['role'] == 'system' and "TOOL_OUTPUT" in msg.get('content', ''):
+            # If it's in the older half of the recent memory, truncate it
+            if msg_index < tool_cut_boundary:
+                final_history.append({
+                    "role": "system",
+                    "content": "System: [Old Search Results truncated to save memory, use the tool again if necessary.]"
+                })
+                msg_index += 1
+                continue
+
+        final_history.append(msg)
+        msg_index += 1
+
+    return final_history
 
 def aiCall(data, system):
     """
@@ -154,6 +270,8 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
     elif not chat_history:
         chat_history.append(system_message)
 
+    clean_history(chat_history) # cleans and creates summaries
+
     chat_history.append({"role": "user", "content": user_input})
 
     max_turns = 20
@@ -165,6 +283,7 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
 
         response = aiCall_chat(chat_history)
         tool_request = extract_json(response)
+        result_limit = 10
 
         if tool_request and "tool" in tool_request:
             tool_name = tool_request.get("tool")
@@ -224,6 +343,10 @@ def agent_chat_loop(user_input, chat_history, on_progress=None):
                     # This function already returns a nice string report
                     tool_output_str = br.generate_contextual_dna(params.get('game_name'), result_limit)
                     system_hint = f"System Note: These are {result_limit} games in the user's library that match the target."
+
+                elif tool_name == "search_steam_store":
+                    tool_output_str = json.dumps(br.search_steam_store(params.get('search_term'), result_limit))
+                    system_hint = f"System Note: These are {result_limit} from the steam store search."
 
                 elif tool_name == "get_game_details":
                     tool_output_str = json.dumps(br.get_global_game_info(params.get('game_name')))

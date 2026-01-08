@@ -1,5 +1,7 @@
 import difflib
 import json
+import re
+import urllib
 from http.client import responses
 from platform import system
 from time import sleep
@@ -26,7 +28,7 @@ max_tags = 10
 def search_steam_store(term, limit=10):
     """
     Scrapes the Steam Search page for games matching the term.
-    Returns: List of dicts {name, price, review_summary, url, img}
+    Returns: List of dicts {name, price, reviews, link}
     """
     # URL Encode the search term
     encoded_term = urllib.parse.quote(term)

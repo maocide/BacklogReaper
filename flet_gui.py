@@ -1,6 +1,8 @@
 import json
 import webbrowser
 import flet as ft
+from flet.core.types import FontWeight
+
 import BacklogReaper as br
 import agent
 import threading
@@ -32,15 +34,16 @@ def create_game_card(game_data):
     return ft.Card(
         content=ft.Container(
             width=220,
-            padding=10,
+            padding=5,
             content=ft.Column([
-                ft.Text(game_data.get("name", "Unknown"), weight="bold", size=16, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS, tooltip=game_data.get("name", "Unknown")),
+                ft.Text(game_data.get("name", "Unknown"), weight=FontWeight.BOLD, size=16, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS, tooltip=game_data.get("name", "Unknown")),
                 ft.Row([
                     ft.Icon(ft.Icons.CIRCLE, size=10, color=status_color),
                     ft.Text(status, size=12, color=status_color),
                 ]),
                 ft.Text(f"{game_data.get('hours_played', 0)}h played", size=12),
-                ft.Text(f"Story: {game_data.get('hltb_story', 0)}h", size=12, color=ft.Colors.GREY),
+                ft.Text(f"Story: {game_data.get('hltb_story', "?")}h", size=12, color=ft.Colors.GREY),
+                ft.Text(game_data.get('comment', ""), italic=True, size=12, color=ft.Colors.BLUE_GREY),
                 ft.Container(height=5), # Spacer
                 ft.ElevatedButton(
                     "Launch",
@@ -121,7 +124,8 @@ def parse_and_render_message(text, is_user):
     )
 
     # Avatar Label
-    avatar_name = "User" if is_user else "Reaper"
+    user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "USER"
+    avatar_name = user_avatar_name if is_user else "Reaper"
     avatar_alignment = ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START
 
     return ft.Container(
