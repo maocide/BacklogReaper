@@ -56,74 +56,68 @@ def create_game_card(game_data):
         )
     )
 
+
 def parse_and_render_message(text, is_user):
     """
-    Analyzes the text. If it finds a JSON block of games, renders Cards.
-    Otherwise, renders Markdown.
+    Analyzes the text. Finds ALL JSON blocks of games and renders them as Cards.
+    Handles mixed content: Text -> JSON -> Text -> JSON -> Text.
     """
     controls = []
 
-    # 1. Simple JSON extraction logic (looks for code blocks marked as json)
-    if "```json" in text and not is_user:
-        # Split text into parts: Pre-JSON, JSON, Post-JSON
-        try:
-            parts = text.split("```json")
-            pre_text = parts[0]
-
-            # Find the end of the json block
-            json_and_post = parts[1].split("```")
-            json_str = json_and_post[0]
-            post_text = json_and_post[1] if len(json_and_post) > 1 else ""
-
-            # Handle multiple JSON blocks? For now, let's assume one main block or handle the first one.
-            # Ideally we should iterate, but let's stick to the requirements for now.
-            # If there are more parts, append them to post_text?
-            if len(json_and_post) > 2:
-                 post_text += "```" + "```".join(json_and_post[2:])
-
-            # Render Pre-Text
-            if pre_text.strip():
-                controls.append(ft.Markdown(pre_text.strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
-
-            # Render Cards
-            try:
-                games_list = json.loads(json_str)
-                if isinstance(games_list, list):
-                    # Use wrap=True for natural flow instead of horizontal scrolling
-                    card_row = ft.Row(wrap=True, spacing=10, run_spacing=10)
-                    for game in games_list:
-                        card_row.controls.append(create_game_card(game))
-
-                    # Height removal: Let it grow naturally with content
-                    # We set a fixed width here to force the wrap=True to trigger.
-                    # Without constraints, the Row expands infinitely.
-                    controls.append(ft.Container(content=card_row, padding=5))
-                else:
-                    controls.append(ft.Markdown(f"```json{json_str}```")) # Not a list, render raw
-            except json.JSONDecodeError:
-                 controls.append(ft.Markdown(f"```json{json_str}```")) # Failed to parse
-
-            # Render Post-Text
-            if post_text.strip():
-                controls.append(ft.Markdown(post_text.strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
-
-        except Exception as e:
-            # Fallback if parsing fails: just show original text
-            controls.append(ft.Markdown(text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
-    else:
-        # Standard Text Message
+    # If it's a user message or no JSON, just render markdown
+    if "```json" not in text or is_user:
         controls.append(ft.Markdown(text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+    else:
+        # Split by the start tag.
+        # This gives us a list where:
+        # segment[0] is text BEFORE the first json
+        # segment[1] starts with the json content, followed by ``` and post-text
+        # segment[2] (if any) is the same as [1]...
+        segments = text.split("```json")
 
-    # Message Bubble
+        # 1. Render the very first text segment (before any JSON)
+        if segments[0].strip():
+            controls.append(ft.Markdown(segments[0].strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+
+        # 2. Iterate through the remaining segments (each starts with JSON)
+        for segment in segments[1:]:
+            # Each segment looks like: "JSON_CONTENT```\nPost text..."
+            # We split by the closing code block ```
+            if "```" in segment:
+                json_part, post_text = segment.split("```", 1)
+
+                # --- RENDER CARDS (The JSON part) ---
+                try:
+                    games_list = json.loads(json_part)
+                    if isinstance(games_list, list):
+                        card_row = ft.Row(wrap=True, spacing=10, run_spacing=10)
+                        for game in games_list:
+                            card_row.controls.append(create_game_card(game))
+                        controls.append(ft.Container(content=card_row, padding=5))
+                    else:
+                        # It was JSON, but not a list (maybe a single object or tool log)
+                        controls.append(ft.Markdown(f"```json{json_part}```"))
+                except json.JSONDecodeError:
+                    # Parsing failed, render as raw code block
+                    controls.append(ft.Markdown(f"```json{json_part}```"))
+
+                # --- RENDER TEXT (The Post-text part) ---
+                if post_text.strip():
+                    controls.append(ft.Markdown(post_text.strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+            else:
+                # Malformed markdown (no closing ```), just treat as raw text
+                controls.append(ft.Markdown(f"```json{segment}", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+
+    # Message Bubble Logic
     bubble = ft.Container(
         content=ft.Column(controls, tight=True, spacing=5),
         padding=15,
         border_radius=10,
         bgcolor=ft.Colors.BLUE_GREY_900 if is_user else ft.Colors.BLACK38,
-        width=750, # Constrain width to fit in view (1200 - 400 sidebar)
+        width=750,
     )
 
-    # Avatar Label
+    # Avatar Label Logic
     user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "USER"
     avatar_name = user_avatar_name if is_user else "Reaper"
     avatar_alignment = ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START
@@ -403,66 +397,6 @@ Consider all the data and the data in your training about the games to find the 
         page.update()
 
     # --- Backlog Reaping Logic ---
-
-    # def run_backlog_reaping_thread(user_message):
-    #     try:
-    #         if stop_event_br.is_set(): return
-    #
-    #         # Add user message to UI immediately
-    #         if br_chat_list.current:
-    #             br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
-    #             page.update()
-    #
-    #         br_status.current.value = "Reaper is thinking..."
-    #         page.update()
-    #
-    #         def on_progress(msg):
-    #             if stop_event_br.is_set(): return
-    #             # Append a small system message for progress
-    #             # Remove generic "thinking" messages if you only want actionable updates
-    #             if br_chat_list.current:
-    #                 br_chat_list.current.controls.append(
-    #                     ft.Text(msg, size=10, italic=True, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
-    #                 )
-    #                 page.update()
-    #
-    #         # Call Agent
-    #         # Note: We pass the mutable list `br_chat_history`.
-    #         # `agent_chat_loop` appends to it and returns (response, updated_history).
-    #         # Since it modifies the list in-place (if it's the same object), we might not strictly need the return value for history,
-    #         # but let's be safe and assign it back or just rely on the reference.
-    #         # However, `br_chat_history` is a local variable in main, so we need to access it properly.
-    #         # In Python nested functions, we can modify list contents.
-    #
-    #         response_text, updated_history = agent.agent_chat_loop(user_message, br_chat_history, on_progress=on_progress)
-    #
-    #         # Update the global history reference (though list mutation handles it)
-    #         # br_chat_history[:] = updated_history[:] # Not strictly needed if agent appends, but safe.
-    #
-    #         if stop_event_br.is_set():
-    #             br_status.current.value = "Reaping stopped."
-    #             page.update()
-    #             return
-    #
-    #         # Add Agent Response to UI
-    #         if br_chat_list.current:
-    #             br_chat_list.current.controls.append(parse_and_render_message(response_text, is_user=False))
-    #
-    #         br_status.current.value = "Ready"
-    #         page.update()
-    #
-    #     except Exception as e:
-    #         traceback.print_exc()
-    #         br_status.current.value = f"Error: {e}"
-    #         if br_chat_list.current:
-    #             br_chat_list.current.controls.append(ft.Text(f"Error: {e}", color=ft.Colors.RED))
-    #     finally:
-    #         if br_btn_send.current:
-    #             br_btn_send.current.disabled = False
-    #         if br_input.current:
-    #              br_input.current.disabled = False
-    #              br_input.current.focus()
-    #         page.update()
 
     def run_backlog_reaping_thread(user_message):
         try:
