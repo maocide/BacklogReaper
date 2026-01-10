@@ -63,10 +63,12 @@ def parse_and_render_message(text, is_user):
     Handles mixed content: Text -> JSON -> Text -> JSON -> Text.
     """
     controls = []
+    is_user_message = False
 
     # If it's a user message or no JSON, just render markdown
     if "```json" not in text or is_user:
         controls.append(ft.Markdown(text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+        is_user_message = True
     else:
         # Split by the start tag.
         # This gives us a list where:
@@ -108,35 +110,69 @@ def parse_and_render_message(text, is_user):
                 # Malformed markdown (no closing ```), just treat as raw text
                 controls.append(ft.Markdown(f"```json{segment}", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
 
-    # Message Bubble Logic
-    bubble = ft.Container(
-        content=ft.Column(controls, tight=True, spacing=5),
-        padding=15,
-        border_radius=10,
-        bgcolor=ft.Colors.BLUE_GREY_900 if is_user else ft.Colors.BLACK38,
-        width=750,
+
+    # Message Bubble Content
+    bubble_content = ft.Column(controls, tight=True, spacing=5)
+
+    # --- LAYOUT LOGIC ---
+
+    # Logic:
+    # If User:  [Spacer (1)] [Message (11)]
+    # If Reaper: [Message (11)] [Spacer (1)]
+
+    # We define the content column width
+    content_col_width = 11
+    spacer_col_width = 1
+
+    # 1. The Spacer Container (Invisible)
+    spacer = ft.Container(
+        content=None,
+        col=spacer_col_width,
+        padding=0,  # Important: No padding on empty space
     )
 
-    # Avatar Label Logic
-    user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "USER"
+    # 2. The Message Container (Visible)
+    message_container = ft.Container(
+        content=bubble_content,
+        bgcolor=ft.Colors.BLUE_GREY_900 if is_user else ft.Colors.BLACK38,
+        col=content_col_width,
+        border_radius=10,
+        padding=15,
+    )
+
+    # 3. Assemble the Row based on who is speaking
+    if is_user:
+        row_controls = [message_container, spacer]
+    else:
+        row_controls = [spacer, message_container]
+
+    bubble_row = ft.ResponsiveRow(
+        controls=row_controls,
+        vertical_alignment=ft.CrossAxisAlignment.START
+    )
+
+    # Wrap in SelectionArea
+    bubble_selectable = ft.SelectionArea(content=bubble_row)
+
+    # Avatar Logic
+    user_avatar_name = config.STEAM_USER if config.STEAM_USER else "USER"
     avatar_name = user_avatar_name if is_user else "Reaper"
-    avatar_alignment = ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START
+    # Align the text label to match the message bubble's position
+    avatar_alignment = ft.MainAxisAlignment.START if is_user else ft.MainAxisAlignment.END
 
     return ft.Container(
         content=ft.Column(
             controls=[
                 ft.Row(
-                    [ft.Text(avatar_name, size=12, color=ft.Colors.GREY, weight="bold")],
+                    [ft.Text(avatar_name, size=12, color=ft.Colors.GREY, weight=FontWeight.BOLD)],
                     alignment=avatar_alignment
                 ),
-                ft.Row(
-                    [bubble],
-                    alignment=avatar_alignment
-                )
+                bubble_selectable,
             ],
             spacing=2,
         ),
-        margin=ft.margin.only(bottom=15)
+        margin=ft.margin.only(bottom=15),
+        padding=ft.padding.symmetric(horizontal=10)  # Add slight global padding
     )
 
 def main(page: ft.Page):
@@ -401,6 +437,10 @@ Consider all the data and the data in your training about the games to find the 
     def run_backlog_reaping_thread(user_message):
         try:
             if stop_event_br.is_set(): return
+
+            # Update db if not done for 20 mins
+            if vault.get_games_count() and vault.get_elapsed_since_update() > 1200:
+                vault.update(config.STEAM_USER)
 
             # Add User Message to UI
             if br_chat_list.current:
@@ -772,9 +812,9 @@ Consider all the data and the data in your training about the games to find the 
                             ft.DataColumn(ft.Text("Name"), visible=True),
                             ft.DataColumn(ft.Text("Playtime (m)"), visible=True, numeric=True),
                             ft.DataColumn(ft.Text("Genre"), visible=True),
-                            ft.DataColumn(ft.Text("Main Story (h)"), visible=True, numeric=True),  # NEW
-                            ft.DataColumn(ft.Text("Completionist (h)"), visible=True, numeric=True),  # NEW
-                            ft.DataColumn(ft.Text("Status"), visible=True),  # NEW (Derived)
+                            ft.DataColumn(ft.Text("Main Story (h)"), visible=True, numeric=True),
+                            ft.DataColumn(ft.Text("Completionist (h)"), visible=True, numeric=True),
+                            ft.DataColumn(ft.Text("Status"), visible=True),
                         ],
                         rows=[],
                         vertical_lines=ft.BorderSide(1, ft.Colors.GREY_400),

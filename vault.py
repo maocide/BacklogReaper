@@ -16,6 +16,8 @@ import time
 from datetime import datetime
 
 
+last_refreshed = 0
+
 def calculate_status(game):
     """
     Classifies the game state using Playtime, HLTB, Recency, and Tags.
@@ -246,9 +248,11 @@ def update(username):
                       (appid, name, playtime, last_played, "", tags_str, main_story, completionist, is_multiplayer, time.time(), review_score))
             conn.commit()
 
-
+    last_refreshed = time.time()
     print("Vault update complete.")
 
+def get_elapsed_since_update():
+    return time.time() - last_refreshed
 
 def get_games_count():
     try:
@@ -400,6 +404,8 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         results.sort(key=lambda x: x['name'])
     elif sort_by == 'recent':
         results.sort(key=lambda x: x['rtime_last_played'], reverse=True)
+    elif sort_by == 'review_score':
+        results.sort(key=lambda x: x['review_score'], reverse=True)
     elif sort_by == 'random':
         if seed is not None:
              random.Random(seed).shuffle(results)
