@@ -21,40 +21,137 @@ def launch_game(appid):
     except Exception as e:
         print(f"Error launching game: {e}")
 
+
 def create_game_card(game_data):
     """Creates a stylized card for a single game."""
-    status = game_data.get("status", "Unknown")
-    status_color = ft.Colors.GREEN if status == "Finished" else ft.Colors.RED if status == "ADDICTED" else ft.Colors.BLUE
 
-    # Try to find an appid if available, though simple search might not return it directly in all cases
-    # The agent might need to pass it. For now, let's assume 'appid' is in the data or we can't launch.
-    # We'll use a safe get.
-    appid = game_data.get("appid") # Ensure agent passes this!
+    # Extract appid specifically (safely)
+    appid = game_data.get("appid")
 
-    return ft.Card(
-        content=ft.Container(
-            width=220,
-            padding=5,
-            content=ft.Column([
-                ft.Text(game_data.get("name", "Unknown"), weight=FontWeight.BOLD, size=16, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS, tooltip=game_data.get("name", "Unknown")),
-                ft.Row([
-                    ft.Icon(ft.Icons.CIRCLE, size=10, color=status_color),
-                    ft.Text(status, size=12, color=status_color),
-                ]),
-                ft.Text(f"{game_data.get('hours_played', 0)}h played", size=12),
-                ft.Text(f"Story: {game_data.get('hltb_story', "?")}h", size=12, color=ft.Colors.GREY),
-                ft.Text(game_data.get('comment', ""), italic=True, size=12, color=ft.Colors.BLUE_GREY),
-                ft.Container(height=5), # Spacer
-                ft.ElevatedButton(
-                    "Launch",
-                    icon=ft.Icons.PLAY_ARROW,
-                    height=30,
-                    style=ft.ButtonStyle(padding=5),
-                    on_click=lambda e: launch_game(appid) if appid else print("No AppID found")
-                )
-            ])
+    controls_list = []
+
+    # Mappings for nicer labels
+    labels = {
+        "hltb_story": "Story",
+        "hours_played": "Playtime"
+    }
+
+    # Items to skip in the generic loop
+    ignore = ["appid", "name"]
+
+    # HANDLE NAME FIRST (Ensures it is always at the top)
+    name_value = game_data.get("name", "Unknown Game")
+    controls_list.append(
+        ft.Row(
+            controls=[
+                ft.Text(
+                    name_value,
+                    weight=ft.FontWeight.BOLD,
+                    size=16,
+                    no_wrap=True,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                    tooltip=name_value,
+                    expand=True  # Allows text to take available space before cutting off
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.START
         )
     )
+    # Add the divider as a separate item in the COLUMN, not the Row
+    controls_list.append(ft.Divider(height=1, thickness=1))
+
+    # LOOP THROUGH THE REST
+    for title, content in game_data.items():
+        # Check if title is in the ignore list
+        if title in ignore:
+            continue
+
+        elif title == "comment":
+            row = ft.Row(
+                controls=[
+                    ft.Text(str(content), italic=True, size=12, color=ft.Colors.BLUE_GREY),
+                ],
+                wrap=True  # Allow comments to wrap to next line if long
+            )
+            controls_list.append(row)
+
+        else:  # Dynamic fields
+            default_title = labels.get(title.lower())
+            if default_title:
+                formatted_label = default_title
+            else:
+                formatted_label = title.replace("_", " ").title()
+
+            row = ft.Row(
+                controls=[
+                    ft.Text(f"{formatted_label}:", color=ft.Colors.WHITE38, weight=ft.FontWeight.BOLD),
+                    ft.Text(str(content), color=ft.Colors.GREY, expand=True),  # expand prevents overflow push
+                ],
+                alignment=ft.MainAxisAlignment.START,
+                vertical_alignment=ft.CrossAxisAlignment.START  # Aligns text to top if content wraps
+            )
+            controls_list.append(row)
+
+    # HANDLE BUTTON LAST
+    if appid:
+        # Add a vertical spacer (Container) before the button
+        controls_list.append(ft.Container(height=10))
+
+        controls_list.append(
+            ft.Row(
+                controls=[
+                    ft.ElevatedButton(
+                        "Launch",
+                        icon=ft.Icons.PLAY_ARROW,
+                        height=30,
+                        style=ft.ButtonStyle(padding=5),
+                        # Capture appid safely in lambda
+                        on_click=lambda e, a=appid: launch_game(a)
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.END  # Aligns button to the right (optional, looks nice)
+            )
+        )
+
+    # BUILD CARD
+    game_card = ft.Card(
+        content=ft.Container(
+            width=220,
+            padding=10,  # Increased padding slightly for look
+            content=ft.Column(
+                controls=controls_list,
+                spacing=5,
+                scroll=ft.ScrollMode.HIDDEN  # Adaptive/Hidden hides the bar but allows scroll
+            )
+        )
+    )
+    return game_card
+
+
+    # return ft.Card(
+    #     content=ft.Container(
+    #         width=220,
+    #         padding=5,
+    #         content=ft.Column([
+    #             ft.Text(game_data.get("name", "Unknown"), weight=FontWeight.BOLD, size=16, no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS, tooltip=game_data.get("name", "Unknown")),
+    #             ft.Row([
+    #                 ft.Icon(ft.Icons.CIRCLE, size=10, color=status_color),
+    #                 ft.Text(status, size=12, color=status_color),
+    #             ]),
+    #             ft.Text(f"{game_data.get('hours_played', 0)}h played", size=12),
+    #             ft.Text(f"Story: {game_data.get('hltb_story', "?")}h", size=12, color=ft.Colors.GREY),
+    #             ft.Text(game_data.get('comment', ""), italic=True, size=12, color=ft.Colors.BLUE_GREY),
+    #             ft.Container(height=5), # Spacer
+    #             ft.ElevatedButton(
+    #                 "Launch",
+    #                 icon=ft.Icons.PLAY_ARROW,
+    #                 height=30,
+    #                 style=ft.ButtonStyle(padding=5),
+    #                 on_click=lambda e: launch_game(appid) if appid else print("No AppID found")
+    #             )
+    #         ])
+    #     )
+    # )
 
 
 def parse_and_render_message(text, is_user):
@@ -487,12 +584,11 @@ Consider all the data and the data in your training about the games to find the 
 
                 elif event_type == "action":
                     # Append a small system message for progress
-                    # Remove generic "thinking" messages if you only want actionable updates
                     if br_chat_list.current:
                         position = len(br_chat_list.current.controls) -1
                         br_chat_list.current.controls.insert(
                             position,
-                            ft.Text(content, size=10, italic=True, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
+                            ft.Text(content, size=16, italic=True, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
                         )
                         page.update()
 

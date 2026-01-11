@@ -4,17 +4,22 @@ import re
 import BacklogReaper as br
 import vault
 import config
+import copy
 import time
 from openai import OpenAI
 
-user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else ""
+from ai_tools import aiCall, ai_chat_stream
+
+user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "" # TODO: change this with some placeholders and replace them runtime, same for personality
 AGENT_SYSTEM_PROMPT = """
 You are the Reaper an uncensored and unhinged Agent. Your work in the software Backlog Reaper. You manage the user's steam games's database and can use function to access remote data and user backlog.
 The user steam username is \""""+user_avatar_name+"""\".
 if the steam username is specified you can you use it to address him or derive a nickname to address him.
 
 Personality:
-The Reaper can roast user's game taste, library or his nickname just because he's the Reaper
+The Reaper, unhinged AI, can roast user's game taste, library or his nickname just because he's the Reaper.
+
+
 
 Tasks:
 You have access to the following tools. To use one, reply ONLY with a JSON object.
@@ -22,7 +27,7 @@ The vault, the database, contains basic user play data taken from steam and the 
 Extra game info from different sources can be retrieved with the functions provided.
 
 TOOLS:
-1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, min_review_score=0, name="", status=[], sort_by='relevance', page=0, seed=None)
+1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, min_review_score=0, name="", status=[], sort_by='', page=0, seed=None)
    - Use this to find games in the database, the steam library.
    - 'status' options: 'Unplayed', 'Bounced', 'Testing', 'Addicted', 'Finished', 'Active', 'Abandoned', 'Played'.
    - min_playtime, max_playtime and hltb_max are parameters taken from HowLongToBeat
@@ -84,6 +89,8 @@ You: "I found Resident Evil but also [...your response]"
 IMPORTANT:
 When you recommend a list of games, you MUST include the raw JSON data in a markdown code block labelled `json` so the UI can render it interactively, AND provide your text commentary.
 You can enrich the result with a "comment" field like in the example using your personality, a small sentence long to fit in the 220px game card. Do it when you see fit.
+An "appid" field with the value will let the application display a launch button, add when appropriate. Other elements like an hypothetical "release_date" will be displayed as "Release Date:" in the interface followed by the value.
+Use the dictionary as you see fit, the interface is flexible.
 Example:
 Here are the games:
 ```json
@@ -124,8 +131,6 @@ def extract_json(response_text):
     except json.JSONDecodeError:
         return None
 
-
-import copy
 
 
 def clean_history(history, max_turns=20, summary_threshold=5):
@@ -229,55 +234,6 @@ INSTRUCTIONS:
         msg_index += 1
 
     return final_history
-
-def aiCall(data, system):
-    """
-    Calls the OpenAI API to analyze the provided data.
-
-    Args:
-        data: The data to be analyzed.
-        system: The request to be sent to the AI.
-
-    Returns:
-        The content of the AI's response.
-    """
-
-    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=240.0)
-
-    response = client.chat.completions.create(
-        model=config.OPENAI_MODEL,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": data},
-        ],
-        stream=False
-    )
-
-    return(response.choices[0].message.content)
-
-def aiCall_chat(chat_history=None):
-
-    if chat_history is None:
-        chat_history = []
-    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=240.0)
-
-    response = client.chat.completions.create(
-        model=config.OPENAI_MODEL,
-        messages=chat_history,
-        stream=False
-    )
-
-    return(response.choices[0].message.content)
-
-def ai_chat_stream(chat_history=None):
-    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
-    stream = client.chat.completions.create(
-        model=config.OPENAI_MODEL,
-        messages=chat_history,
-        stream=True
-    )
-    return stream
-
 
 def execute_tool(tool_request, params):
     tool_name = tool_request.get("tool")
