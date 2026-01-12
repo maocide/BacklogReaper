@@ -48,3 +48,7 @@ def ai_chat_stream(chat_history=None):
         stream=True
     )
     return stream
+
+def get_ai_client():
+    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=240.0)
+    return(client)

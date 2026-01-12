@@ -248,7 +248,9 @@ def update(username):
                       (appid, name, playtime, last_played, "", tags_str, main_story, completionist, is_multiplayer, time.time(), review_score))
             conn.commit()
 
+    global last_refreshed
     last_refreshed = time.time()
+
     print("Vault update complete.")
 
 def get_elapsed_since_update():

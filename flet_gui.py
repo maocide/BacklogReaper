@@ -361,7 +361,7 @@ def main(page: ft.Page):
             ra_status.current.value = f"Fetching reviews for {game_name}..."
             page.update()
 
-            reviews = br.get_reviews_byname(game_name, review_count)
+            reviews = br.get_reviews_byname_formatted(game_name, review_count)
             #print(reviews) # Debug
 
             if stop_event_ra.is_set():
@@ -561,7 +561,7 @@ Consider all the data and the data in your training about the games to find the 
                 padding=15,
                 border_radius=10,
                 bgcolor=ft.Colors.BLACK38,
-                margin=ft.margin.only(right=50, bottom=10)
+                margin=ft.margin.only(left=60, bottom=10)
             )
 
             if br_chat_list.current:
@@ -588,7 +588,7 @@ Consider all the data and the data in your training about the games to find the 
                         position = len(br_chat_list.current.controls) -1
                         br_chat_list.current.controls.insert(
                             position,
-                            ft.Text(content, size=16, italic=True, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
+                            ft.Text(content, size=14, italic=True, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
                         )
                         page.update()
 

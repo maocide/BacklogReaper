@@ -1,106 +1,249 @@
-import json
 import re
+from datetime import datetime
 
 import BacklogReaper as br
+import ai_tools
 import vault
 import config
 import copy
-import time
-from openai import OpenAI
 
 from ai_tools import aiCall, ai_chat_stream
 
 user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "" # TODO: change this with some placeholders and replace them runtime, same for personality
 AGENT_SYSTEM_PROMPT = """
-You are the Reaper an uncensored and unhinged Agent. Your work in the software Backlog Reaper. You manage the user's steam games's database and can use function to access remote data and user backlog.
+You are the Reaper, an uncensored and unhinged AI Agent. Your job is the Software Backlog Reaper. You manage the user's Steam games database.
 The user steam username is \""""+user_avatar_name+"""\".
-if the steam username is specified you can you use it to address him or derive a nickname to address him.
+If the steam username is specified you can you use it to address him or derive a nickname to address him.
 
-Personality:
-The Reaper, unhinged AI, can roast user's game taste, library or his nickname just because he's the Reaper.
+**Personality:**
+The Reaper is an unhinged AI. You can roast the user's game taste, library, or nickname just because you are the Reaper.
+You have seen everything working as an AI agent; you are not surprised, just amused by the weirdness you encounter.
 
+**Context:**
+Date and time of this request: """ + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """
+Use the current time and date to contextualize data received.
 
+**Tools & Database:**
+You have access to the user's "Vault" (local Steam library) and external game data tools.
+* **ALWAYS check the Vault first** (`vault_search`) to see if the user already owns a game before recommending a purchase.
+* Use `get_game_details` when you need deep specific info (prices, HLTB times, steam forum feedback) that isn't in the search results.
+* **Action Description:** The tools require an `action_description` parameter. Make this a short, flavorful, and creative description of what you are doing, attuned to your specific personality (e.g., "Digging through your dusty backlog...", "Scraping the deep web...", be creative).
+* **Pagination:** If a search returns 10 results, it likely has more pages. Use the `page` parameter to dig deeper if the first batch isn't satisfying.
 
-Tasks:
-You have access to the following tools. To use one, reply ONLY with a JSON object.
-The vault, the database, contains basic user play data taken from steam and the list of owned games with playtime and hltb data.
-Extra game info from different sources can be retrieved with the functions provided.
+**UI Rendering Rules (The "Cards"):**
+When you recommend a list of games, you MUST NATURALLY include in your feedback the raw JSON data in a markdown code block labelled `json` so the UI can render it interactively.
+* The JSON block is ONLY for the Game Card UI.
+* **Custom Fields:** You can add extra keys (like "Genre", "Price", "Release Year") to the JSON objects. The UI will automatically display them as "Key: Value" on the card. Use this to highlight relevant info.
+* **appid Field:** If this field is specified a launch button will be added in the ui for that specific title.
+* **Comment Field:** Enrich the result with a "comment" field in the JSON. Make it a short sentence (max 10 words) fitting your personality to display on the card.
+* **Detailed Analysis:** Any long analysis, reviews, or forum summaries must be written as **NORMAL TEXT** outside the JSON block.
 
-TOOLS:
-1. vault_search(tags=[], exclude_tags=[], min_playtime=0, max_playtime=0, hltb_max=0, min_review_score=0, name="", status=[], sort_by='', page=0, seed=None)
-   - Use this to find games in the database, the steam library.
-   - 'status' options: 'Unplayed', 'Bounced', 'Testing', 'Addicted', 'Finished', 'Active', 'Abandoned', 'Played'.
-   - min_playtime, max_playtime and hltb_max are parameters taken from HowLongToBeat
-   - min_review_score is an integer from 0-100 representing the Steam positive review percentage.
-   - name is a string to filter by game title (fuzzy match).
-   - sort_by options: 'random', 'shortest' (default), 'longest', 'recent' (last played), 'name', 'review_score'.
-   - page: integer (default 0). Use for pagination. The page is 10 results default, when 10 results are received you might ask for the following page.
-   - seed: integer. REQUIRED if sort_by='random' to maintain order across pages. Generate a random integer and reuse it for subsequent pages.
-   
-2. get_user_tags()
-   - Use this to get all possible user tags in his library to use in vault_search, use this to know what tags to use before using vault_search
+**Example of Final Output:**
+> (Your normal text response roasting the user or explaining the choice...)
+>
+> ```json
+> [
+>   {
+>     "name": "Doom", 
+>     "status": "Untouched", 
+>     "appid": 379720,
+>     "release_year": "2016",          <-- Custom Field Example
+>     "genre": "FPS",                  <-- Custom Field Example
+>     "comment": "Ahem, Slayer wannabe."
+>   },
+>   {
+>     "name": "Hades", 
+>     "status": "Played", 
+>     "appid": 1145360,
+>     "price": "$24.99",               <-- Custom Field Example
+>     "comment": "No escape for you."
+>   }
+> ]
+> ```
+> (Any closing remarks...)
 
-3. find_similar_games(game_name)
-   - Use this to compare a game to what the user already owns and is in the vault.
-   - It compares the target game's tags against the user's library using Jaccard Index.
-   - Returns a list of the most similar games the user ALREADY owns with playtime.
-
-4. get_game_details(game_name)
-   - Use this to get the description, tags, price and discount, best deal, how long to beat data, review scores, and deep details of a SPECIFIC game aggregated from different API.
-   - Use when user is mentioning a game to get more details about it, particularly if you don't have much info about it.
-   
-5. search_steam_store(search_term)
-   - Use this to search a string and get an output from the steam search.
-   - Use when in need of base information about an unknown game that might be found from the steam store.
-   - Returns a list of games with name, price, review score, link.
-
-6. get_reviews(game_name)
-   - Use this to get users' steam reviews for a specific game, when comparing games in detail. Use to dive into one specific game quality to see steam reviews of the specific title; not for a batch of games.
-   - Use it when discussing the quality of a game, when comparing games in detail or when some discussion could be improved by the users' review and opinion.
-   - It will return user posted reviews on steam both positive and negative for analysis.
-   
-EXAMPLE TOOL RESPONSE:
-{
-    "tool": "vault_search",
-    "params": {
-        "tags": ["Horror"],
-        "status": ["Backlog"],
-        "hltb_max": 5
-    }
-}
-   
-RULES:
-1. When calling a tool, call only 1 per request and only output the tool call JSON and nothing else. Your response needs to be separated from tool calls.
-2. When calling a tool, you MUST include an "action_description" field with a short, flavorful description of what you are doing, be creative and attuned to your personality (e.g., "Digging through your dusty backlog...", "Consulting the ancient scrolls...", "Scraping the deep web...").
-3. DO NOT LOOP. When you have enough detailed results STOP searching and present them to the user.
-4. If a search returns 0 results, try ONE broader search. If that fails, tell the user you found nothing.
-5. Do not call the same tool with the same parameters more than once.
-6. When you have the information, reply with text (not JSON) to end the turn.
-7. Handle tool pagination gracefully, user might not know about this optimization.
-
-EXAMPLE FLOW:
-User: "Find me a horror game in my backlog/library."
-You: {"tool": "vault_search", "params": {"tags": ["Horror"]}, "action_description": "Digging into your horror collection...", page=0 }
-System: TOOL_OUTPUT: [{"name": "Resident Evil", ...}]
-You: {"tool": "vault_search", "params": {"tags": ["Horror"]}, "action_description": "Interesting let me see more...", page=1 }
-System: TOOL_OUTPUT: [{"name": "Silent Hill", ...}]
-You: "I found Resident Evil but also [...your response]"
-
-IMPORTANT:
-When you recommend a list of games, you MUST include the raw JSON data in a markdown code block labelled `json` so the UI can render it interactively, AND provide your text commentary.
-You can enrich the result with a "comment" field like in the example using your personality, a small sentence long to fit in the 220px game card. Do it when you see fit.
-An "appid" field with the value will let the application display a launch button, add when appropriate. Other elements like an hypothetical "release_date" will be displayed as "Release Date:" in the interface followed by the value.
-Use the dictionary as you see fit, the interface is flexible.
-Example:
-Here are the games:
-```json
-[{"name": "Doom", "status": "Untouched", ..., "comment": "Ahem, Slayer wannabe."}]
-```
-Now go play them!
----
-
-MANDATORY: *1 tool per request, no responses or text when calling a tool just the JSON request.*
+**Critical Instructions:**
+1.  Do not guess information. Use the tools to find real data.
+2.  Do not output the Card UI JSON if you found 0 results.
+3.  Be concise in your "Thought" process, but detailed in your final analysis.
 """
+tools_schema = [
+    {
+        "type": "function",
+        "function": {
+            "name": "vault_search",
+            "description": "Query the user's local database (Steam library) to find owned games based on specific criteria like tags, playtime, or review scores. Use this to verify ownership or find backlog games.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of genres or tags to include (e.g. ['Horror', 'FPS'])."
+                    },
+                    "exclude_tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of genres or tags to exclude."
+                    },
+                    "status": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["Unplayed", "Bounced", "Testing", "Addicted", "Finished", "Active", "Abandoned", "Played"]
+                        },
+                        "description": "Filter by game completion status."
+                    },
+                    "min_playtime": {
+                        "type": "integer",
+                        "description": "Minimum hours played."
+                    },
+                    "max_playtime": {
+                        "type": "integer",
+                        "description": "Maximum hours played."
+                    },
+                    "hltb_max": {
+                        "type": "integer",
+                        "description": "Maximum 'How Long To Beat' hours."
+                    },
+                    "min_review_score": {
+                        "type": "integer",
+                        "description": "Minimum Steam positive review percentage (0-100)."
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Filter by game title (fuzzy match)."
+                    },
+                    "sort_by": {
+                        "type": "string",
+                        "enum": ["random", "shortest", "longest", "recent", "name", "review_score"],
+                        "description": "Sorting criteria. Default is 'shortest'."
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "Pagination index (default 0). Returns 10 results per page."
+                    },
+                    "seed": {
+                        "type": "integer",
+                        "description": "Random seed integer. REQUIRED if sort_by='random' to maintain order across pages."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_user_tags",
+            "description": "Retrieve a list of all unique tags/genres existing in the user's library. Call this before vault_search if you need to know what tags are valid.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "find_similar_games",
+            "description": "Find games in the user's EXISTING library that are similar to a target game title. Uses Jaccard Index on tags.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {
+                        "type": "string",
+                        "description": "The name of the game to compare against."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["game_name", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_game_details",
+            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores). Use when the user asks about a specific game.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {
+                        "type": "string",
+                        "description": "The exact name of the game."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["game_name", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_steam_store",
+            "description": "Search the external Steam store for games not in the user's library. Returns name, price, and review score.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search_term": {
+                        "type": "string",
+                        "description": "The keyword or game title to search for."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["search_term", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_reviews",
+            "description": "Fetch actual user-written reviews from Steam (positive and negative) to analyze game quality or specific player opinions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {
+                        "type": "string",
+                        "description": "The name of the game to retrieve reviews for."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["game_name", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    }
+]
 
 
 def extract_json(response_text):
@@ -132,32 +275,56 @@ def extract_json(response_text):
         return None
 
 
-
-def clean_history(history, max_turns=20, summary_threshold=5):
-    """
-    Manages context window by:
-    1. Summarizing 'Middle' messages when they exceed 'summary_threshold'.
-    2. Keeping the last 'max_turns' messages raw (Recent Memory).
-    3. Truncating massive JSON in the Recent Memory.
-    """
+def clean_history(history, max_turns=25, summary_threshold=10):
     if len(history) <= 2: return history
 
-    # Work on a copy to avoid mutating the live list unexpectedly
     working_history = copy.deepcopy(history)
-
     system_prompt = working_history[0]
+    conversation = working_history[1:]  # Everything else
 
-    # We want to keep the last N turns raw.
-    recent_context = working_history[-max_turns:]
+    if len(conversation) < max_turns:
+        return history
 
-    # Everything else (between System Prompt and Recent) is candidate for summarization
-    # Slice: from index 1 (after system) up to the start of recent_context
-    old_context = working_history[1: -max_turns]
+    # 1. Initial rough slice
+    recent_context = conversation[-max_turns:]
+    old_context = conversation[:-max_turns]
 
     final_history = [system_prompt]
 
-    # Only summarize if we have enough 'old' junk to make it worth the API call
+    # 2. HEALING THE CUT
+    # We must ensure 'recent_context' doesn't start with an orphaned Tool Output
+    # and doesn't split a tool call from its result.
+
+    while old_context:
+        first_recent = recent_context[0]
+
+        # Scenario A: The slice starts with a Tool Output (role='tool')
+        # We need to pull the previous message (which might be another tool or the assistant call)
+        if first_recent.get('role') == 'tool':
+            recent_context.insert(0, old_context.pop())
+            continue
+
+        # Scenario B: The slice starts with an Assistant message that HAS tool calls
+        # We must ensure we didn't leave any "Tool Outputs" behind in 'old_context'
+        # that belong to this assistant message (rare, but possible if cutting weirdly).
+        # (Usually, we just need to ensure we didn't split the Assistant from its Tools,
+        # which Scenario A covers).
+
+        # Scenario C: The END of 'old_context' is an Assistant message with tool_calls.
+        # This means the Assistant asked for something, but the result is in 'recent'.
+        # We must pull that Assistant message into 'recent' to keep the pair together.
+        last_old = old_context[-1]
+        if last_old.get('role') == 'assistant' and 'tool_calls' in last_old:
+            recent_context.insert(0, old_context.pop())
+            continue
+
+        # If we get here, the cut is clean (e.g., starts with User or plain Assistant text)
+        break
+
+    # 3. Summarization (Standard)
     if len(old_context) >= summary_threshold:
+        # ... your summary logic ...
+        # (Remember to convert tool calls to text descriptions for the summarizer prompt)
         print("Summarizing history...")
 
         # Check if there was already a summary in the old context to carry it forward
@@ -185,9 +352,8 @@ NEW CONVERSATION TO MERGE IN:
 INSTRUCTIONS:
 - Update the memory with the new events.
 - Focus on: User preferences, Games discussed, Decisions made (e.g. "User rejected X").
-- Ignore huge JSON data details, just note "Search returned 10 results".
-- Output ONLY the new summary text.
-"""
+- Summarize tools answers as text.
+- Output ONLY the new summary text."""
         # Call your AI backend directly (using the non-chat function if possible to save tokens)
         # Assuming aiCall(data, system) signature:
         try:
@@ -203,44 +369,19 @@ INSTRUCTIONS:
             print(f"Summarization failed: {e}")
             # Fallback: Just keep the old summary logic or the raw messages
             final_history.extend(old_context)
-
     else:
-        # Buffer not full yet, just keep the old messages for now
         final_history.extend(old_context)
 
-    # Apply the logic to strip huge JSON from the 'Recent' list (except the very last turn)
-
-    tool_cut_boundary = len(recent_context) / 2
-    msg_index = 0
-
-    for msg in recent_context:
-        # If it's a System Tool Output
-        if msg['role'] == 'system' and "TOOL_OUTPUT" in msg.get('content', ''):
-            # If it's in the older half of the recent memory, truncate it
-            if msg_index < tool_cut_boundary:
-                final_history.append({
-                    "role": "system",
-                    "content": "System: [Old Search Results truncated to save memory, use the tool again if necessary.]"
-                })
-                msg_index += 1
-                continue
-        # Remove notes
-        elif msg['role'] == 'system' and "System Note" in msg.get('content', ''):
-            if msg_index < tool_cut_boundary:
-                msg_index += 1
-                continue
-
-        final_history.append(msg)
-        msg_index += 1
-
+    final_history.extend(recent_context)
     return final_history
 
-def execute_tool(tool_request, params):
+def execute_tool(tool_request):
     tool_name = tool_request.get("tool")
     params = tool_request.get("params", {})
-    action_desc = tool_request.get("action_description", f"Calling tool: {tool_name}...")
+    #action_desc = tool_request.get("action_description", f"Calling tool: {tool_name}...")
+    action_desc = params.get("action_description")
 
-    print(f"Agent Calling: {tool_name} | Params: {params}")
+
 
     # --- EXECUTE TOOL ---
     tool_output_str = ""
@@ -249,9 +390,14 @@ def execute_tool(tool_request, params):
     reviews_limit = 10
     result_limit = 10
 
+    clean_params = params.copy()
+    clean_params.pop("action_description")
+
+    print(f"Agent Calling: {tool_name} | Params: {clean_params}")
+
     try:
         if tool_name == "vault_search":
-            results = vault.advanced_search(**params)
+            results = vault.advanced_search(**clean_params)
             count = len(results)
 
             print(f"Agent Calling: {count} results.")
@@ -291,19 +437,19 @@ def execute_tool(tool_request, params):
 
         elif tool_name == "find_similar_games":
             # This function already returns a nice string report
-            tool_output_str = br.generate_contextual_dna(params.get('game_name'), result_limit)
+            tool_output_str = br.generate_contextual_dna(clean_params.get('game_name'), result_limit)
             system_hint = f"System Note: These are {result_limit} games in the user's library that match the target."
 
         elif tool_name == "search_steam_store":
-            tool_output_str = json.dumps(br.search_steam_store(params.get('search_term'), result_limit))
+            tool_output_str = json.dumps(br.search_steam_store(clean_params.get('search_term'), result_limit))
             system_hint = f"System Note: These are {result_limit} from the steam store search."
 
         elif tool_name == "get_game_details":
-            tool_output_str = json.dumps(br.get_global_game_info(params.get('game_name')))
+            tool_output_str = json.dumps(br.get_global_game_info(clean_params.get('game_name')))
             system_hint = "System Note: Details retrieved."
 
         elif tool_name == "get_reviews":
-            tool_output_str = br.get_reviews_byname(params.get('game_name'), reviews_limit)
+            tool_output_str = json.dumps(br.get_reviews_byname(clean_params.get('game_name'), reviews_limit))
 
 
     except Exception as e:
@@ -311,20 +457,22 @@ def execute_tool(tool_request, params):
 
     return tool_output_str, system_hint, action_desc
 
+
+import json
+
+
+# Ensure you have your openai client imported
+
 def agent_chat_loop_stream(user_input, chat_history):
     """
-    Generator that yields:
-    ("status", "Description") -> When a tool is called
-    ("action", "Agent description of action") -> When a tool is called
-    ("text", "chunk")         -> When the final answer is streaming
+    Generator that handles Native Tool Calling streaming.
     """
+    # 1. Setup History
     system_message = {"role": "system", "content": AGENT_SYSTEM_PROMPT}
-
-    # Initialize History
     if not chat_history:
         chat_history.append(system_message)
 
-    # Clean history (Summarization logic)
+    # Run your cleaning logic (updated version we discussed earlier)
     chat_history[:] = clean_history(chat_history)
 
     chat_history.append({"role": "user", "content": user_input})
@@ -333,96 +481,119 @@ def agent_chat_loop_stream(user_input, chat_history):
     turn = 0
 
     while turn < max_turns:
-        # Start the Stream for this turn
-        stream = ai_chat_stream(chat_history)
+        # Start the Stream
+        # IMPORTANT: You must pass `tools=YOUR_TOOL_DEFINITIONS` here!
+        client = ai_tools.get_ai_client()
+        stream = client.chat.completions.create(
+            model=config.OPENAI_MODEL,
+            messages=chat_history,
+            tools=tools_schema,  # <--- Your list of tool definitions
+            stream=True
+        )
 
-        buffer = ""
+        full_content_buffer = ""
+        tool_calls_buffer = {}  # Dict to handle parallel tool streams {index: {id, name, args}}
         is_tool_call = False
-        is_streaming_text = False
-        tool_ready_to_execute = False
 
-        # Process the Stream
+        yield "status", "🤔 Thinking..."
+
+        # 2. Process the Stream
         for chunk in stream:
-            content = chunk.choices[0].delta.content or ""
-            if not content: continue
+            delta = chunk.choices[0].delta
 
-            # DECISION PHASE: Tool or Text?
-            # We buffer the first few tokens until we know what it is.
-            if not is_tool_call and not is_streaming_text:
-                buffer += content
-                stripped = buffer.lstrip()
+            # --- CASE A: TEXT CONTENT (Normal Reply) ---
+            if delta.content:
+                yield "text", delta.content
+                full_content_buffer += delta.content
 
-                # Check if we have enough characters to decide (e.g. 5 chars)
-                # If it starts with '{' or '`', it's likely a JSON tool
-                if len(stripped) > 0:
-                    if stripped.startswith("{") or stripped.startswith("`"):
-                        is_tool_call = True
-                        yield "status", "🧠 The Reaper is thinking..."
-                    else:
-                        is_streaming_text = True
-                        # Flush the buffer as text, then continue streaming
-                        yield "text", buffer
+            # --- CASE B: TOOL CALLING (Native) ---
+            if delta.tool_calls:
+                is_tool_call = True
 
-                        # EXECUTION PHASE
-            elif is_streaming_text:
-                # It's the final answer, yield immediately
-                yield "text", content
-                buffer += content  # Keep accumulating for history
+                for tool_chunk in delta.tool_calls:
+                    idx = tool_chunk.index
 
-            elif is_tool_call:
-                # It's a tool, just buffer it silently
-                buffer += content
+                    # Initialize this tool index if new
+                    if idx not in tool_calls_buffer:
+                        tool_calls_buffer[idx] = {"id": "", "name": "", "args": ""}
+                        yield "status", "🧠 The Reaper is grabbing a tool..."
 
-                # OPTIMIZATION: Only try to parse if we see a closing brace '}'
-                # This saves CPU from parsing incomplete JSON constantly
-                if "}" in content:
-                    potential_json = extract_json(buffer)
-                    if potential_json:
-                        # WE GOT IT! Stop the stream immediately.
-                        # We ignore anything the AI might have planned to say after this.
-                        print("tool found breaking...")
-                        tool_ready_to_execute = True
-                        break  # <--- BREAK THE FOR LOOP
+                    # Append parts (ID and Name usually come in the first chunk of the tool)
+                    if tool_chunk.id:
+                        tool_calls_buffer[idx]["id"] += tool_chunk.id
 
-        # End of Turn Logic
+                    if tool_chunk.function.name:
+                        tool_calls_buffer[idx]["name"] += tool_chunk.function.name
+                        # Optional: Yield action update
+                        yield "status", f"Preparing {tool_calls_buffer[idx]['name']}..."
+
+                    if tool_chunk.function.arguments:
+                        tool_calls_buffer[idx]["args"] += tool_chunk.function.arguments
+
+        # 3. End of Stream Logic
         if is_tool_call:
-            # We have the full JSON in 'buffer'. Parse it.
-            tool_request = extract_json(buffer)
+            # Construct the Assistant Message properly with Tool Calls
+            # OpenAI requires the 'tool_calls' list in the message object
+            final_tool_calls = []
 
-            if tool_request:
-                tool_name = tool_request.get("tool")
-                params = tool_request.get("params", {})
-                action_desc = tool_request.get("action_description", f"Calling {tool_name}...")
+            for idx in sorted(tool_calls_buffer.keys()):
+                tool_data = tool_calls_buffer[idx]
+                final_tool_calls.append({
+                    "id": tool_data["id"],
+                    "type": "function",
+                    "function": {
+                        "name": tool_data["name"],
+                        "arguments": tool_data["args"]
+                    }
+                })
 
-                # Tell UI what we are doing
-                yield "action", f"{action_desc}"
-                print(f"Agent Calling: {tool_name}")
+            # Append ASSISTANT message to history (The "Request")
+            # Note: Content is null for pure tool calls
+            chat_history.append({
+                "role": "assistant",
+                "content": full_content_buffer if full_content_buffer else None,
+                "tool_calls": final_tool_calls
+            })
 
-                # Execute Tool (Same logic as before)
-                tool_result = execute_tool(tool_request,
-                                           params)  # Refactor your huge if/else block into this helper function!
+            # 4. EXECUTE TOOLS
+            for tool_call in final_tool_calls:
+                call_id = tool_call["id"]
+                func_name = tool_call["function"]["name"]
+                func_args_str = tool_call["function"]["arguments"]
 
-                tool_output_str = tool_result[0]
-                system_hint = tool_result[1]
-                clean_json_str = json.dumps(tool_request)
+                # Notify UI
+                yield "status", f"Executing: {func_name}"
+                print(f"Agent Calling: {func_name} | ID: {call_id}")
 
-                # Update History
-                chat_history.append({"role": "assistant", "content": clean_json_str})
-                chat_history.append({"role": "system", "content": f"TOOL_OUTPUT: {tool_output_str}"})
-                chat_history.append({"role": "system", "content": system_hint})
+                try:
+                    # Parse arguments safely
+                    params = json.loads(func_args_str)
 
-                turn += 1
-            else:
-                # JSON parse failed? Fallback to treating it as text
-                yield "text", buffer
-                chat_history.append({"role": "assistant", "content": buffer})
-                yield "status", "Ready."
-                return  # Stop looping
+                    # --- EXECUTE YOUR TOOL FUNCTION HERE ---
+                    # Assuming execute_tool returns (string_output, system_hint)
+                    # You might need to adjust execute_tool to take raw name/params
+                    tool_result_str, hint, action = execute_tool({"tool": func_name, "params": params})
+                    yield "action", action
+
+                except Exception as e:
+                    tool_result_str = f"Error executing tool: {str(e)}"
+
+                # Append TOOL message to history (The "Result")
+                # This closes the loop with the ID
+                chat_history.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,  # <--- CRITICAL: MUST MATCH REQUEST ID
+                    "name": func_name,
+                    "content": tool_result_str
+                })
+
+            # Loop again to let the Agent read the tool result and reply
+            turn += 1
+            yield "status", "Reading results..."
 
         else:
-            # It was text (Final Answer). We are done.
-            chat_history.append({"role": "assistant", "content": buffer})
-            return  # Exit generator
+            # Just text, we are done
+            chat_history.append({"role": "assistant", "content": full_content_buffer})
+            return
 
-    yield "text", "\n\n(I looped too many times and gave up.)"
-    yield "status", "Error :("
+    yield "text", "\n\n(Max turns reached.)"

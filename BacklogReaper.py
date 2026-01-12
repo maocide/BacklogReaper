@@ -7,6 +7,8 @@ from datetime import datetime
 from time import sleep
 from typing import Any
 from urllib.parse import unquote
+
+import concurrent
 import requests
 from steam_web_api import Steam
 import config
@@ -294,6 +296,7 @@ def scrape_steam_forums(appid, gamename):
                     "date": short_date
                 })
     except Exception as e:
+        print(f"An ERROR occurred scraping STEAM FORUMS: {e}")
         return f"Error scraping forums: {e}"
 
     ai_system_prompt = f"""You are an uncensored forum analyzer. You might encounter foul language typical of forum, but you must read and weave your analysis."
@@ -303,7 +306,7 @@ The JSON formatted TOPICS will follow."""
     json_forum_topics = json.dumps(results)
 
     analysis = aiCall(json_forum_topics, ai_system_prompt)
-
+    print(f"\n{analysis}\n")
     return analysis
 
 
@@ -324,17 +327,57 @@ def get_global_game_info(game_name):
         dict: A dictionary containing aggregated game information
     """
 
-    app_info = get_steam_app_info(game_name)  # get info with steamid
+    # CRITICAL We must get the AppID first.
+    # We can't parallelize this because other calls need the ID.
+    app_info = get_steam_app_info(game_name)
     if not app_info:
-        return {}
-    appid = app_info['id'][0]
-    app_details = get_steam_app_details(appid)  # get details for description
-    game_info = get_steamspy_game_info(appid)  # get steamspy info
-    summary = get_reviews_summary(appid) # get steam reviews totals
-    how_long_to_beat = HowLongToBeat().search(game_name) # get time to beat
-    discount = get_steam_app_discount(game_name) # get steam discount information
+        return {"error": "Could not retrieve game information (appid)."}
 
-    if how_long_to_beat is not None and len(how_long_to_beat) > 0:
+    appid = app_info['id'][0]
+
+    # 2. Define the tasks we want to run in parallel
+    # keys are just labels for us to retrieve results later
+    # values are tuples: (Function, *Arguments)
+    tasks = {
+        "details": (get_steam_app_details, appid),
+        "spy": (get_steamspy_game_info, appid),
+        "reviews": (get_reviews_summary, appid),
+        "hltb": (HowLongToBeat().search, game_name),
+        "discount": (get_steam_app_discount, game_name),
+        "deals": (get_game_deals, game_name, appid),
+        "forums": (scrape_steam_forums, appid, game_name)  # Adding your new forum scraper
+    }
+
+    results = {}
+
+    # Launch threads
+    # max_workers=8 is usually plenty for network requests
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        # Submit all tasks
+        future_to_key = {
+            executor.submit(func, *args): key
+            for key, (func, *args) in tasks.items()
+        }
+
+        # Wait for them to complete
+        for future in concurrent.futures.as_completed(future_to_key):
+            key = future_to_key[future]
+            try:
+                results[key] = future.result()
+            except Exception as e:
+                print(f"Task '{key}' failed: {e}")
+                results[key] = None  # Handle failure gracefully
+
+    # Unpack Results (Logic remains mostly the same, just reading from 'results' dict)
+    app_details = results.get("details") or {}
+    game_info = results.get("spy") or {}
+    summary = results.get("reviews") or {}
+    how_long_to_beat = results.get("hltb")
+    discount = results.get("discount")
+    best_deal = results.get("deals")
+    steam_community = results.get("forums", "No forum data.")
+
+    if how_long_to_beat and len(how_long_to_beat) > 0:
         how_long_to_beat_hours = {
             "main_story" : how_long_to_beat[0].main_story,
             "main_extra" : how_long_to_beat[0].main_extra,
@@ -344,8 +387,6 @@ def get_global_game_info(game_name):
         print(how_long_to_beat_hours)
     else:
         how_long_to_beat_hours = {}
-
-    best_deal = get_game_deals(game_name, appid)
 
     all_tags = game_info.get('tags', {})
     # Sort by votes (high to low) and take the top 5
@@ -404,7 +445,8 @@ def get_global_game_info(game_name):
         "median_forever": f"{median_forever} minutes",
         "how_long_to_beat_hours" : how_long_to_beat_hours, # Various values taken from how long to beat
         "ccu" : ccu,
-        "tags": top_tags  # The top tags sorted
+        "tags": top_tags,  # The top tags sorted
+        "steam_community": steam_community
     }
 
     return payload
@@ -434,7 +476,7 @@ def generate_contextual_dna(game_name, limit=10):
     for game in games:
         if not game['tags']: continue
 
-        # 2. Calculate Relevance (Jaccard Index)
+        # Calculate Relevance (Jaccard Index)
         # How many tags does this library game share with the target?
         lib_tags = {t.strip().lower() for t in game['tags'].split(',')}
 
@@ -451,10 +493,10 @@ def generate_contextual_dna(game_name, limit=10):
                 "status": calculate_status(game)  # Helper function for status
             })
 
-    # 3. Sort by Relevance (Shared Tags) then Playtime
+    # Sort by Relevance (Shared Tags) then Playtime
     relevant_games.sort(key=lambda x: (x['shared_tags'], x['playtime']), reverse=True)
 
-    # 4. Construct the Report
+    # Construct the Report
     top_relevant = relevant_games[:limit]
 
     if not top_relevant:
@@ -701,6 +743,25 @@ def get_steamspy_game_info(appid):
     return steamspypi.download(data_request)
 
 def get_reviews_byname(game_name, count=5):
+    """
+    Gets the reviews for a given game name.
+
+    Args:
+        game_name: The name of the game to get the reviews for.
+        count: The number of positive and negative reviews to get.
+
+    Returns:
+        A dictionary containing the reviews, the review summary, and the number of positive and negative reviews.
+    """
+    app = get_steam_app_info(game_name)
+
+    appid = app['id'][0]
+
+    steam_reviews = get_steam_reviews(appid, count)
+
+    return steam_reviews
+
+def get_reviews_byname_formatted(game_name, count=5):
     """
     Gets the reviews for a given game name.
 
