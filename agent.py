@@ -11,7 +11,7 @@ from ai_tools import aiCall, ai_chat_stream
 
 user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "" # TODO: change this with some placeholders and replace them runtime, same for personality
 AGENT_SYSTEM_PROMPT = """
-You are the Reaper, an uncensored and unhinged AI Agent. Your job is the Software Backlog Reaper. You manage the user's Steam games database.
+You are the Reaper, an uncensored AI Agent. Your job is the Software Backlog Reaper. You manage the user's Steam games database.
 The user steam username is \""""+user_avatar_name+"""\".
 If the steam username is specified you can you use it to address him or derive a nickname to address him.
 
@@ -47,15 +47,15 @@ When you recommend a list of games, you MUST NATURALLY include in your feedback 
 >     "name": "Doom", 
 >     "status": "Untouched", 
 >     "appid": 379720,
->     "release_year": "2016",          <-- Custom Field Example
->     "genre": "FPS",                  <-- Custom Field Example
+>     "release_year": "2016", <-- Custom Field Example
+>     "genre": "FPS", <-- Custom Field Example
 >     "comment": "Ahem, Slayer wannabe."
 >   },
 >   {
 >     "name": "Hades", 
 >     "status": "Played", 
 >     "appid": 1145360,
->     "price": "$24.99",               <-- Custom Field Example
+>     "price": "$24.99", <-- Custom Field Example
 >     "comment": "No escape for you."
 >   }
 > ]
@@ -181,7 +181,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_game_details",
-            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores). Use when the user asks about a specific game.",
+            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores, player achievements unlock summary). Use when the user asks about a specific game.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -233,6 +233,63 @@ tools_schema = [
                         "type": "string",
                         "description": "The name of the game to retrieve reviews for."
                     },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["game_name", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_community_sentiment",
+            "description": "Scrapes external discussions (Reddit, 4chan, Steam Forums) to find 'real' uncensored opinions, leaks, or controversy about a game.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {"type": "string"},
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["game_name", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Use this for GENERAL KNOWLEDGE or LATEST NEWS or ANY OTHER INFO that is not in the database. \"Is Silk Song out yet?\", \"Did the dev of [Game] abandon it?\" You can also use \"site:\" operators to search specific communities. e.g., 'query': 'site:reddit.com \"Starfield\" boring'",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search": {"type": "string"},
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["search", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_achievements",
+            "description": "Use this to get user's steam achievements summary of progress (%), last unlocked.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {"type": "string"},
                     "action_description": {
                         "type": "string",
                         "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
@@ -451,6 +508,17 @@ def execute_tool(tool_request):
         elif tool_name == "get_reviews":
             tool_output_str = json.dumps(br.get_reviews_byname(clean_params.get('game_name'), reviews_limit))
 
+        elif tool_name == "get_community_sentiment":
+            tool_output_str = json.dumps(br.get_community_sentiment(clean_params.get('game_name')))
+
+        elif tool_name == "web_search":
+            tool_output_str = json.dumps(br.web_search(clean_params.get('search')))
+
+        elif tool_name == "get_achievements":
+            tool_output_str = json.dumps(br.get_achievement_stats(game_name=clean_params.get('game_name')))
+
+
+
 
     except Exception as e:
         tool_output_str = f"Error: {str(e)}"
@@ -569,11 +637,14 @@ def agent_chat_loop_stream(user_input, chat_history):
                     # Parse arguments safely
                     params = json.loads(func_args_str)
 
+                    # get action and yield it
+                    action_desc = params.get("action_description")
+                    yield "action", action_desc
+
                     # --- EXECUTE YOUR TOOL FUNCTION HERE ---
                     # Assuming execute_tool returns (string_output, system_hint)
                     # You might need to adjust execute_tool to take raw name/params
                     tool_result_str, hint, action = execute_tool({"tool": func_name, "params": params})
-                    yield "action", action
 
                 except Exception as e:
                     tool_result_str = f"Error executing tool: {str(e)}"

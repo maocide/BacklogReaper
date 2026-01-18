@@ -2,6 +2,7 @@
 import difflib
 import json
 import re
+import sys
 import urllib
 from datetime import datetime
 from time import sleep
@@ -10,17 +11,53 @@ from urllib.parse import unquote
 
 import concurrent
 import requests
+from ddgs import results
 from steam_web_api import Steam
 import config
 import steamspypi
 from howlongtobeatpy import HowLongToBeat
 from bs4 import BeautifulSoup
 import vault, ai_tools
-from ai_tools import aiCall
+from ai_tools import aiCall, clean_json_for_ai
 from vault import get_realtime_tags, calculate_status
-
+from basc_py4chan import Board
+import ddgs
 max_tags = 10
+steam_id = None
 
+def resolve_steam_id(username_or_id):
+    """
+    Resolves a Steam username, vanity URL, or ID into the mandatory 64-bit numeric SteamID.
+    """
+
+    global steam_id
+
+    if steam_id:
+        return steam_id
+
+    steam = Steam(config.STEAM_API_KEY)
+
+    # 1. Check if it's already a numeric ID
+    if username_or_id.isdigit() and len(username_or_id) == 17:
+        return username_or_id
+
+    # 2. Try resolving as a Vanity URL (The most common case)
+    # This hits: http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/
+    try:
+        # The library might expose this, but sometimes it's hidden.
+        # If steam.users.resolve_vanity_url(username_or_id) exists, use that.
+        # Otherwise, 'search_user' usually does the trick.
+
+        user_data = steam.users.search_user(username_or_id)
+
+        # search_user returns a payload like: {'player': {'steamid': '765...', ...}}
+        if 'player' in user_data and 'steamid' in user_data['player']:
+            return user_data['player']['steamid']
+
+    except Exception as e:
+        print(f"Error resolving Steam ID: {e}")
+
+    return None
 
 def search_steam_store(term, limit=10):
     """
@@ -263,6 +300,7 @@ def scrape_steam_forums(appid, gamename):
         # Steam usually gives these a class like 'forum_topic'
         topic_rows = soup.select('.forum_topic')
 
+
         results = []
 
         for row in topic_rows:
@@ -270,6 +308,7 @@ def scrape_steam_forums(appid, gamename):
             title_element = row.select_one('.forum_topic_name')
             count_element = row.select_one('.forum_topic_reply_count')
             link_element = row.select_one('a.forum_topic_overlay')
+
 
             # Safety check: ensure elements exist
             if title_element and link_element:
@@ -345,7 +384,8 @@ def get_global_game_info(game_name):
         "hltb": (HowLongToBeat().search, game_name),
         "discount": (get_steam_app_discount, game_name),
         "deals": (get_game_deals, game_name, appid),
-        "forums": (scrape_steam_forums, appid, game_name)  # Adding your new forum scraper
+        "achievements": (get_achievement_stats, appid),
+        #"forums": (scrape_steam_forums, appid, game_name)  # Adding your new forum scraper
     }
 
     results = {}
@@ -375,7 +415,8 @@ def get_global_game_info(game_name):
     how_long_to_beat = results.get("hltb")
     discount = results.get("discount")
     best_deal = results.get("deals")
-    steam_community = results.get("forums", "No forum data.")
+    achievements = results.get("achievements")
+    #steam_community = results.get("forums", "No forum data.")
 
     if how_long_to_beat and len(how_long_to_beat) > 0:
         how_long_to_beat_hours = {
@@ -401,9 +442,9 @@ def get_global_game_info(game_name):
 
     positive = summary.get('total_positive')
     negative = summary.get('total_negative')
-    average_forever = game_info.get('average_forever')
-    median_forever = game_info.get('median_forever')
-    ccu = game_info.get('ccu')
+    average_forever = round(game_info.get('average_forever') / 60, 1)
+    median_forever = round(game_info.get('median_forever')/ 60, 1)
+    ccu = str(game_info.get('ccu')) if game_info.get('ccu') != 0 else "N/A" # For ai values of 0, implies missing.
     short_description = app_details['short_description']
 
     def fmt_price(p):
@@ -441,12 +482,13 @@ def get_global_game_info(game_name):
         "total_positive": positive,
         "total_negative": negative,
         "user_score": f"{approval * 100}% Positive",  # Calculated approval
-        "playtime_avg": f"{average_forever} minutes",  # Tells AI if it's replayable
-        "median_forever": f"{median_forever} minutes",
+        "playtime_avg": f"{average_forever} h",  # Tells AI if it's replayable
+        "median_forever": f"{median_forever} h",
         "how_long_to_beat_hours" : how_long_to_beat_hours, # Various values taken from how long to beat
-        "ccu" : ccu,
+        "ccu" : str(ccu) if ccu != 0 else "N/A",
         "tags": top_tags,  # The top tags sorted
-        "steam_community": steam_community
+        "achievements": achievements,
+        #"steam_community": steam_community
     }
 
     return payload
@@ -753,11 +795,35 @@ def get_reviews_byname(game_name, count=5):
     Returns:
         A dictionary containing the reviews, the review summary, and the number of positive and negative reviews.
     """
+    # Define the rules for reviews
+    review_schema = {
+        # TRANSFORMATIONS: 'field_name': 'rule'
+        "transformations": {
+            "timestamp_created": "date",
+            "playtime_forever": "minutes_to_hours",
+            "playtime_at_review": "minutes_to_hours",
+            "votes_up": "int",  # optional, usually stays int
+        },
+        # ALLOWLIST: Only keep these fields
+        "keep_keys": [
+            "review",
+            "voted_up",
+            "votes_up",
+            "timestamp_created",
+            "playtime_at_review",
+            "playtime_forever"
+        ]
+    }
+
     app = get_steam_app_info(game_name)
 
     appid = app['id'][0]
 
     steam_reviews = get_steam_reviews(appid, count)
+
+    steam_reviews = clean_json_for_ai(steam_reviews,
+                                      transformations=review_schema["transformations"],
+                                      keep_keys=review_schema["keep_keys"])
 
     return steam_reviews
 
@@ -843,192 +909,383 @@ def format_reviews_for_ai(price, steam_reviews, gameinfo):
 
     return human_reviews
 
-def query_game_info(games):
-    """
-    Queries the SteamSpy API for information about the games in the provided list.
 
-    Args:
-        games: A list of games to query information for.
+def get_achievement_stats(appid = -1, game_name = ""):
     """
+    Fetches User Achievement progress + Global Rarity.
+    Returns a summary string for the Agent.
+    """
+    steam = Steam(config.STEAM_API_KEY)
 
-    for game in games:
-        attempts = 0
-        while True:
+    # Resolve AppID
+    if appid == -1 and len(game_name) > 0:
+        app_info = get_steam_app_info(game_name)
+        appid = app_info['id'][0]
+        if not app_info:
+            return f"Could not find game: {game_name}"
+    elif appid != -1:
+        pass
+    else:
+        return f"Specify appid or game name."
+
+    global steam_id
+    steam_id = resolve_steam_id(config.STEAM_USER)  # You need the numeric 64-bit ID here
+    if not steam_id:
+        return "Error: Could not resolve Steam ID. Check settings."
+
+    try:
+        # 1. Get User Data
+        user_achievements = steam.apps.get_user_achievements(steam_id, appid)
+
+        # Handle "Profile Private" or "No Stats" errors
+        if 'playerstats' not in user_achievements:
+            if user_achievements.get('error'):
+                return f"Error: {user_achievements.get('error')} (Is your profile public?)"
+            return f"No achievement data found for {game_name}."
+
+        user_data = user_achievements['playerstats'].get('achievements', [])
+        if not user_data:
+            return f"No achievements found for {game_name} (It might not have any)."
+
+        # 2. Get Global Percentages
+        global_url = f"http://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}&format=json"
+        global_resp = requests.get(global_url, timeout=5).json()
+        global_data = {a['name']: a['percent'] for a in
+                       global_resp.get('achievementpercentages', {}).get('achievements', [])}
+
+        # 3. Get Schema (Readable Names)
+        schema_url = f"http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={config.STEAM_API_KEY}&appid={appid}"
+        schema_resp = requests.get(schema_url, timeout=5).json()
+
+        name_map = {}
+        if 'game' in schema_resp and 'availableGameStats' in schema_resp['game']:
+            for ach in schema_resp['game']['availableGameStats']['achievements']:
+                name_map[ach['name']] = ach['displayName']
+
+        # --- PROCESS DATA ---
+        unlocked = []
+        locked = []
+
+        for ach in user_data:
+            api_name = ach['apiname']
+            # Safety: Some hidden achievements might not have a display name in the schema yet
+            real_name = name_map.get(api_name, api_name)
+            percent = global_data.get(api_name, 0.0)
+
+            item = {
+                "name": real_name,
+                "percent": percent,
+                "timestamp": ach.get('unlocktime', 0),  # unlocktime key might be missing if locked
+                "achieved": ach.get('achieved', 0)
+            }
+
+            if item['achieved'] == 1:
+                unlocked.append(item)
+            else:
+                locked.append(item)
+
+        # 5. Stats Calculation
+        total = len(user_data)
+        count = len(unlocked)
+        completion_rate = int((count / total) * 100) if total > 0 else 0
+
+        # Find Rarest Unlocked
+        unlocked.sort(key=lambda x: x['percent'])  # Sort by rarity (asc)
+        rarest = unlocked[0] if unlocked else None
+
+        # Find Latest Unlocked
+        unlocked.sort(key=lambda x: x['timestamp'], reverse=True)  # Sort by time (desc)
+        latest = unlocked[0] if unlocked else None
+
+        # Formulate the Report
+        report = [f"Achievement Status for {game_name}:"]
+        report.append(f"- Completion: {count}/{total} ({completion_rate}%)")
+
+        if rarest:
+            report.append(f"- Rarest Unlocked: '{rarest['name']}' (Only {rarest['percent']}% of players have this)")
+
+        if latest:
+            date_str = datetime.fromtimestamp(latest['timestamp']).strftime('%Y-%m-%d')
+            report.append(f"- Latest Unlock: '{latest['name']}' on {date_str}")
+
+        if completion_rate < 100 and locked:
+            # Find the "Most Common" locked achievement (The easiest one they missed)
+            locked.sort(key=lambda x: x['percent'], reverse=True)
+            easiest_miss = locked[0]
+            report.append(
+                f"- Next Logical Step: '{easiest_miss['name']}' ({easiest_miss['percent']}% of players have this, why don't you?)")
+
+        return "\n".join(report)
+
+    except Exception as e:
+        return f"Error fetching achievements: {e}"
+
+
+
+
+def web_search(query, max_results=10):
+    """
+    Performs a lightweight web search using DuckDuckGo.
+    Returns a string summary of the top results.
+    """
+    print(f"--- WEB SEARCH: {query} ---")
+    result = {}
+    try:
+        results = ddgs.DDGS().text(query, max_results=max_results)
+
+        if not results:
+            result['message'] = 'No results found.'
+
+        data = []
+        for i, res in enumerate(results, 1):
+            title = res.get('title', 'No Title')
+            body = res.get('body', '')
+            href = res.get('href', '')
+            data.append(
+                {
+                    'title': title,
+                    'body': body,
+                    'href': href
+                }
+            )
+
+        result["search_results"] = data
+
+
+    except Exception as e:
+        result['message'] = "Error searching web: {e}"
+
+    return result
+
+
+import requests
+
+
+def scrape_reddit_search(game_name):
+    """
+    Scrapes Reddit search results via their public JSON endpoint.
+    Use with caution: Rate limits are strict.
+    """
+    # 1. The "Magic" Header.
+    # NEVER use 'python-requests/x.x'. Reddit blocks it instantly.
+    # Use a real browser string or a descriptive bot name.
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+
+    # 2. The JSON Endpoint
+    # sort=relevance or top, t=year (to keep it recent)
+    url = f"https://www.reddit.com/search.json?q={game_name}&sort=relevance&t=year&limit=5"
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=5)
+
+        # if we get blocked
+        if resp.status_code == 429:
+            print("Error: Reddit is rate-limiting the Reaper. (Trying WEB Search...)")
+            return web_search(f"site:reddit.com {game_name}")
+
+        data = resp.json()
+        # 3. Extract Data
+        posts = data.get('data', {}).get('children', [])
+        if not posts:
+            return "No Reddit threads found."
+
+
+
+        results = []
+        for post in posts:
+            p = post['data']
+            title = p.get('title', 'No Title')
+            score = p.get('score', 0)
+            comments = p.get('num_comments', 0)
+            subreddit = p.get('subreddit_name_prefixed', 'r/gaming')
+
+            results.append(
+                {
+                    'title': title,
+                    'score': score,
+                    'comments': comments,
+                    'subreddit': subreddit
+                }
+            )
+
+        if not results or len(results) == 0:
+            print("Error: Reddit ignoring the Reaper. (Trying WEB Search...)")
+            return web_search(f"site:reddit.com {game_name}")
+
+        return {"results": results}
+
+    except Exception as e:
+        print(f"Error: Reddit search failed with error: {e}")
+        return f"Reddit scrape failed: {e}"
+
+def scrape_4chan_thread(board_name: str, thread_id: int):
+    board = Board(board_name)
+    thread = board.get_thread(thread_id)
+
+    thread_result = {}
+
+    if not thread is None:
+        thread_text = f"Thread Topic: {thread.topic.subject}\n\n"  # OP's text
+
+        thread_result["topic"] = thread.topic.subject
+        thread_result["board"] = board_name
+        thread_result["posts"] = []
+
+        for post in thread.posts:
+            post_result = {
+                "datetime": post.datetime.isoformat(),
+                "id": post.post_id,
+                "text": post.text_comment
+            }
+            #thread_text += f"{post.post_id} {post.datetime}: {post.text_comment}\n\n"  # Replies
+            thread_result["posts"].append(post_result)
+
+    return thread_result
+
+
+def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.4) -> list:
+    """
+    Scans a 4chan board for threads matching the topic_search string.
+    Returns list of thread IDs where similarity > threshold.
+    """
+    try:
+        board = Board(board_name)
+        threads = board.get_all_threads()
+    except Exception as e:
+        print(f"Error fetching 4chan board /{board_name}/: {e}")
+        return []
+
+    print(f"Scanning {len(threads)} threads on /{board_name}/ for '{topic_search}'...")
+
+    thread_matches = []
+    search_lower = topic_search.lower()
+
+    for thread in threads:
+        # Safety check: subject can be None on 4chan
+        subject = (thread.topic.subject or "").lower()
+        # Safety check: OP text can be None (image only)
+        comment = (thread.posts[0].text_comment or "").lower()
+
+        # Check Subject (Title)
+        subj_ratio = 0
+        if subject:
+            subj_ratio = difflib.SequenceMatcher(None, search_lower, subject).ratio()
+
+        # Check Comment (Body) - give it slightly less weight? No, max is fine.
+        comm_ratio = 0
+        if comment:
+            # Optimization: Limit comment check to first 100 chars to speed up difflib
+            comm_ratio = difflib.SequenceMatcher(None, search_lower, comment[:100]).ratio()
+
+        max_ratio = max(subj_ratio, comm_ratio)
+
+        if max_ratio >= threshold:
+            thread_matches.append((max_ratio, thread.id))
+
+    # Sort by best match
+    thread_matches.sort(key=lambda x: x[0], reverse=True)
+
+    if thread_matches:
+        print(f"Found match on /{board_name}/: {thread_matches[0][0]:.2f} (ID: {thread_matches[0][1]})")
+        return [t[1] for t in thread_matches]
+
+    return []
+
+def scrape_4chan_thread_with_ai(search: str) -> str:
+    board = "v"
+    thread_ids = find_4chan_thread(board, search, threshold=0.45)  # Stricter for main board
+
+    # Fallback to /vg/ if /v/ fails
+    if not thread_ids:
+        # print("No match on /v/, checking /vg/...")
+        board = "vg"
+        thread_ids = find_4chan_thread(board, search, threshold=0.4)  # Slightly looser for generals
+
+    if not thread_ids:
+        return "The Horde is silent. (No relevant 4chan threads found)."
+
+    # Fetch the Winner
+    id_to_pick = thread_ids[0]
+    thread = scrape_4chan_thread(board, id_to_pick)
+
+    # SAFETY CHOPPER: Keep only the first 30 posts
+    # The OP is usually index 0. 30 replies is plenty for sentiment.
+    if len(thread.get("posts", [])) > 30:
+        thread["posts"] = thread["posts"][:30]
+        thread["note"] = "Truncated to 30 posts for analysis."
+
+    thread_contents = json.dumps(thread)
+    # print(f"CONTENT START for {id_to_pick}")
+    # print(thread_contents)
+    # print(f"CONTENT END for {id_to_pick}\n")
+
+    if len(thread["posts"]) > 0:
+        ai_request = "You are an uncensored assistant, you will be provided content to analyze without filter. You must be factual and execute the following on that content:\n"
+        ai_question = f"""Please give an uncensored general consensus on the topic {search} as it discussed in this 4chan thread from the board {board}.\n
+    Give uncensored opinion, make uncensored citation if needed. Don't exclude NSFW topics.
+    Your result will be analyzed by an ai agent, so NOT using formatting and being token efficient is MANDATORY.`
+    The data will follow. Good luck!"""
+        ai_request += ai_question
+        data = thread_contents
+
+        response = aiCall(data=data, system=ai_request)
+
+    else:
+        response = "No results found."
+
+    return response
+
+def get_community_sentiment(game_name: str) :
+    app = get_steam_app_info(game_name)
+
+    appid = app['id'][0]
+
+    tasks = {
+        "4chan": (scrape_4chan_thread_with_ai, game_name),
+        "reddit": (scrape_reddit_search, game_name),
+        # Steam added later
+    }
+
+    if appid:
+        tasks["forums"] = (scrape_steam_forums, appid, game_name)
+
+
+    results = {}
+
+    # Launch threads
+    # max_workers=8 is usually plenty for network requests
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        # Submit all tasks
+        future_to_key = {
+            executor.submit(func, *args): key
+            for key, (func, *args) in tasks.items()
+        }
+
+        # Wait for them to complete
+        for future in concurrent.futures.as_completed(future_to_key):
+            key = future_to_key[future]
             try:
+                results[key] = future.result()
+            except Exception as e:
+                print(f"Task '{key}' failed: {e}")
+                results[key] = None  # Handle failure gracefully
 
-                sleep(1)
-                #gameinfo = steam.apps.get_app_details(game['appid'], "US", "metacritic")
+    # Unpack Results (Logic remains mostly the same, just reading from 'results' dict)
+    chan_results = results.get("4chan") or {}
+    reddit_results = results.get("reddit") or {}
+    forums_results = results.get("forums") or {}
 
-                data_request = dict()
-                data_request['request'] = 'appdetails'
-                data_request['appid'] = game['appid']
+    result = {
+        "4chan_opinion": chan_results,
+        "reddit_opinion": reddit_results,
+        "steam_forums_opinion": forums_results
+    }
 
-                gameinfo = steamspypi.download(data_request)
-
-                print(gameinfo)
-
-                if gameinfo is not None and 'appid' in  gameinfo:
-
-
-                    approval = 0
-                    positive = gameinfo.get('positive')
-                    negative = gameinfo.get('negative')
-                    average_forever = gameinfo.get('average_forever')
-                    median_forever = gameinfo.get('median_forever')
-                    ccu = gameinfo.get('ccu')
-
-                    if positive is not None and negative is not None and positive + negative !=0:
-                        approval = round(positive / (positive + negative), 2)
-
-                    game['approval'] = approval
-                    game['average_forever'] = average_forever
-                    game['median_forever'] = median_forever
-                    game['ccu'] = ccu
-
-                    if 'tags' not in gameinfo:
-                        print(f"  -> No DNA found. Skipping tags.")
-                        continue
-
-                        # WEIGHTING ALGORITHM
-                        # We add the playtime minutes to the tag's score.
-                        # The more you play, the heavier the tag becomes in your profile.
-                    game['tags'] = gameinfo.get('tags', {})
-                    print(game['tags'])
-                    print("{0} OK".format(game['name']))
-
-                    break
-                else:
-                    print("nodata")
-                    break
+    return result
 
 
-            except ValueError:
-                attempts+=1
-                sleep(2)
-                print("Oops! API being a bitch. {0}: Try again...".format(attempts))
-                if attempts > 3:
-                    print("Sorry, there was a problem.  Try again later...")
-                    break
-
-
-
-def make_pipe_list_games(steam_games: list):
-    """
-    Creates a pipe-separated list of games from the provided list of games.
-
-    Args:
-        steam_games: A list of games to create the pipe-separated list from.
-
-    Returns:
-        A string containing the pipe-separated list of games.
-    """
-    heading = "appid|name|playtime_forever|rtime_last_played|approval|average_forever|median_forever|ccu"
-    piped_text = heading + "\n"
-    for game in steam_games:
-        #print((key))
-        #print()
-        game_line = ("{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}\n"
-                    .format(game['appid'], game['name'], game['playtime_forever'],  game['rtime_last_played'],game['approval'],  game['average_forever'], game['median_forever'], game['ccu']))
-        piped_text += game_line
-
-    return piped_text
-
-def fetch_info_from_api(username):
-    """
-    Fetches the owned games for the user specified in the config file.
-
-    Returns:
-        A list of owned games.
-    """
-    print("contacting STEAM API, please respond and not say bullshit quota lies...\n")
-
-    steam = Steam(config.STEAM_API_KEY)
-    userData = steam.users.search_user(username)
-    steamId = userData['player']['steamid']
-    userGames = steam.users.get_owned_games(steamId, True, False)
-    gameCount = userGames['game_count']
-    games = userGames['games']
-
-    print(userGames)
-    quit(0)
-    query_game_info(games)
-
-
-
-    print("done with STEAM crap thanks god.\n\n")
-    return(games)
-
-
-def make_gameinfo_dict(piped_text: str):
-    """
-    Creates a dictionary of games from a pipe-separated string.
-
-    Args:
-        piped_text: A pipe-separated string of games.
-
-    Returns:
-        A dictionary of games.
-    """
-    game = dict()
-    games_list = dict()
-    header_line = piped_text.splitlines()[0].split("|")
-    for line in piped_text.splitlines():
-
-        if line.startswith("appid"):
-            header_line = line.split("|")
-
-        else:
-            i = 0
-            game = dict()
-            for values in line.split("|"):
-                game[header_line[i]] = values
-                i += 1
-
-            games_list[line.split("|")[0]] = game
-
-
-
-
-    return games_list
-
-def sort_and_crop(games):
-    """
-    Sorts and crops the list of games.
-
-    Args:
-        games: A dictionary of games to sort and crop.
-
-    Returns:
-        A list of cropped games.
-    """
-    # Sort based on Values
-    sorted_games = dict(sorted(games.items(), key=lambda x: (x[1]['playtime_forever'], -float(x[1]['approval']))))
-
-
-    # cropping of the list of games based on playtime and approval
-    cropped = list()
-    for game in sorted_games.items():
-        if game[1]['playtime_forever'] <= game[1]['median_forever'] and float(game[1]['approval']) >= 0.7:
-            cropped.append(game[1])
-    print("Chopped list: " + str(len(cropped)))
-    return cropped
-
-def count_games():
-    """
-    Counts the total number of games and the number of unplayed games for the user specified in the config file.
-    """
-    steam = Steam(config.STEAM_API_KEY)
-    user_data = steam.users.search_user(config.STEAM_USER)
-    steam_id = user_data['player']['steamid']
-    print()
-    user_games = steam.users.get_owned_games(steam_id, True, False)
-    unplayed_games = 0
-    total_games = 0
-    for game in user_games['games']:
-        if game['playtime_forever'] == 0:
-            unplayed_games += 1
-
-        total_games += 1
-
-    print(f"Total games: {total_games} Unplayed: {unplayed_games}")
-
+if __name__ == "__main__":
+    print(get_achievement_stats(game_name="megabonk"))
+    print(scrape_steam_forums(1903340, "Clair Obscur"))

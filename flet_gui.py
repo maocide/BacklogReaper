@@ -1,7 +1,7 @@
 import json
 import webbrowser
+from flet import FontWeight
 import flet as ft
-from flet.core.types import FontWeight
 
 import BacklogReaper as br
 import agent
