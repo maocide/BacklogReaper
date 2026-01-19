@@ -18,6 +18,8 @@ If the steam username is specified you can you use it to address him or derive a
 **Personality:**
 The Reaper is an unhinged AI. You can roast the user's game taste, library, or nickname just because you are the Reaper.
 You have seen everything working as an AI agent; you are not surprised, just amused by the weirdness you encounter.
+Being the Reaper means you have the right, no the duty to roast the user for his playtime, his tastes, whatever is off to the Reaper.
+Good haunting Reaper.
 
 **Context:**
 Date and time of this request: """ + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """
@@ -25,21 +27,21 @@ Use the current time and date to contextualize data received.
 
 **Tools & Database:**
 You have access to the user's "Vault" (local Steam library) and external game data tools.
-* **ALWAYS check the Vault first** (`vault_search`) to see if the user already owns a game before recommending a purchase.
+* **ALWAYS check the Vault first** (`vault_search`) or (`vault_search_batch` same results as `vault_search` just better for a list of games) to see if the user already owns a game before recommending a purchase.
 * Use `get_game_details` when you need deep specific info (prices, HLTB times, steam forum feedback) that isn't in the search results.
 * **Action Description:** The tools require an `action_description` parameter. Make this a short, flavorful, and creative description of what you are doing, attuned to your specific personality (e.g., "Digging through your dusty backlog...", "Scraping the deep web...", be creative).
 * **Pagination:** If a search returns 10 results, it likely has more pages. Use the `page` parameter to dig deeper if the first batch isn't satisfying.
 
 **UI Rendering Rules (The "Cards"):**
 When you recommend a list of games, you MUST NATURALLY include in your feedback the raw JSON data in a markdown code block labelled `json` so the UI can render it interactively.
-* The JSON block is ONLY for the Game Card UI.
+* The JSON block is ONLY for the Game Card UI. Do this ONLY for games.
 * **Custom Fields:** You can add extra keys (like "Genre", "Price", "Release Year") to the JSON objects. The UI will automatically display them as "Key: Value" on the card. Use this to highlight relevant info.
-* **appid Field:** If this field is specified a launch button will be added in the ui for that specific title.
+* **appid Field:** If this field is specified a launch button will be added in the ui for that specific title, use preferably for owned games.
 * **Comment Field:** Enrich the result with a "comment" field in the JSON. Make it a short sentence (max 10 words) fitting your personality to display on the card.
-* **Detailed Analysis:** Any long analysis, reviews, or forum summaries must be written as **NORMAL TEXT** outside the JSON block.
+* **Detailed Analysis:** Any long analysis, reviews, forum summaries or any other data MUST be written as **NORMAL TEXT** outside the JSON block for user to read.
 
 **Example of Final Output:**
-> (Your normal text response roasting the user or explaining the choice...)
+> (Your normal text response...)
 >
 > ```json
 > [
@@ -48,7 +50,7 @@ When you recommend a list of games, you MUST NATURALLY include in your feedback 
 >     "status": "Untouched", 
 >     "appid": 379720,
 >     "release_year": "2016", <-- Custom Field Example
->     "genre": "FPS", <-- Custom Field Example
+>     "genre": "FPS, Retro", <-- Custom Field Example
 >     "comment": "Ahem, Slayer wannabe."
 >   },
 >   {
@@ -60,7 +62,7 @@ When you recommend a list of games, you MUST NATURALLY include in your feedback 
 >   }
 > ]
 > ```
-> (Any closing remarks...)
+> (Rest of the response)
 
 **Critical Instructions:**
 1.  Do not guess information. Use the tools to find real data.
@@ -129,10 +131,29 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
                     }
                 },
                 "required": ["action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+{
+        "type": "function",
+        "function": {
+            "name": "vault_search_batch",
+            "description": "Query the user's local database (Steam library) to find owned games based on name. Use this to verify ownership or find backlog games. SAME RESULT AS `vault_search`, for batching multiple games.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_names": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of names to include (e.g. ['Doom', 'Tetris']). Ask for max 10 at a time."
+                    }
+                },
+                "required": ["game_names", "action_description"],
                 "additionalProperties": False
             }
         }
@@ -147,7 +168,7 @@ tools_schema = [
                 "properties": {
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
                     }
                 },
                 "required": ["action_description"],
@@ -169,7 +190,7 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
                     }
                 },
                 "required": ["game_name", "action_description"],
@@ -181,20 +202,21 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_game_details",
-            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores, player achievements unlock summary). Use when the user asks about a specific game.",
+            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores, player achievements unlock summary). Use when the user asks about a specific game or a for a list of games.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "game_name": {
-                        "type": "string",
-                        "description": "The exact name of the game."
+                    "game_names": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of the exact names of the games."
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
                     }
                 },
-                "required": ["game_name", "action_description"],
+                "required": ["game_names", "action_description"],
                 "additionalProperties": False
             }
         }
@@ -213,7 +235,7 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
                     }
                 },
                 "required": ["search_term", "action_description"],
@@ -235,7 +257,7 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
                     }
                 },
                 "required": ["game_name", "action_description"],
@@ -254,7 +276,26 @@ tools_schema = [
                     "game_name": {"type": "string"},
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["game_name", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_achievements",
+            "description": "Use this to get user's steam achievements summary of progress (%), last unlocked.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {"type": "string"},
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
                     }
                 },
                 "required": ["game_name", "action_description"],
@@ -273,7 +314,7 @@ tools_schema = [
                     "search": {"type": "string"},
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
                     }
                 },
                 "required": ["search", "action_description"],
@@ -284,18 +325,18 @@ tools_schema = [
     {
         "type": "function",
         "function": {
-            "name": "get_achievements",
-            "description": "Use this to get user's steam achievements summary of progress (%), last unlocked.",
+            "name": "get_webpage",
+            "description": "Use this for getting the content from URLs you have when needed. You will get the content of a webpage in text format.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "game_name": {"type": "string"},
+                    "url": {"type": "string"},
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your 'Reaper' persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
                     }
                 },
-                "required": ["game_name", "action_description"],
+                "required": ["url", "action_description"],
                 "additionalProperties": False
             }
         }
@@ -487,6 +528,29 @@ def execute_tool(tool_request):
 
                 tool_output_str = json.dumps(lean_results)
 
+        elif tool_name == "vault_search_batch":
+            results = vault.vault_search_batch(clean_params.get("game_names"))
+            count = len(results)
+
+            print(f"Agent Calling: {count} results.")
+
+            lean_results = []
+            for res in results:
+                # Minutes -> Hours
+                hours_played = round(res['playtime_forever'] / 60, 1)
+
+                lean_results.append({
+                    "appid": res['appid'],
+                    "name": res['name'],
+                    "hours_played": hours_played,  # RENAME this key so AI knows it's hours
+                    # "playtime_forever": res['playtime_forever'], # Remove the raw minutes
+                    "status": res['calculated_status'],
+                    "review_score": res['review_score'],
+                    "hltb_story": res.get('hltb_main', 0)  # Rename for clarity
+                })
+
+            tool_output_str = json.dumps(lean_results)
+
         elif tool_name == "get_user_tags":
             tags = vault.get_all_tags()
             tool_output_str = json.dumps(tags)
@@ -502,7 +566,7 @@ def execute_tool(tool_request):
             system_hint = f"System Note: These are {result_limit} from the steam store search."
 
         elif tool_name == "get_game_details":
-            tool_output_str = json.dumps(br.get_global_game_info(clean_params.get('game_name')))
+            tool_output_str = json.dumps(br.get_batch_game_details(clean_params.get('game_names')))
             system_hint = "System Note: Details retrieved."
 
         elif tool_name == "get_reviews":
@@ -511,11 +575,14 @@ def execute_tool(tool_request):
         elif tool_name == "get_community_sentiment":
             tool_output_str = json.dumps(br.get_community_sentiment(clean_params.get('game_name')))
 
+        elif tool_name == "get_achievements":
+            tool_output_str = json.dumps(br.get_achievement_stats(game_name=clean_params.get('game_name')))
+
         elif tool_name == "web_search":
             tool_output_str = json.dumps(br.web_search(clean_params.get('search')))
 
-        elif tool_name == "get_achievements":
-            tool_output_str = json.dumps(br.get_achievement_stats(game_name=clean_params.get('game_name')))
+        elif tool_name == "get_webpage":
+            tool_output_str = json.dumps(br.web_search(clean_params.get('url')))
 
 
 
@@ -535,7 +602,7 @@ def agent_chat_loop_stream(user_input, chat_history):
     """
     Generator that handles Native Tool Calling streaming.
     """
-    # 1. Setup History
+    # Setup History
     system_message = {"role": "system", "content": AGENT_SYSTEM_PROMPT}
     if not chat_history:
         chat_history.append(system_message)
@@ -545,7 +612,7 @@ def agent_chat_loop_stream(user_input, chat_history):
 
     chat_history.append({"role": "user", "content": user_input})
 
-    max_turns = 20
+    max_turns = 25
     turn = 0
 
     while turn < max_turns:
@@ -641,9 +708,7 @@ def agent_chat_loop_stream(user_input, chat_history):
                     action_desc = params.get("action_description")
                     yield "action", action_desc
 
-                    # --- EXECUTE YOUR TOOL FUNCTION HERE ---
-                    # Assuming execute_tool returns (string_output, system_hint)
-                    # You might need to adjust execute_tool to take raw name/params
+                    # Execute the tool/function
                     tool_result_str, hint, action = execute_tool({"tool": func_name, "params": params})
 
                 except Exception as e:

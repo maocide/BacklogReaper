@@ -81,7 +81,7 @@ def calculate_status(game):
 def format_time_ago(ts):
     if ts == 0: return "Never"
     days = int((time.time() - ts) / 86400)
-    if days == 0: return "Today"
+    if days == 0: return  datetime.fromtimestamp(ts).strftime('Today %H:%M')
     if days < 30: return f"{days} days ago"
     if days < 365: return f"{int(days/30)} months ago"
     return f"{int(days/365)} years ago"
@@ -337,14 +337,14 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     results = []
 
     for game in all_games:
-        # 1. STATUS FILTER (Computed on the fly)
+        # STATUS FILTER (Computed on the fly)
         game_status = calculate_status(game)
         last_played_str = format_time_ago(game.get('rtime_last_played', 0))
 
         if req_status and game_status.lower() not in req_status:
             continue
 
-        # 2. NAME FILTER (Fuzzy Match)
+        # NAME FILTER (Fuzzy Match)
         if name:
              game_name_lower = game['name'].lower()
              target_name_lower = name.lower()
@@ -359,7 +359,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
              if not (is_substring or is_fuzzy):
                  continue
 
-        # 3. TAGS FILTER
+        # TAGS FILTER
         game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',')}
 
         # Check Excludes (Critical)
@@ -372,18 +372,18 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         if len(req_tags) and len(req_tags.difference(game_tags)) == len(req_tags): # if it has no requested tags then skip
             continue
 
-        # 3. PLAYTIME FILTER (in Minutes)
+        # PLAYTIME FILTER (in Minutes)
         pt = game['playtime_forever']
         if min_playtime is not None and pt < min_playtime: continue
         if max_playtime is not None and pt > max_playtime: continue
 
-        # 4. HLTB FILTER (in Hours)
+        # HLTB FILTER (in Hours)
         main_story = game['hltb_main'] or 0
         if hltb_max is not None:
             if main_story == 0: continue  # Skip games with no data if searching by length
             if main_story > hltb_max: continue
 
-        # 5. REVIEW SCORE FILTER
+        # REVIEW SCORE FILTER
         if min_review_score is not None:
              score = game.get('review_score', -1)
              if score != -1 and score < min_review_score:
@@ -419,5 +419,15 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         start_idx = page * page_size
         end_idx = start_idx + page_size
         results = results[start_idx:end_idx]
+
+    return results
+
+def vault_search_batch(game_names: list[str]):
+    # Create a dynamic SQL query
+    results = []
+
+    for name in game_names:
+        game_result = advanced_search(name=name)
+        results = results + game_result
 
     return results

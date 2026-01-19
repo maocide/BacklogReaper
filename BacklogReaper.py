@@ -11,6 +11,7 @@ from urllib.parse import unquote
 
 import concurrent
 import requests
+import trafilatura
 from ddgs import results
 from steam_web_api import Steam
 import config
@@ -493,6 +494,42 @@ def get_global_game_info(game_name):
 
     return payload
 
+
+def get_batch_game_details(game_names: list[str]) -> dict:
+    """
+    Retrieves details for multiple games simultaneously.
+    Use this when the user mentions multiple games to save time.
+
+    Args:
+        game_names: A list of strings, e.g. ["Hades", "Bastion", "Pyre"]
+
+    Returns:
+        Dict keyed by game name containing the info payload.
+    """
+    print(f"--- BATCH FETCHING {len(game_names)} GAMES ---")
+
+    results = {}
+
+    # We use a ThreadPool to run the heavy get_global_game_info function
+    # (which ALREADY uses threads, so we are nesting threads, but it's fine for I/O)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        # Map the future to the game name so we know which result is which
+        future_to_name = {
+            executor.submit(get_global_game_info, name): name
+            for name in game_names
+        }
+
+        for future in concurrent.futures.as_completed(future_to_name):
+            name = future_to_name[future]
+            try:
+                data = future.result()
+                results[name] = data
+            except Exception as e:
+                print(f"Batch error for {name}: {e}")
+                results[name] = {"error": str(e)}
+
+    return results
+
 def generate_contextual_dna(game_name, limit=10):
     """
     Generates a DNA report specific to the GENRE of the target game.
@@ -947,13 +984,13 @@ def get_achievement_stats(appid = -1, game_name = ""):
         if not user_data:
             return f"No achievements found for {game_name} (It might not have any)."
 
-        # 2. Get Global Percentages
+        # Get Global Percentages
         global_url = f"http://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}&format=json"
         global_resp = requests.get(global_url, timeout=5).json()
         global_data = {a['name']: a['percent'] for a in
                        global_resp.get('achievementpercentages', {}).get('achievements', [])}
 
-        # 3. Get Schema (Readable Names)
+        # Get Schema (Readable Names)
         schema_url = f"http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={config.STEAM_API_KEY}&appid={appid}"
         schema_resp = requests.get(schema_url, timeout=5).json()
 
@@ -962,7 +999,7 @@ def get_achievement_stats(appid = -1, game_name = ""):
             for ach in schema_resp['game']['availableGameStats']['achievements']:
                 name_map[ach['name']] = ach['displayName']
 
-        # --- PROCESS DATA ---
+        # PROCESS DATA
         unlocked = []
         locked = []
 
@@ -1004,16 +1041,26 @@ def get_achievement_stats(appid = -1, game_name = ""):
         if rarest:
             report.append(f"- Rarest Unlocked: '{rarest['name']}' (Only {rarest['percent']}% of players have this)")
 
-        if latest:
-            date_str = datetime.fromtimestamp(latest['timestamp']).strftime('%Y-%m-%d')
-            report.append(f"- Latest Unlock: '{latest['name']}' on {date_str}")
+        # if latest:
+        #     date_str = datetime.fromtimestamp(latest['timestamp']).strftime('%Y-%m-%d')
+        #     report.append(f"- Latest Unlock: '{latest['name']}' on {date_str}")
+
+        if unlocked:
+            count = 0
+            total = len(unlocked) if len(unlocked) < 3 else 3
+            report.append(f"- Last {total} Unlocked:")
+            for item in unlocked:
+                date_str = datetime.fromtimestamp(item['timestamp']).strftime('%Y-%m-%d %H:%M')
+                report.append(f"- '{item['name']}' on {date_str}")
+                count += 1
+                if count >= total: break
 
         if completion_rate < 100 and locked:
             # Find the "Most Common" locked achievement (The easiest one they missed)
             locked.sort(key=lambda x: x['percent'], reverse=True)
             easiest_miss = locked[0]
             report.append(
-                f"- Next Logical Step: '{easiest_miss['name']}' ({easiest_miss['percent']}% of players have this, why don't you?)")
+                f"- Next Step: '{easiest_miss['name']}' ({easiest_miss['percent']}% of players have this)")
 
         return "\n".join(report)
 
@@ -1058,7 +1105,48 @@ def web_search(query, max_results=10):
     return result
 
 
-import requests
+
+def get_webpage(url):
+    """
+    Visits a webpage and extracts the main readable text using Trafilatura.
+    automatically strips ads, menus, and boilerplate.
+    """
+    print(f"--- REAPER VISITING: {url} ---")
+
+    try:
+        # Download the HTML
+        # Trafilatura handles user-agents and headers automatically
+        downloaded = trafilatura.fetch_url(url)
+
+        if downloaded is None:
+            return "Error: Could not retrieve the webpage (Network error or empty response)."
+
+        # Extract Main Content
+        # include_tables=False: Skips complex tables that might confuse the LLM
+        text = trafilatura.extract(
+            downloaded,
+            include_comments=False,
+            include_tables=False,
+            include_links=False
+        )
+
+        if not text:
+            return "Error: Page content was empty or unreadable."
+
+        # Collapse Whitespace (Trafilatura does this mostly, but good to be safe)
+        clean_text = text.replace("\n", " ").strip()
+
+        # Safety Truncate
+        # Limit to prevent token explosion
+        limit = 6500
+        if len(clean_text) > limit:
+            clean_text = clean_text[:limit] + "... [TRUNCATED FOR CONTEXT SAFETY]"
+            print("WARNING: Page content was truncated to {limit} characters.".format(limit=limit))
+
+        return clean_text
+
+    except Exception as e:
+        return f"Error processing page: {e}"
 
 
 def scrape_reddit_search(game_name):
@@ -1080,37 +1168,45 @@ def scrape_reddit_search(game_name):
     try:
         resp = requests.get(url, headers=headers, timeout=5)
 
-        # if we get blocked
+        # Rate Limit Fallback
         if resp.status_code == 429:
             print("Error: Reddit is rate-limiting the Reaper. (Trying WEB Search...)")
             return web_search(f"site:reddit.com {game_name}")
 
         data = resp.json()
-        # 3. Extract Data
         posts = data.get('data', {}).get('children', [])
+
         if not posts:
             return "No Reddit threads found."
-
-
 
         results = []
         for post in posts:
             p = post['data']
-            title = p.get('title', 'No Title')
-            score = p.get('score', 0)
-            comments = p.get('num_comments', 0)
-            subreddit = p.get('subreddit_name_prefixed', 'r/gaming')
 
-            results.append(
-                {
-                    'title': title,
-                    'score': score,
-                    'comments': comments,
-                    'subreddit': subreddit
-                }
-            )
+            body = p.get('selftext', '')
 
-        if not results or len(results) == 0:
+            # If body is empty, it might be an image/link post. Use the URL instead.
+            if not body:
+                url_preview = p.get('url_overridden_by_dest', p.get('url', ''))
+                if url_preview:
+                    body = f"[Link/Image Post]: {url_preview}"
+
+            # Clean & Truncate (Critical for Token Economy)
+            # Flatten newlines to keep JSON clean
+            body = body.replace("\n", " ").strip()
+            if len(body) > 500:
+                body = body[:500] + "... [TRUNCATED]"
+            # -------------------------
+
+            results.append({
+                'title': p.get('title', 'No Title'),
+                'score': p.get('score', 0),
+                'comments': p.get('num_comments', 0),
+                'subreddit': p.get('subreddit_name_prefixed', 'r/gaming'),
+                'body': body  # Matches web_search key name
+            })
+
+        if not results:
             print("Error: Reddit ignoring the Reaper. (Trying WEB Search...)")
             return web_search(f"site:reddit.com {game_name}")
 
@@ -1287,5 +1383,5 @@ def get_community_sentiment(game_name: str) :
 
 
 if __name__ == "__main__":
-    print(get_achievement_stats(game_name="megabonk"))
-    print(scrape_steam_forums(1903340, "Clair Obscur"))
+    #print(get_achievement_stats(game_name="megabonk"))
+    print(vault.vault_search_batch(game_names=["Katana ZERO", "Megabonk"]))
