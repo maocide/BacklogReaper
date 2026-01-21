@@ -104,7 +104,7 @@ def create_game_card(game_data):
         controls_list.append(
             ft.Row(
                 controls=[
-                    ft.ElevatedButton(
+                    ft.FilledButton(
                         "Launch",
                         icon=ft.Icons.PLAY_ARROW,
                         height=30,
@@ -319,15 +319,15 @@ def main(page: ft.Page):
     ra_review_count_label = ft.Ref[ft.Text]()
     ra_output = ft.Ref[ft.Markdown]()
     ra_status = ft.Ref[ft.Text]()
-    ra_btn_analyze = ft.Ref[ft.ElevatedButton]()
-    ra_btn_stop = ft.Ref[ft.ElevatedButton]()
+    ra_btn_analyze = ft.Ref[ft.FilledButton]()
+    ra_btn_stop = ft.Ref[ft.FilledButton]()
 
     # Suggest Games Refs
     sg_game_name = ft.Ref[ft.TextField]()
     sg_output = ft.Ref[ft.Markdown]()
     sg_status = ft.Ref[ft.Text]()
-    sg_btn_suggest = ft.Ref[ft.ElevatedButton]()
-    sg_btn_stop = ft.Ref[ft.ElevatedButton]()
+    sg_btn_suggest = ft.Ref[ft.FilledButton]()
+    sg_btn_stop = ft.Ref[ft.FilledButton]()
 
     # Backlog Reaping Refs
     br_chat_history = [] # OpenAI Message History
@@ -340,8 +340,8 @@ def main(page: ft.Page):
     # gf_username = ft.Ref[ft.TextField]() # Removed, now in Settings
     gf_table = ft.Ref[ft.DataTable]()
     gf_status = ft.Ref[ft.Text]()
-    gf_btn_fetch = ft.Ref[ft.ElevatedButton]()
-    gf_btn_stop = ft.Ref[ft.ElevatedButton]()
+    gf_btn_fetch = ft.Ref[ft.FilledButton]()
+    gf_btn_stop = ft.Ref[ft.FilledButton]()
     gf_chk_force = ft.Ref[ft.Checkbox]()
 
     # Settings Refs
@@ -688,9 +688,8 @@ Consider all the data and the data in your training about the games to find the 
 
         stop_event_br.clear()
 
-        t = threading.Thread(target=run_backlog_reaping_thread, args=(user_message,))
-        t.daemon = True
-        t.start()
+        # Use Flet's run_thread to ensure correct context for updates
+        page.run_thread(run_backlog_reaping_thread, user_message)
 
     # Game Fetcher
     def run_fetch_thread(username):
@@ -820,8 +819,8 @@ Consider all the data and the data in your training about the games to find the 
             ]),
             ft.Row([ft.TextField(ref=ra_question, label="Question", expand=True)]),
             ft.Row([
-                ft.ElevatedButton(ref=ra_btn_analyze, content=ft.Text("Start Analysis"), icon=ft.Icons.ANALYTICS, on_click=start_analysis),
-                ft.ElevatedButton(ref=ra_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_analysis, disabled=True),
+                ft.FilledButton(ref=ra_btn_analyze, content=ft.Text("Start Analysis"), icon=ft.Icons.ANALYTICS, on_click=start_analysis),
+                ft.FilledButton(ref=ra_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_analysis, disabled=True),
             ]),
             ft.Text(ref=ra_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
@@ -858,8 +857,8 @@ Consider all the data and the data in your training about the games to find the 
                 ft.TextField(ref=sg_game_name, label="Game Name", expand=True),
             ]),
             ft.Row([
-                ft.ElevatedButton(ref=sg_btn_suggest, content=ft.Text("Suggest"), icon=ft.Icons.LIGHTBULB, on_click=start_suggest),
-                ft.ElevatedButton(ref=sg_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_suggest, disabled=True),
+                ft.FilledButton(ref=sg_btn_suggest, content=ft.Text("Suggest"), icon=ft.Icons.LIGHTBULB, on_click=start_suggest),
+                ft.FilledButton(ref=sg_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_suggest, disabled=True),
             ]),
             ft.Text(ref=sg_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
@@ -935,8 +934,8 @@ Consider all the data and the data in your training about the games to find the 
             ft.Text("Game List Fetcher", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
             ft.Row([
                 # ft.TextField(ref=gf_username, label="Steam Username", expand=True), # Removed
-                ft.ElevatedButton(ref=gf_btn_fetch, content=ft.Text("Fetch Games"), icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
-                ft.ElevatedButton(ref=gf_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
+                ft.FilledButton(ref=gf_btn_fetch, content=ft.Text("Fetch Games"), icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
+                ft.FilledButton(ref=gf_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
                 ft.Checkbox(ref=gf_chk_force, label="Force Update", tooltip="Force Update"),
             ]),
             ft.Text(ref=gf_status, value="Ready", color=ft.Colors.GREY),
@@ -1019,7 +1018,7 @@ Consider all the data and the data in your training about the games to find the 
             ft.TextField(ref=set_openai_base, label="Base URL", hint_text="https://api.openai.com/v1", value=init_openai_base),
             ft.TextField(ref=set_openai_model, label="Model Name", hint_text="gpt-4", value=init_openai_model),
             ft.Divider(),
-            ft.ElevatedButton(content=ft.Text("Save Settings"), icon=ft.Icons.SAVE, on_click=save_settings_click),
+            ft.FilledButton(content=ft.Text("Save Settings"), icon=ft.Icons.SAVE, on_click=save_settings_click),
             ft.Text(ref=set_status, value="")
         ]
     )
