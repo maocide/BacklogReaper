@@ -120,30 +120,34 @@ def create_game_card(game_data):
 
     # --- CHANGE 2: Build the Stack ---
     # Instead of putting the Column directly in the Container, we put it in a Stack
-    card_content = ft.Stack(
-        controls=[
-            # LAYER 0: The Background Image
+    stack_controls = []
+
+    # LAYER 0: The Background Image (Only if valid)
+    if bg_image:
+        stack_controls.append(
             ft.Image(
                 src=bg_image,
-                width=220,  # Match container width
-                #height=400,  # Large enough to cover vertical scrolling area if needed
+                width=220,
                 fit=ft.BoxFit.COVER,
-                opacity=0.15,  # Very dim so text is readable
+                opacity=0.15,
                 repeat=ft.ImageRepeat.NO_REPEAT,
                 gapless_playback=True,
-            ),
-
-            # LAYER 1: Your Original Content
-            ft.Container(
-                padding=10,
-                content=ft.Column(
-                    controls=controls_list,
-                    spacing=5,
-                    scroll=ft.ScrollMode.HIDDEN
-                )
             )
-        ]
+        )
+
+    # LAYER 1: Your Original Content
+    stack_controls.append(
+        ft.Container(
+            padding=10,
+            content=ft.Column(
+                controls=controls_list,
+                spacing=5,
+                scroll=ft.ScrollMode.HIDDEN
+            )
+        )
     )
+
+    card_content = ft.Stack(controls=stack_controls)
 
     # --- CHANGE 3: Return Card with Stack ---
     game_card = ft.Card(
