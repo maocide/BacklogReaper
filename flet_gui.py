@@ -574,7 +574,8 @@ Consider all the data and the data in your training about the games to find the 
             # Add User Message to UI
             if br_chat_list.current:
                 br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
-                page.update()
+                br_chat_list.current.update() # Local update
+                # page.update()
 
             # Prepare Agent UI Elements
             # A status label that changes ("Thinking...", "Searching...")
@@ -598,7 +599,8 @@ Consider all the data and the data in your training about the games to find the 
 
             if br_chat_list.current:
                 br_chat_list.current.controls.append(agent_container)
-                page.update()
+                br_chat_list.current.update() # Local update
+                # page.update()
 
             # 3. CONSUME THE STREAM
             # We pass the mutable 'br_chat_history' list directly
@@ -614,7 +616,8 @@ Consider all the data and the data in your training about the games to find the 
                     status_text.value = content
                     status_text.update()
                     br_status.current.value = content
-                    page.update()
+                    br_status.current.update() # Local update
+                    # page.update()
 
                 elif event_type == "action":
                     # Append a small system message for progress
@@ -624,7 +627,8 @@ Consider all the data and the data in your training about the games to find the 
                             position,
                             ft.Text(content, size=14, italic=True, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
                         )
-                        page.update()
+                        br_chat_list.current.update() # Local update
+                        # page.update()
 
                     previous_was_tool = True
 
@@ -660,20 +664,25 @@ Consider all the data and the data in your training about the games to find the 
                 br_chat_list.current.controls.append(parse_and_render_message(final_text, is_user=False))
 
                 br_status.current.value = "Ready"
-                page.update()
+                br_status.current.update()
+                br_chat_list.current.update()
+                # page.update()
 
         except Exception as e:
             traceback.print_exc()
             br_status.current.value = f"Error: {e}"
             if br_chat_list.current:
                 br_chat_list.current.controls.append(ft.Text(f"Error: {e}", color=ft.Colors.RED))
+            page.update() # Keep global update for error
         finally:
             if br_btn_send.current:
                 br_btn_send.current.disabled = False
+                br_btn_send.current.update()
             if br_input.current:
                 br_input.current.disabled = False
+                br_input.current.update()
                 # br_input.current.focus() # Removed async call in thread
-            page.update()
+            # page.update()
 
 
     def send_message(e):
