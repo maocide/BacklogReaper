@@ -820,8 +820,8 @@ Consider all the data and the data in your training about the games to find the 
             ]),
             ft.Row([ft.TextField(ref=ra_question, label="Question", expand=True)]),
             ft.Row([
-                ft.ElevatedButton(ref=ra_btn_analyze, text="Start Analysis", icon=ft.Icons.ANALYTICS, on_click=start_analysis),
-                ft.ElevatedButton(ref=ra_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_analysis, disabled=True),
+                ft.ElevatedButton(ref=ra_btn_analyze, content=ft.Text("Start Analysis"), icon=ft.Icons.ANALYTICS, on_click=start_analysis),
+                ft.ElevatedButton(ref=ra_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_analysis, disabled=True),
             ]),
             ft.Text(ref=ra_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
@@ -858,8 +858,8 @@ Consider all the data and the data in your training about the games to find the 
                 ft.TextField(ref=sg_game_name, label="Game Name", expand=True),
             ]),
             ft.Row([
-                ft.ElevatedButton(ref=sg_btn_suggest, text="Suggest", icon=ft.Icons.LIGHTBULB, on_click=start_suggest),
-                ft.ElevatedButton(ref=sg_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_suggest, disabled=True),
+                ft.ElevatedButton(ref=sg_btn_suggest, content=ft.Text("Suggest"), icon=ft.Icons.LIGHTBULB, on_click=start_suggest),
+                ft.ElevatedButton(ref=sg_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_suggest, disabled=True),
             ]),
             ft.Text(ref=sg_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
@@ -935,8 +935,8 @@ Consider all the data and the data in your training about the games to find the 
             ft.Text("Game List Fetcher", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
             ft.Row([
                 # ft.TextField(ref=gf_username, label="Steam Username", expand=True), # Removed
-                ft.ElevatedButton(ref=gf_btn_fetch, text="Fetch Games", icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
-                ft.ElevatedButton(ref=gf_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
+                ft.ElevatedButton(ref=gf_btn_fetch, content=ft.Text("Fetch Games"), icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
+                ft.ElevatedButton(ref=gf_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
                 ft.Checkbox(ref=gf_chk_force, label="Force Update", tooltip="Force Update"),
             ]),
             ft.Text(ref=gf_status, value="Ready", color=ft.Colors.GREY),
@@ -1088,4 +1088,4 @@ Consider all the data and the data in your training about the games to find the 
     )
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.app(main)
