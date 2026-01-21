@@ -28,6 +28,10 @@ def create_game_card(game_data):
     # Extract appid specifically (safely)
     appid = game_data.get("appid")
 
+    # Use 'header.jpg' (460x215) as it fits small cards better than the huge hero image
+    #bg_image = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg" if appid else ""
+    bg_image = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg" if appid else ""
+
     controls_list = []
 
     # Mappings for nicer labels
@@ -93,7 +97,7 @@ def create_game_card(game_data):
             controls_list.append(row)
 
     # HANDLE BUTTON LAST
-    if appid:
+    if appid and vault.is_game_owned(appid):
         # Add a vertical spacer (Container) before the button
         controls_list.append(ft.Container(height=10))
 
@@ -113,20 +117,48 @@ def create_game_card(game_data):
             )
         )
 
-    # BUILD CARD
+    # --- CHANGE 2: Build the Stack ---
+    # Instead of putting the Column directly in the Container, we put it in a Stack
+    card_content = ft.Stack(
+        controls=[
+            # LAYER 0: The Background Image
+            ft.Image(
+                src=bg_image,
+                width=220,  # Match container width
+                #height=400,  # Large enough to cover vertical scrolling area if needed
+                fit=ft.ImageFit.COVER,
+                opacity=0.15,  # Very dim so text is readable
+                repeat=ft.ImageRepeat.NO_REPEAT,
+                gapless_playback=True,
+            ),
+
+            # LAYER 1: Your Original Content
+            ft.Container(
+                padding=10,
+                content=ft.Column(
+                    controls=controls_list,
+                    spacing=5,
+                    scroll=ft.ScrollMode.HIDDEN
+                )
+            )
+        ]
+    )
+
+    # --- CHANGE 3: Return Card with Stack ---
     game_card = ft.Card(
+        elevation=5,  # Add slight shadow for depth
         content=ft.Container(
             width=220,
-            padding=10,  # Increased padding slightly for look
-            content=ft.Column(
-                controls=controls_list,
-                spacing=5,
-                scroll=ft.ScrollMode.HIDDEN  # Adaptive/Hidden hides the bar but allows scroll
-            )
+            # Height is optional, but helps uniform look. Remove if you want auto-height.
+            # height=300,
+            bgcolor="#1a1a1a",  # Fallback background color
+            border_radius=10,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,  # Clips the image to the rounded corners
+            content=card_content
         )
     )
-    return game_card
 
+    return game_card
 
     # return ft.Card(
     #     content=ft.Container(
@@ -571,6 +603,8 @@ Consider all the data and the data in your training about the games to find the 
             # 3. CONSUME THE STREAM
             # We pass the mutable 'br_chat_history' list directly
             stream = agent.agent_chat_loop_stream(user_message, br_chat_history)
+            previous_was_tool = False
+            first_text = True
 
             for event_type, content in stream:
                 if stop_event_br.is_set(): break
@@ -592,6 +626,8 @@ Consider all the data and the data in your training about the games to find the 
                         )
                         page.update()
 
+                    previous_was_tool = True
+
                 elif event_type == "text":
                     # Hide status once text starts appearing (optional, or keep it)
                     if status_text.visible:
@@ -599,8 +635,14 @@ Consider all the data and the data in your training about the games to find the 
                         status_text.update()
 
                     # Append text chunk and update
+                    if previous_was_tool and not first_text:
+                        agent_markdown.value += "\n\n"
                     agent_markdown.value += content
+
                     agent_markdown.update()
+
+                    previous_was_tool = False
+                    first_text = False
 
             # 4. Final Cleanup
             if not stop_event_br.is_set():
