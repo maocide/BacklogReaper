@@ -126,7 +126,7 @@ def create_game_card(game_data):
                 src=bg_image,
                 width=220,  # Match container width
                 #height=400,  # Large enough to cover vertical scrolling area if needed
-                fit=ft.ImageFit.COVER,
+                fit=ft.BoxFit.COVER,
                 opacity=0.15,  # Very dim so text is readable
                 repeat=ft.ImageRepeat.NO_REPEAT,
                 gapless_playback=True,
@@ -300,8 +300,8 @@ def parse_and_render_message(text, is_user):
             ],
             spacing=2,
         ),
-        margin=ft.margin.only(bottom=15),
-        padding=ft.padding.symmetric(horizontal=10)  # Add slight global padding
+        margin=ft.Margin(left=0, top=0, right=0, bottom=15),
+        padding=ft.Padding(left=10, top=0, right=10, bottom=0)  # Add slight global padding
     )
 
 def main(page: ft.Page):
@@ -593,7 +593,7 @@ Consider all the data and the data in your training about the games to find the 
                 padding=15,
                 border_radius=10,
                 bgcolor=ft.Colors.BLACK38,
-                margin=ft.margin.only(left=60, bottom=10)
+                margin=ft.Margin(left=60, top=0, right=0, bottom=10)
             )
 
             if br_chat_list.current:
@@ -672,7 +672,7 @@ Consider all the data and the data in your training about the games to find the 
                 br_btn_send.current.disabled = False
             if br_input.current:
                 br_input.current.disabled = False
-                br_input.current.focus()
+                # br_input.current.focus() # Removed async call in thread
             page.update()
 
 
@@ -1019,7 +1019,7 @@ Consider all the data and the data in your training about the games to find the 
             ft.TextField(ref=set_openai_base, label="Base URL", hint_text="https://api.openai.com/v1", value=init_openai_base),
             ft.TextField(ref=set_openai_model, label="Model Name", hint_text="gpt-4", value=init_openai_model),
             ft.Divider(),
-            ft.ElevatedButton("Save Settings", icon=ft.Icons.SAVE, on_click=save_settings_click),
+            ft.ElevatedButton(content=ft.Text("Save Settings"), icon=ft.Icons.SAVE, on_click=save_settings_click),
             ft.Text(ref=set_status, value="")
         ]
     )
