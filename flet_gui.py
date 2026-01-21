@@ -572,114 +572,26 @@ Consider all the data and the data in your training about the games to find the 
             if vault.get_games_count() and vault.get_elapsed_since_update() > 1200:
                 vault.update(config.STEAM_USER)
 
-            # (User message moved to send_message)
-
-            # Prepare Agent UI Elements
-            # A status label that changes ("Thinking...", "Searching...")
-            status_text = ft.Text("Initializing...", italic=True, size=12, color=ft.Colors.GREY_500)
-
-            # The main message bubble (starts empty)
-            # Note: We use Markdown to support bolding/lists in the stream
-            agent_markdown = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)
-
-            # Container for the Agent's response
-            agent_container = ft.Container(
-                content=ft.Column([
-                    status_text,
-                    agent_markdown
-                ]),
-                padding=15,
-                border_radius=10,
-                bgcolor=ft.Colors.BLACK38,
-                margin=ft.Margin(left=60, top=0, right=0, bottom=10)
-            )
-
-            if br_chat_list.current:
-                br_chat_list.current.controls.append(agent_container)
-                br_chat_list.current.update() # Local update
-                # page.update()
+            # Signal initialization
+            page.pubsub.send_all({"type": "init"})
 
             # 3. CONSUME THE STREAM
-            # We pass the mutable 'br_chat_history' list directly
             stream = agent.agent_chat_loop_stream(user_message, br_chat_history)
-            previous_was_tool = False
-            first_text = True
 
             for event_type, content in stream:
                 if stop_event_br.is_set(): break
-                time.sleep(0.02) # Yield to main thread for UI updates
-
-                if event_type == "status":
-                    # Update the status label
-                    status_text.value = content
-                    status_text.update()
-                    br_status.current.value = content
-                    br_status.current.update() # Local update
-
-                elif event_type == "action":
-                    # Append a small system message for progress
-                    if br_chat_list.current:
-                        position = len(br_chat_list.current.controls) -1
-                        br_chat_list.current.controls.insert(
-                            position,
-                            ft.Text(content, size=14, italic=True, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
-                        )
-                        br_chat_list.current.update() # Local update
-
-                    previous_was_tool = True
-
-                elif event_type == "text":
-                    # Hide status once text starts appearing (optional, or keep it)
-                    if status_text.visible:
-                        status_text.visible = False
-                        status_text.update()
-
-                    # Append text chunk and update
-                    if previous_was_tool and not first_text:
-                        agent_markdown.value += "\n\n"
-
-                    agent_markdown.value += content
-
-                    agent_markdown.update()
-
-                    previous_was_tool = False
-                    first_text = False
+                # time.sleep(0.01) # Small yield might still be useful, but pubsub handles context
+                page.pubsub.send_all({"type": event_type, "content": content})
 
             # 4. Final Cleanup
             if not stop_event_br.is_set():
-                # If the final message contained JSON (Generative UI), we might want to re-render the whole bubble
-                # to trigger your 'parse_and_render_message' logic (which creates Cards).
-                # The streaming Markdown won't render the Cards automatically during the stream.
-
-                final_text = agent_markdown.value
-
-                # Replace the streaming container with your fancy Card-rendering container
-                # Remove the last control (the streaming one)
-                br_chat_list.current.controls.pop()
-
-                # Add the fully rendered parsed message
-                br_chat_list.current.controls.append(parse_and_render_message(final_text, is_user=False))
-
-                br_status.current.value = "Ready"
-                br_status.current.update()
-                br_chat_list.current.update()
+                page.pubsub.send_all({"type": "finish"})
 
         except Exception as e:
             traceback.print_exc()
-            br_status.current.value = f"Error: {e}"
-            br_status.current.update()
-            if br_chat_list.current:
-                br_chat_list.current.controls.append(ft.Text(f"Error: {e}", color=ft.Colors.RED))
-                br_chat_list.current.update()
+            page.pubsub.send_all({"type": "error", "content": str(e)})
         finally:
-            if br_btn_send.current:
-                br_btn_send.current.disabled = False
-                br_btn_send.current.update()
-            if br_input.current:
-                br_input.current.disabled = False
-                br_input.current.update()
-                # br_input.current.focus() # Removed async call in thread
-            # page.update()
+            page.pubsub.send_all({"type": "cleanup"})
 
 
     def send_message(e):
@@ -695,13 +607,106 @@ Consider all the data and the data in your training about the games to find the 
         br_input.current.value = ""
         br_input.current.disabled = True
         br_btn_send.current.disabled = True
-        # page.update() # Use local updates
+
         br_input.current.update()
         br_btn_send.current.update()
 
         stop_event_br.clear()
 
-        # Use Flet's run_thread to ensure correct context for updates
+        # Define UI handlers for PubSub
+        # This state needs to be accessible to the on_message handler
+        state = {
+            "status_text": None,
+            "agent_markdown": None,
+            "previous_was_tool": False,
+            "first_text": True
+        }
+
+        def on_message(message):
+            msg_type = message.get("type")
+            content = message.get("content")
+
+            if msg_type == "init":
+                state["status_text"] = ft.Text("Initializing...", italic=True, size=12, color=ft.Colors.GREY_500)
+                state["agent_markdown"] = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)
+
+                agent_container = ft.Container(
+                    content=ft.Column([
+                        state["status_text"],
+                        state["agent_markdown"]
+                    ]),
+                    padding=15,
+                    border_radius=10,
+                    bgcolor=ft.Colors.BLACK38,
+                    margin=ft.Margin(left=60, top=0, right=0, bottom=10)
+                )
+                if br_chat_list.current:
+                    br_chat_list.current.controls.append(agent_container)
+                    br_chat_list.current.update()
+
+            elif msg_type == "status":
+                if state["status_text"]:
+                    state["status_text"].value = content
+                    state["status_text"].update()
+                if br_status.current:
+                    br_status.current.value = content
+                    br_status.current.update()
+
+            elif msg_type == "action":
+                if br_chat_list.current:
+                    position = len(br_chat_list.current.controls) - 1
+                    br_chat_list.current.controls.insert(
+                        position,
+                        ft.Text(content, size=14, italic=True, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
+                    )
+                    br_chat_list.current.update()
+                state["previous_was_tool"] = True
+
+            elif msg_type == "text":
+                if state["status_text"] and state["status_text"].visible:
+                    state["status_text"].visible = False
+                    state["status_text"].update()
+
+                if state["previous_was_tool"] and not state["first_text"]:
+                    state["agent_markdown"].value += "\n\n"
+
+                state["agent_markdown"].value += content
+                state["agent_markdown"].update()
+
+                state["previous_was_tool"] = False
+                state["first_text"] = False
+
+            elif msg_type == "finish":
+                final_text = state["agent_markdown"].value
+                if br_chat_list.current:
+                    br_chat_list.current.controls.pop()
+                    br_chat_list.current.controls.append(parse_and_render_message(final_text, is_user=False))
+                    br_chat_list.current.update()
+
+                if br_status.current:
+                    br_status.current.value = "Ready"
+                    br_status.current.update()
+
+                page.pubsub.unsubscribe_all()
+
+            elif msg_type == "error":
+                if br_chat_list.current:
+                    br_chat_list.current.controls.append(ft.Text(f"Error: {content}", color=ft.Colors.RED))
+                    br_chat_list.current.update()
+                if br_status.current:
+                    br_status.current.value = f"Error: {content}"
+                    br_status.current.update()
+
+            elif msg_type == "cleanup":
+                if br_btn_send.current:
+                    br_btn_send.current.disabled = False
+                    br_btn_send.current.update()
+                if br_input.current:
+                    br_input.current.disabled = False
+                    br_input.current.update()
+                page.pubsub.unsubscribe_all()
+
+        page.pubsub.subscribe(on_message)
         page.run_thread(run_backlog_reaping_thread, user_message)
 
     # Game Fetcher
@@ -913,6 +918,7 @@ Consider all the data and the data in your training about the games to find the 
                     spacing=10,
                     scroll=ft.ScrollMode.AUTO,
                     auto_scroll=True,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH # Ensure messages stretch like ListView
                 ),
                 padding=10, # Restore padding moved from ListView
                 expand=True,
