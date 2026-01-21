@@ -332,7 +332,7 @@ def main(page: ft.Page):
 
     # Backlog Reaping Refs
     br_chat_history = [] # OpenAI Message History
-    br_chat_list = ft.Ref[ft.ListView]()
+    br_chat_list = ft.Ref[ft.Column]()
     br_input = ft.Ref[ft.TextField]()
     br_status = ft.Ref[ft.Text]()
     br_btn_send = ft.Ref[ft.IconButton]()
@@ -637,12 +637,12 @@ Consider all the data and the data in your training about the games to find the 
                     # Append text chunk and update
                     if previous_was_tool and not first_text:
                         agent_markdown.value += "\n\n"
-                        previous_was_tool = False # Fix logic for new lines
 
                     agent_markdown.value += content
 
                     agent_markdown.update()
 
+                    previous_was_tool = False
                     first_text = False
 
             # 4. Final Cleanup
@@ -907,13 +907,14 @@ Consider all the data and the data in your training about the games to find the 
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=lambda e: copy_chat_history(br_chat_history))
             ]),
             ft.Container(
-                content=ft.ListView(
+                content=ft.Column(
                     ref=br_chat_list,
                     expand=True,
                     spacing=10,
-                    padding=10,
+                    scroll=ft.ScrollMode.AUTO,
                     auto_scroll=True,
                 ),
+                padding=10, # Restore padding moved from ListView
                 expand=True,
                 border=ft.Border(
                     top=ft.BorderSide(1, ft.Colors.OUTLINE),
