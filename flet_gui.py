@@ -6,6 +6,7 @@ import flet as ft
 import BacklogReaper as br
 import agent
 import threading
+import time
 import traceback
 import vault
 import config
@@ -571,11 +572,7 @@ Consider all the data and the data in your training about the games to find the 
             if vault.get_games_count() and vault.get_elapsed_since_update() > 1200:
                 vault.update(config.STEAM_USER)
 
-            # Add User Message to UI
-            if br_chat_list.current:
-                br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
-                br_chat_list.current.update() # Local update
-                # page.update()
+            # (User message moved to send_message)
 
             # Prepare Agent UI Elements
             # A status label that changes ("Thinking...", "Searching...")
@@ -610,6 +607,7 @@ Consider all the data and the data in your training about the games to find the 
 
             for event_type, content in stream:
                 if stop_event_br.is_set(): break
+                time.sleep(0.02) # Yield to main thread for UI updates
 
                 if event_type == "status":
                     # Update the status label
@@ -690,10 +688,17 @@ Consider all the data and the data in your training about the games to find the 
         if not user_message:
             return
 
+        # 1. Show User Message Immediately
+        if br_chat_list.current:
+            br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
+            br_chat_list.current.update()
+
         br_input.current.value = ""
         br_input.current.disabled = True
         br_btn_send.current.disabled = True
-        page.update()
+        # page.update() # Use local updates
+        br_input.current.update()
+        br_btn_send.current.update()
 
         stop_event_br.clear()
 
