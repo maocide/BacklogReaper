@@ -807,7 +807,7 @@ Consider all the data and the data in your training about the games to find the 
         visible=True,
         expand=True,
         controls=[
-            ft.Text("Review Analyzer", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Text("Review Analyzer", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
             ft.Row([
                 ft.TextField(ref=ra_game_name, label="Game Name", expand=True),
                 ft.Column([
@@ -826,7 +826,7 @@ Consider all the data and the data in your training about the games to find the 
             ft.Text(ref=ra_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
             ft.Row([
-                ft.Text("Analysis Output", style=ft.TextThemeStyle.TITLE_MEDIUM),
+                ft.Text("Analysis Output", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy to Clipboard", on_click=lambda e: copy_to_clipboard(ra_output))
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ft.Container(
@@ -853,7 +853,7 @@ Consider all the data and the data in your training about the games to find the 
         visible=False,
         expand=True,
         controls=[
-            ft.Text("Suggest Similar Games", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Text("Suggest Similar Games", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
             ft.Row([
                 ft.TextField(ref=sg_game_name, label="Game Name", expand=True),
             ]),
@@ -864,7 +864,7 @@ Consider all the data and the data in your training about the games to find the 
             ft.Text(ref=sg_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
             ft.Row([
-                ft.Text("Suggestion Output", style=ft.TextThemeStyle.TITLE_MEDIUM),
+                ft.Text("Suggestion Output", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy to Clipboard", on_click=lambda e: copy_to_clipboard(sg_output))
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ft.Container(
@@ -891,7 +891,7 @@ Consider all the data and the data in your training about the games to find the 
         expand=True,
         controls=[
             ft.Row([
-                ft.Text("Reaper Chat", style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True),
+                ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True),
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=lambda e: copy_chat_history(br_chat_history))
             ]),
             ft.Container(
@@ -932,7 +932,7 @@ Consider all the data and the data in your training about the games to find the 
         visible=False,
         expand=True,
         controls=[
-            ft.Text("Game List Fetcher", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Text("Game List Fetcher", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
             ft.Row([
                 # ft.TextField(ref=gf_username, label="Steam Username", expand=True), # Removed
                 ft.ElevatedButton(ref=gf_btn_fetch, text="Fetch Games", icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
@@ -1008,13 +1008,13 @@ Consider all the data and the data in your training about the games to find the 
         expand=True,
         scroll=ft.ScrollMode.AUTO,
         controls=[
-            ft.Text("Settings", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Text("Settings", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
             ft.Divider(),
-            ft.Text("Steam API", style=ft.TextThemeStyle.TITLE_MEDIUM),
+            ft.Text("Steam API", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
             ft.TextField(ref=set_steam_api, label="Steam API Key", password=True, can_reveal_password=True, value=init_steam_key),
             ft.TextField(ref=set_steam_user, label="Steam Username", value=init_steam_user),
             ft.Divider(),
-            ft.Text("OpenAI API (or Compatible)", style=ft.TextThemeStyle.TITLE_MEDIUM),
+            ft.Text("OpenAI API (or Compatible)", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
             ft.TextField(ref=set_openai_api, label="OpenAI API Key", password=True, can_reveal_password=True, value=init_openai_key),
             ft.TextField(ref=set_openai_base, label="Base URL", hint_text="https://api.openai.com/v1", value=init_openai_base),
             ft.TextField(ref=set_openai_model, label="Model Name", hint_text="gpt-4", value=init_openai_model),
