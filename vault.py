@@ -309,6 +309,17 @@ def get_all_tags():
 
     return sorted(list(unique_tags))
 
+def is_game_owned(appid):
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT appid FROM games WHERE appid=?", (appid,))
+        rows = c.fetchall()
+
+    if rows:
+        return True
+    else:
+        return False
+
 
 def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, min_review_score=None, name=None, sort_by='shortest', page=0, page_size=10, seed=None):
     """

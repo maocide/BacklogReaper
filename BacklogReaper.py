@@ -38,11 +38,11 @@ def resolve_steam_id(username_or_id):
 
     steam = Steam(config.STEAM_API_KEY)
 
-    # 1. Check if it's already a numeric ID
+    # Check if it's already a numeric ID
     if username_or_id.isdigit() and len(username_or_id) == 17:
         return username_or_id
 
-    # 2. Try resolving as a Vanity URL (The most common case)
+    # Try resolving as a Vanity URL (The most common case)
     # This hits: http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/
     try:
         # The library might expose this, but sometimes it's hidden.
@@ -389,7 +389,24 @@ def get_global_game_info(game_name):
         #"forums": (scrape_steam_forums, appid, game_name)  # Adding your new forum scraper
     }
 
+    # In get_global_game_info or get_game_details
+    # ...
+    tasks = {
+        "details": (get_steam_app_details, appid),
+        "spy": (get_steamspy_game_info, appid),
+        # ...
+    }
+
+
+
     results = {}
+
+    # Assuming you have a helper like vault.is_game_owned(appid)
+    if vault.is_game_owned(appid):
+        tasks["achievements"] = (get_achievement_stats, appid)
+    else:
+        # Just return a placeholder so the Agent knows why it's missing
+        results["achievements"] = "Game not owned."
 
     # Launch threads
     # max_workers=8 is usually plenty for network requests
@@ -450,12 +467,12 @@ def get_global_game_info(game_name):
 
     def fmt_price(p):
         try:
-            if not p: return "0.00"
+            if p is None: return "0.00"
             val = int(p)
             if val == 0: return "Free"
             return f"{val / 100:.2f}"
         except:
-            return p
+            return str(p)
 
     # Default price values
     price_data = {}
@@ -1382,6 +1399,145 @@ def get_community_sentiment(game_name: str) :
     return result
 
 
+import concurrent.futures
+from datetime import datetime
+from steam_web_api import Steam
+import config
+
+
+# Ensure you have your resolve_steam_id imported or available
+
+def get_user_wishlist(sort_by='recent', page=0, page_size=10):
+    """
+    Fetches the user's Steam Wishlist using a Hybrid API + Parallel Scrape method.
+    Resolves the 'Redirect/Login' issue by using the official API for the list,
+    and then fetching details only for the requested items.
+    """
+
+    # 1. Resolve ID
+    steam_id = resolve_steam_id(config.STEAM_USER)
+    if not steam_id:
+        return "Error: Could not resolve Steam ID."
+
+    print(f"--- FETCHING WISHLIST FOR ID: {steam_id} (Page {page}) ---")
+
+    try:
+        steam = Steam(config.STEAM_API_KEY)
+
+        # 2. Get Raw List of AppIDs (Fast & Reliable)
+        # Returns: [{'appid': 123, 'priority': 1, 'date_added': 12345}, ...]
+        # This call bypasses the 'wishlistdata' URL redirect issue.
+        raw_wishlist = steam.users.get_profile_wishlist(steam_id)
+
+        print(raw_wishlist)
+
+        if not raw_wishlist:
+            return "Wishlist is empty or private."
+
+        # 3. Sort (Metadata)
+        # We sort by metadata *before* fetching details to save API calls.
+        # Note: 'cheapest'/'discount' sorting is imperfect here because we don't have prices yet.
+        # For those, we fetch the top 50 prioritized items and then sort them below.
+        if sort_by == 'priority':
+            raw_wishlist.sort(key=lambda x: x.get('priority', 999))
+        elif sort_by == 'recent':
+            raw_wishlist.sort(key=lambda x: x.get('date_added', 0), reverse=True)
+        elif sort_by in ['cheapest', 'discount']:
+            # optimization: default to priority for the fetch batch
+            raw_wishlist.sort(key=lambda x: x.get('priority', 999))
+
+        # 4. Pagination / Slicing
+        # If sorting by price, we fetch a larger batch (up to 50) to find deals.
+        # Otherwise, we only fetch exactly what the page needs.
+        items_to_process = []
+        is_price_sort = sort_by in ['cheapest', 'discount']
+
+        if is_price_sort:
+            # Fetch top 50 to find best deals/prices among them
+            items_to_process = raw_wishlist[:50]
+        else:
+            start_idx = page * page_size
+            end_idx = start_idx + page_size
+            items_to_process = raw_wishlist[start_idx:end_idx]
+
+        if not items_to_process:
+            return []  # End of list reached
+
+        # 5. Define Worker for Parallel Fetching
+        def fetch_details_worker(item):
+            appid = item['appid']
+            # Default structure
+            res = {
+                "name": f"AppID {appid}",
+                "priority": item.get('priority', 999),
+                "price": "N/A",
+                "discount": 0,
+                "appid": appid,
+                "date_added": datetime.fromtimestamp(item.get('date_added', 0)).strftime("%Y-%m-%d %H:%M"),
+            }
+
+            try:
+                # Fetch details from Store API (handles Name, Price, Discount)
+                # We use the store API explicitly as it's cleaner for prices than get_app_details sometimes
+                # But to keep it simple, we reuse the standard method you likely have, or raw request:
+                store_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=US"
+                # cc=US ensures dollar prices. Change if needed.
+
+                resp = requests.get(store_url, timeout=5).json()
+
+                if resp and str(appid) in resp and resp[str(appid)]['success']:
+                    data = resp[str(appid)]['data']
+                    res['name'] = data.get('name', res['name'])
+
+                    if data.get('is_free'):
+                        res['price'] = "Free"
+                    else:
+                        price_data = data.get('price_overview')
+                        if price_data:
+                            res['price'] = price_data.get('final_formatted', 'N/A')
+                            res['discount'] = price_data.get('discount_percent', 0)
+
+            except Exception as e:
+                # print(f"Error fetching {appid}: {e}")
+                pass
+
+            return res
+
+        # 6. Execute Parallel Fetch
+        enriched_results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            enriched_results = list(executor.map(fetch_details_worker, items_to_process))
+
+        # 7. Post-Fetch Sorting (If Price/Discount was requested)
+        if is_price_sort:
+            def get_price_float(item):
+                p = item['price']
+                if p == 'Free': return 0.0
+                if p == 'N/A': return 9999.0
+                # remove currency symbols
+                clean = ''.join(c for c in p if c.isdigit() or c == '.')
+                try:
+                    return float(clean)
+                except:
+                    return 9999.0
+
+            if sort_by == 'cheapest':
+                enriched_results.sort(key=get_price_float)
+            elif sort_by == 'discount':
+                enriched_results.sort(key=lambda x: x['discount'], reverse=True)
+
+            # Since we fetched 50, we now strictly paginate the result for the UI
+            start_idx = page * page_size
+            end_idx = start_idx + page_size
+            enriched_results = enriched_results[start_idx:end_idx]
+
+        return enriched_results
+
+    except Exception as e:
+        print(f"Wishlist Logic Error: {e}")
+        return f"Error: {e}"
+
+
 if __name__ == "__main__":
     #print(get_achievement_stats(game_name="megabonk"))
-    print(vault.vault_search_batch(game_names=["Katana ZERO", "Megabonk"]))
+    print(get_webpage("https://www.reddit.com/r/Helldivers/comments/1n773qh/dragonroach_is_ridiculous_and_whoever_designed_it/"))

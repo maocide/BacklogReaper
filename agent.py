@@ -1,4 +1,5 @@
 import re
+import sys
 from datetime import datetime
 
 import BacklogReaper as br
@@ -340,6 +341,33 @@ tools_schema = [
                 "additionalProperties": False
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_user_wishlist",
+            "description": "Retrieve the user's Steam Wishlist to see what games they want to buy. Returns prices, discounts, and priority rank. Use this to understand buying habits or find deals.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sort_by": {
+                        "type": "string",
+                        "enum": ["priority", "recent", "cheapest", "discount"],
+                        "description": "How to sort the wishlist. 'priority' is (User's rank). 'recent' for most recent additions, 'cheapest' and 'discount' are good for finding deals."
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "Pagination index (default 0)."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                    }
+                },
+                "required": ["action_description"],
+                "additionalProperties": False
+            }
+        }
     }
 ]
 
@@ -582,12 +610,16 @@ def execute_tool(tool_request):
             tool_output_str = json.dumps(br.web_search(clean_params.get('search')))
 
         elif tool_name == "get_webpage":
-            tool_output_str = json.dumps(br.web_search(clean_params.get('url')))
+            tool_output_str = json.dumps(br.get_webpage(clean_params.get('url')))
+
+        elif tool_name == "get_user_wishlist":
+            tool_output_str = json.dumps(br.get_user_wishlist(sort_by=clean_params.get('sort_by'), page=clean_params.get('page', 0)))
 
 
 
 
     except Exception as e:
+        print(sys.exc_info())
         tool_output_str = f"Error: {str(e)}"
 
     return tool_output_str, system_hint, action_desc
