@@ -607,7 +607,7 @@ Consider all the data and the data in your training about the games to find the 
 
             for event_type, content in stream:
                 if stop_event_br.is_set(): break
-                time.sleep(0.05) # Yield to main thread for UI updates
+                time.sleep(0.02) # Yield to main thread for UI updates
 
                 if event_type == "status":
                     # Update the status label
@@ -615,7 +615,6 @@ Consider all the data and the data in your training about the games to find the 
                     status_text.update()
                     br_status.current.value = content
                     br_status.current.update() # Local update
-                    page.update()
 
                 elif event_type == "action":
                     # Append a small system message for progress
@@ -626,7 +625,6 @@ Consider all the data and the data in your training about the games to find the 
                             ft.Text(content, size=14, italic=True, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
                         )
                         br_chat_list.current.update() # Local update
-                        page.update()
 
                     previous_was_tool = True
 
@@ -639,12 +637,12 @@ Consider all the data and the data in your training about the games to find the 
                     # Append text chunk and update
                     if previous_was_tool and not first_text:
                         agent_markdown.value += "\n\n"
+                        previous_was_tool = False # Fix logic for new lines
+
                     agent_markdown.value += content
 
                     agent_markdown.update()
-                    page.update()
 
-                    previous_was_tool = False
                     first_text = False
 
             # 4. Final Cleanup
@@ -665,14 +663,14 @@ Consider all the data and the data in your training about the games to find the 
                 br_status.current.value = "Ready"
                 br_status.current.update()
                 br_chat_list.current.update()
-                page.update()
 
         except Exception as e:
             traceback.print_exc()
             br_status.current.value = f"Error: {e}"
+            br_status.current.update()
             if br_chat_list.current:
                 br_chat_list.current.controls.append(ft.Text(f"Error: {e}", color=ft.Colors.RED))
-            page.update() # Keep global update for error
+                br_chat_list.current.update()
         finally:
             if br_btn_send.current:
                 br_btn_send.current.disabled = False
