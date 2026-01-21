@@ -1087,4 +1087,4 @@ Consider all the data and the data in your training about the games to find the 
     )
 
 if __name__ == "__main__":
-    ft.app(main)
+    ft.run(main)
