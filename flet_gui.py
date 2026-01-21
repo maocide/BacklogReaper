@@ -332,7 +332,7 @@ def main(page: ft.Page):
 
     # Backlog Reaping Refs
     br_chat_history = [] # OpenAI Message History
-    br_chat_list = ft.Ref[ft.Column]()
+    br_chat_list = ft.Ref[ft.ListView]()
     br_input = ft.Ref[ft.TextField]()
     br_status = ft.Ref[ft.Text]()
     br_btn_send = ft.Ref[ft.IconButton]()
@@ -912,15 +912,13 @@ Consider all the data and the data in your training about the games to find the 
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=lambda e: copy_chat_history(br_chat_history))
             ]),
             ft.Container(
-                content=ft.Column(
+                content=ft.ListView(
                     ref=br_chat_list,
                     expand=True,
                     spacing=10,
-                    scroll=ft.ScrollMode.AUTO,
+                    padding=10,
                     auto_scroll=True,
-                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH # Ensure messages stretch like ListView
                 ),
-                padding=10, # Restore padding moved from ListView
                 expand=True,
                 border=ft.Border(
                     top=ft.BorderSide(1, ft.Colors.OUTLINE),
