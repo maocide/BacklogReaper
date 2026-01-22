@@ -23,6 +23,19 @@ def launch_game(appid):
     except Exception as e:
         print(f"Error launching game: {e}")
 
+def get_status_color(status):
+    """Returns the color corresponding to a game status."""
+    color_map = {
+        "Finished": ft.Colors.GREEN_400,
+        "Played": ft.Colors.TEAL_400,
+        "Active": ft.Colors.BLUE_400,
+        "Addicted": ft.Colors.PURPLE_400,
+        "Unplayed": ft.Colors.GREY_500,
+        "Testing": ft.Colors.AMBER_400,
+        "Bounced": ft.Colors.DEEP_ORANGE_400,
+        "Abandoned": ft.Colors.BROWN_400
+    }
+    return color_map.get(status, ft.Colors.WHITE)
 
 def create_game_card(game_data):
     """Creates a stylized card for a single game."""
@@ -316,6 +329,16 @@ def main(page: ft.Page):
     page.window.width = 1200
     page.window.height = 800
 
+    # Enable standard window controls
+    page.window.minimizable = True
+    page.window.maximizable = True # User asked for close or close+min, but max is standard. I'll keep it standard unless explicitly requested to block it.
+    # Actually user said "misses system close minimize and maximize... could he have just the close or the close and minimize?".
+    # This implies they *want* them but they are missing. Or they want *at least* close/min.
+    # Usually Flet/Electron defaults to all enabled. If they are missing, it might be frameless.
+    # But frameless is not set here.
+    # I will explicitely set them to True to be safe.
+    page.window.closable = True
+
     # --- State Variables & Refs ---
 
     # Dashboard Refs
@@ -357,7 +380,7 @@ def main(page: ft.Page):
     gf_status = ft.Ref[ft.Text]()
     gf_btn_fetch = ft.Ref[ft.FilledButton]()
     gf_btn_stop = ft.Ref[ft.FilledButton]()
-    gf_chk_force = ft.Ref[ft.Checkbox]()
+    # gf_chk_force = ft.Ref[ft.Checkbox]() # Removed as per user request
 
     # Settings Refs
     set_steam_api = ft.Ref[ft.TextField]()
@@ -422,21 +445,9 @@ def main(page: ft.Page):
             status_counts = stats["status_counts"]
             pie_sections = []
 
-            # Map status to colors - Gaming Dark Theme Palette
-            color_map = {
-                "Finished": ft.Colors.GREEN_400,
-                "Played": ft.Colors.TEAL_400,
-                "Active": ft.Colors.BLUE_400,
-                "Addicted": ft.Colors.PURPLE_400,
-                "Unplayed": ft.Colors.GREY_500,
-                "Testing": ft.Colors.AMBER_400,
-                "Bounced": ft.Colors.DEEP_ORANGE_400,
-                "Abandoned": ft.Colors.BROWN_400
-            }
-
             for status, count in status_counts.items():
                 if count > 0:
-                    color = color_map.get(status, ft.Colors.WHITE24)
+                    color = get_status_color(status)
                     pie_sections.append(
                         ftc.PieChartSection(
                             count,
@@ -836,7 +847,8 @@ Consider all the data and the data in your training about the games to find the 
             gf_status.current.value = f"Opening the Vault for {username}..."
             page.update()
 
-            force_update = gf_chk_force.current.value
+            # force_update = gf_chk_force.current.value # Removed
+            force_update = False
 
             # FETCH FROM DB
             game_count = vault.get_games_count()
@@ -857,35 +869,43 @@ Consider all the data and the data in your training about the games to find the 
                 gf_status.current.value = "Vault is empty. Something went wrong."
                 return
 
+            # Store the list locally for client-side sorting if needed later
+            # (If we want to persist data across sorts without re-fetching, we might need a page-level variable,
+            # but for now we just populate the table. The DataRow cells will hold the values.)
+
             # POPULATE UI TABLE ---
             rows = []
             for game in games_list:
-                # Calculate a quick status for the UI
+                # Calculate a quick status for the UI using the centralized logic if possible, or custom
+                # NOTE: vault.calculate_status(game) exists but assumes 'tags' key.
+                # 'game' dict comes from get_all_games(), so it has 'tags'.
+
+                status = vault.calculate_status(game)
+
                 playtime_min = game.get('playtime_forever', 0)
                 playtime_hrs = round(playtime_min / 60.0, 1)
 
                 hltb_main = game.get('hltb_main', 0)
                 hltb_comp = game.get('hltb_completionist', 0)
+                tags_str = game.get('tags', '')
 
-                if playtime_min < 60:
-                    status = "Untouched"
-                elif hltb_comp > 0 and playtime_hrs > (hltb_comp * 1.5):
-                    status = "ADDICTED"  # Multiplayer or heavily replayed
-                elif hltb_main > 0 and playtime_hrs >= (hltb_main * 0.9):
-                    status = "Finished"
-                elif hltb_main > 0 and playtime_hrs < (hltb_main * 0.2):
-                    status = "Dropped?"  # Played > 1h but < 20% of game
+                # Truncate Tags
+                # tags_display = (tags_str[:20] + '..') if len(tags_str) > 20 else tags_str
+                # Actually user requested using TextOverflow.ELLIPSIS, so we pass the full string to the control.
 
-                # Create cells
+                # Create cells with RAW values for sorting where possible, or formatted Text
+                # To support correct sorting, we need to handle mixed types.
+                # Flet DataTable sorting usually relies on the content of the cell.
+                # If we want numeric sort, we might need to store the number.
+
                 cells = [
                     ft.DataCell(ft.Text(str(game['appid']))),
                     ft.DataCell(ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS)),
-                    ft.DataCell(ft.Text(f"{playtime_hrs} h")),  # Show hours, easier to read
-                    ft.DataCell(ft.Text(str(game.get('genre', 'Unknown'))[:20])),  # Truncate long genres
-                    ft.DataCell(ft.Text(str(hltb_main) if hltb_main > 0 else "-")),
-                    ft.DataCell(ft.Text(str(hltb_comp) if hltb_comp > 0 else "-")),
-                    ft.DataCell(ft.Text(status,
-                                        color=ft.Colors.GREEN if status == "Finished" else ft.Colors.RED if status == "ADDICTED" else ft.Colors.WHITE)),
+                    ft.DataCell(ft.Text(f"{playtime_hrs} h"), data=playtime_hrs),  # Store raw value in data for custom sort if needed
+                    ft.DataCell(ft.Text(tags_str, overflow=ft.TextOverflow.ELLIPSIS)),
+                    ft.DataCell(ft.Text(str(hltb_main) if hltb_main > 0 else "-"), data=hltb_main),
+                    ft.DataCell(ft.Text(str(hltb_comp) if hltb_comp > 0 else "-"), data=hltb_comp),
+                    ft.DataCell(ft.Text(status, color=get_status_color(status))),
                 ]
                 rows.append(ft.DataRow(cells=cells))
 
@@ -901,6 +921,40 @@ Consider all the data and the data in your training about the games to find the 
             if gf_btn_stop.current:
                 gf_btn_stop.current.disabled = True
             page.update()
+
+    def sort_table(e):
+        try:
+            # 0: AppID, 1: Name, 2: Playtime, 3: Tags, 4: Main Story, 5: Completionist, 6: Status
+            col_index = e.column_index
+            ascending = e.ascending
+
+            gf_table.current.sort_column_index = col_index
+            gf_table.current.sort_ascending = ascending
+
+            rows = gf_table.current.rows
+
+            # Helper to extract value safely
+            def get_cell_value(row, index):
+                content = row.cells[index].content
+                # Use 'data' attribute if available (for numbers), else 'value' of Text
+                if hasattr(content, "data") and content.data is not None:
+                    return content.data
+                if isinstance(content, ft.Text):
+                    val = content.value
+                    # Clean up formatted strings for backup numeric sort if 'data' wasn't set or is just a fallback
+                    if index == 2: # Playtime "12.5 h"
+                        return float(val.replace(" h", "").replace(",", "")) if val.replace(" h", "").replace(",", "").replace(".", "").isdigit() else 0
+                    if index in [4, 5]: # HLTB "-" or "10"
+                        return float(val) if val != "-" and val.replace(".", "").isdigit() else -1
+                    return val.lower() # Case insensitive string sort
+                return ""
+
+            rows.sort(key=lambda x: get_cell_value(x, col_index), reverse=not ascending)
+
+            gf_table.current.update()
+        except Exception as ex:
+             print(f"Sort Error: {ex}")
+             traceback.print_exc()
 
     def start_fetch(e):
         # username = gf_username.current.value # Removed
@@ -1143,7 +1197,7 @@ Consider all the data and the data in your training about the games to find the 
                 # ft.TextField(ref=gf_username, label="Steam Username", expand=True), # Removed
                 ft.FilledButton(ref=gf_btn_fetch, content=ft.Text("Fetch Games"), icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
                 ft.FilledButton(ref=gf_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
-                ft.Checkbox(ref=gf_chk_force, label="Force Update", tooltip="Force Update"),
+                # ft.Checkbox(ref=gf_chk_force, label="Force Update", tooltip="Force Update"), # Removed
             ]),
             ft.Text(ref=gf_status, value="Ready", color=ft.Colors.GREY),
             ft.Divider(),
@@ -1151,14 +1205,16 @@ Consider all the data and the data in your training about the games to find the 
                 content=ft.Column([
                     ft.DataTable(
                         ref=gf_table,
+                        sort_column_index=2, # Default sort by Playtime
+                        sort_ascending=False,
                         columns=[
-                            ft.DataColumn(ft.Text("AppID"), visible=True),
-                            ft.DataColumn(ft.Text("Name"), visible=True),
-                            ft.DataColumn(ft.Text("Playtime (m)"), visible=True, numeric=True),
-                            ft.DataColumn(ft.Text("Genre"), visible=True),
-                            ft.DataColumn(ft.Text("Main Story (h)"), visible=True, numeric=True),
-                            ft.DataColumn(ft.Text("Completionist (h)"), visible=True, numeric=True),
-                            ft.DataColumn(ft.Text("Status"), visible=True),
+                            ft.DataColumn(ft.Text("AppID"), numeric=True, on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Name"), on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Playtime (h)"), numeric=True, on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Tags"), on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Main Story (h)"), numeric=True, on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Completionist (h)"), numeric=True, on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Status"), on_sort=sort_table),
                         ],
                         rows=[],
                         vertical_lines=ft.BorderSide(1, ft.Colors.GREY_400),
