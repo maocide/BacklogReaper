@@ -414,24 +414,24 @@ def main(page: ft.Page):
                  return
 
             # Update Metrics
-            vs_metric_games.current.value = str(stats["total_games"])
-            vs_metric_hours.current.value = f"{stats['total_hours']}h"
-            vs_metric_backlog.current.value = f"{stats['backlog_hours']}h"
+            vs_metric_games.current.value = f"{stats['total_games']:,}"
+            vs_metric_hours.current.value = f"{stats['total_hours']:,}h"
+            vs_metric_backlog.current.value = f"{stats['backlog_hours']:,.2f}h"
 
             # Update Pie Chart
             status_counts = stats["status_counts"]
             pie_sections = []
 
-            # Map status to colors
+            # Map status to colors - Gaming Dark Theme Palette
             color_map = {
-                "Finished": ft.Colors.GREEN,
-                "Played": ft.Colors.GREEN,
-                "Active": ft.Colors.BLUE,
-                "Addicted": ft.Colors.BLUE,
-                "Unplayed": ft.Colors.RED,
-                "Testing": ft.Colors.RED,
-                "Bounced": ft.Colors.GREY,
-                "Abandoned": ft.Colors.GREY
+                "Finished": ft.Colors.GREEN_400,
+                "Played": ft.Colors.TEAL_400,
+                "Active": ft.Colors.BLUE_400,
+                "Addicted": ft.Colors.PURPLE_400,
+                "Unplayed": ft.Colors.GREY_500,
+                "Testing": ft.Colors.AMBER_400,
+                "Bounced": ft.Colors.DEEP_ORANGE_400,
+                "Abandoned": ft.Colors.BROWN_400
             }
 
             for status, count in status_counts.items():
@@ -985,7 +985,7 @@ Consider all the data and the data in your training about the games to find the 
                                  center_space_radius=40,
                                  expand=True
                              )
-                         ], col=6),
+                         ], col=4),
                          ft.Column([
                              ft.Text("Top Genres", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
                              ftc.BarChart(
@@ -999,7 +999,7 @@ Consider all the data and the data in your training about the games to find the 
                                  interactive=True,
                                  expand=True,
                              )
-                         ], col=6)
+                         ], col=8)
                      ])
                 ],
                 scroll=ft.ScrollMode.AUTO,
