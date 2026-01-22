@@ -480,6 +480,7 @@ def get_vault_statistics():
     Returns a dictionary with:
     - status_counts: {'Unplayed': 50, 'Finished': 12...}
     - genre_counts: [{'tag': 'RPG', 'count': 40}, ...]
+    - total_games: 120
     - total_hours: 5000
     - backlog_hours: 2000 (Sum of HLTB for unplayed games)
     """
@@ -491,47 +492,47 @@ def get_vault_statistics():
         "backlog_hours": 0
     }
 
-    with get_connection() as conn:
-        c = conn.cursor()
+    try:
+        games = get_all_games()
+    except Exception:
+        # DB might not exist or be empty
+        return stats
 
-        # 1. Status & Playtime & Backlog Debt
-        c.execute("SELECT status, playtime_forever, hltb_main FROM games")
-        rows = c.fetchall()
+    if not games:
+        return stats
 
-        stats["total_games"] = len(rows)
+    stats["total_games"] = len(games)
 
-        for r in rows:
-            status = r['status']
-            playtime = r['playtime_forever'] or 0
-            hltb = r['hltb_main'] or 0
+    tag_tally = {}
 
-            # Aggregate Status
-            stats["status_counts"][status] = stats["status_counts"].get(status, 0) + 1
+    for game in games:
+        # Calculate status dynamically
+        status = calculate_status(game)
+        playtime = game.get('playtime_forever', 0)
+        hltb = game.get('hltb_main', 0)
+        tags_str = game.get('tags', '')
 
-            # Aggregate Totals
-            stats["total_hours"] += playtime
+        # Aggregate Status
+        stats["status_counts"][status] = stats["status_counts"].get(status, 0) + 1
 
-            if status == "Unplayed":
-                stats["backlog_hours"] += hltb
+        # Aggregate Totals
+        stats["total_hours"] += playtime
 
-        # 2. Genre Distribution (Reuse your existing logic or simplified)
-        # We fetch top 8 genres to keep the Pie Chart clean
-        c.execute("SELECT tags FROM games")
-        tag_rows = c.fetchall()
+        # Backlog Debt: Sum of HLTB for 'Unplayed' games
+        # Also 'Bounced' might technically be backlog, but strictly 'Unplayed' is safer definition
+        if status == "Unplayed":
+            stats["backlog_hours"] += hltb
 
-        tag_tally = {}
-        for r in tag_rows:
-            if r['tags']:
-                # Take only the primary tag (first one) to avoid duplicates in the pie chart
-                # OR count all. Let's count Primary for a cleaner "Distribution" chart.
-                primary_tag = r['tags'].split(',')[0].strip()
-                tag_tally[primary_tag] = tag_tally.get(primary_tag, 0) + 1
+        # Aggregate Genres (First Tag)
+        if tags_str:
+            primary_tag = tags_str.split(',')[0].strip()
+            tag_tally[primary_tag] = tag_tally.get(primary_tag, 0) + 1
 
-        # Sort and take Top 10
-        sorted_tags = sorted(tag_tally.items(), key=lambda x: x[1], reverse=True)[:10]
-        stats["genre_counts"] = [{"tag": k, "count": v} for k, v in sorted_tags]
+    # Convert minutes to hours
+    stats["total_hours"] = int(stats["total_hours"] / 60)
 
-        # Convert minutes to hours
-        stats["total_hours"] = int(stats["total_hours"] / 60)
+    # Sort Genres and take Top 10
+    sorted_tags = sorted(tag_tally.items(), key=lambda x: x[1], reverse=True)[:10]
+    stats["genre_counts"] = [{"tag": k, "count": v} for k, v in sorted_tags]
 
     return stats

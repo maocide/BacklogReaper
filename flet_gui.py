@@ -317,6 +317,15 @@ def main(page: ft.Page):
 
     # --- State Variables & Refs ---
 
+    # Dashboard Refs
+    vs_status = ft.Ref[ft.Text]()
+    vs_metric_games = ft.Ref[ft.Text]()
+    vs_metric_hours = ft.Ref[ft.Text]()
+    vs_metric_backlog = ft.Ref[ft.Text]()
+    vs_pie_chart = ft.Ref[ft.PieChart]()
+    vs_bar_chart = ft.Ref[ft.BarChart]()
+    vs_dashboard_container = ft.Ref[ft.Column]()
+
     # Review Analyzer Refs
     ra_game_name = ft.Ref[ft.TextField]()
     ra_question = ft.Ref[ft.TextField]()
@@ -386,6 +395,109 @@ def main(page: ft.Page):
         page.snack_bar = ft.SnackBar(ft.Text("Chat history copied to clipboard!"))
         page.snack_bar.open = True
         page.update()
+
+    # --- Dashboard Logic ---
+    def load_stats_thread():
+        try:
+            vs_status.current.value = "Crunching the numbers..."
+            page.update()
+
+            stats = vault.get_vault_statistics()
+
+            # Handle empty stats
+            if not stats or stats.get("total_games", 0) == 0:
+                 vs_status.current.value = "No data found in Vault. Please go to 'My Backlog' and Fetch Games first."
+                 if vs_dashboard_container.current:
+                     vs_dashboard_container.current.visible = False
+                 page.update()
+                 return
+
+            # Update Metrics
+            vs_metric_games.current.value = str(stats["total_games"])
+            vs_metric_hours.current.value = f"{stats['total_hours']}h"
+            vs_metric_backlog.current.value = f"{stats['backlog_hours']}h"
+
+            # Update Pie Chart
+            status_counts = stats["status_counts"]
+            pie_sections = []
+
+            # Map status to colors
+            color_map = {
+                "Finished": ft.Colors.GREEN,
+                "Played": ft.Colors.GREEN,
+                "Active": ft.Colors.BLUE,
+                "Addicted": ft.Colors.BLUE,
+                "Unplayed": ft.Colors.RED,
+                "Testing": ft.Colors.RED,
+                "Bounced": ft.Colors.GREY,
+                "Abandoned": ft.Colors.GREY
+            }
+
+            for status, count in status_counts.items():
+                if count > 0:
+                    color = color_map.get(status, ft.Colors.WHITE24)
+                    pie_sections.append(
+                        ft.PieChartSection(
+                            count,
+                            title=f"{status}\n{count}",
+                            title_style=ft.TextStyle(size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                            color=color,
+                            radius=100
+                        )
+                    )
+
+            vs_pie_chart.current.sections = pie_sections
+
+            # Update Bar Chart
+            genre_counts = stats["genre_counts"]
+            bar_groups = []
+
+            max_count = 0
+            for i, item in enumerate(genre_counts):
+                count = item["count"]
+                if count > max_count: max_count = count
+                bar_groups.append(
+                    ft.BarChartGroup(
+                        x=i,
+                        bar_rods=[
+                            ft.BarChartRod(
+                                from_y=0,
+                                to_y=count,
+                                width=20,
+                                color=ft.Colors.PURPLE_400,
+                                tooltip=f"{item['tag']}: {count}",
+                                border_radius=5
+                            )
+                        ]
+                    )
+                )
+
+            vs_bar_chart.current.bar_groups = bar_groups
+
+            # Create custom axis labels
+            axis_labels = []
+            for i, item in enumerate(genre_counts):
+                 # Truncate long genre names
+                 tag_name = item['tag']
+                 if len(tag_name) > 10: tag_name = tag_name[:8] + ".."
+
+                 axis_labels.append(ft.ChartAxisLabel(value=i, label=ft.Container(ft.Text(tag_name, size=10), padding=5)))
+
+            vs_bar_chart.current.bottom_axis.labels = axis_labels
+            vs_bar_chart.current.max_y = max_count + 5
+
+            vs_status.current.value = "Dashboard updated."
+            vs_dashboard_container.current.visible = True
+            page.update()
+
+        except Exception as e:
+            traceback.print_exc()
+            if vs_status.current:
+                vs_status.current.value = f"Error loading stats: {e}"
+            page.update()
+
+    def refresh_stats(e):
+        page.run_thread(load_stats_thread)
 
     # --- Review Analyzer Logic ---
 
@@ -825,9 +937,79 @@ Consider all the data and the data in your training about the games to find the 
 
     # --- UI Components ---
 
+    # Dashboard View
+    def create_metric_card(title, ref_value, icon, color=ft.Colors.WHITE):
+         return ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Row([ft.Icon(icon), ft.Text(title, weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.CENTER),
+                    ft.Text("0", ref=ref_value, size=30, weight=ft.FontWeight.BOLD, color=color, text_align=ft.TextAlign.CENTER)
+                ], alignment=ft.MainAxisAlignment.CENTER),
+                padding=20,
+                width=200,
+                height=120
+            )
+         )
+
+    view_stats = ft.Column(
+        visible=True, # Default visible
+        expand=True,
+        controls=[
+            ft.Row([
+                ft.Text("Dashboard", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True),
+                ft.IconButton(icon=ft.Icons.REFRESH, on_click=refresh_stats, tooltip="Refresh Stats")
+            ]),
+            ft.Text(ref=vs_status, value="Ready", color=ft.Colors.GREY),
+            ft.Column(
+                ref=vs_dashboard_container,
+                visible=False,
+                controls=[
+                     # Metrics
+                     ft.Row([
+                         create_metric_card("Total Games", vs_metric_games, ft.Icons.GAMES),
+                         create_metric_card("Lifetime Hours", vs_metric_hours, ft.Icons.ACCESS_TIME),
+                         create_metric_card("Backlog Debt", vs_metric_backlog, ft.Icons.MONEY_OFF, ft.Colors.RED)
+                     ], alignment=ft.MainAxisAlignment.CENTER, spacing=20),
+
+                     ft.Divider(height=30),
+
+                     # Charts
+                     ft.ResponsiveRow([
+                         ft.Column([
+                             ft.Text("Library Status", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                             ft.PieChart(
+                                 ref=vs_pie_chart,
+                                 sections=[],
+                                 sections_space=0,
+                                 center_space_radius=40,
+                                 expand=True
+                             )
+                         ], col=6),
+                         ft.Column([
+                             ft.Text("Top Genres", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                             ft.BarChart(
+                                 ref=vs_bar_chart,
+                                 bar_groups=[],
+                                 border=ft.border.all(1, ft.Colors.GREY_800),
+                                 left_axis=ft.ChartAxis(labels_size=40, title=ft.Text("Games"), title_size=40),
+                                 bottom_axis=ft.ChartAxis(labels_size=40, labels_interval=1),
+                                 horizontal_grid_lines=ft.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
+                                 tooltip_bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900),
+                                 interactive=True,
+                                 expand=True,
+                             )
+                         ], col=6)
+                     ])
+                ],
+                scroll=ft.ScrollMode.AUTO,
+                expand=True
+            )
+        ]
+    )
+
     # Review Analyzer View
     view_ra = ft.Column(
-        visible=True,
+        visible=False,
         expand=True,
         controls=[
             ft.Text("Review Analyzer", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
@@ -1051,12 +1233,17 @@ Consider all the data and the data in your training about the games to find the 
 
     def on_nav_change(e):
         index = e.control.selected_index
-        view_ra.visible = (index == 0)
-        view_sg.visible = (index == 1)
-        view_br.visible = (index == 2)
-        view_gf.visible = (index == 3)
-        view_settings.visible = (index == 4)
+        view_stats.visible = (index == 0)
+        view_ra.visible = (index == 1)
+        view_sg.visible = (index == 2)
+        view_br.visible = (index == 3)
+        view_gf.visible = (index == 4)
+        view_settings.visible = (index == 5)
         page.update()
+
+        # Auto-load stats if switched to dashboard
+        if index == 0:
+            page.run_thread(load_stats_thread)
 
     rail = ft.NavigationRail(
         selected_index=0,
@@ -1066,6 +1253,11 @@ Consider all the data and the data in your training about the games to find the 
         # leading=ft.FloatingActionButton(icon=ft.Icons.CREATE, text="New"), # Removed as per user request
         group_alignment=-0.9,
         destinations=[
+             ft.NavigationRailDestination(
+                icon=ft.Icons.PIE_CHART_OUTLINE,
+                selected_icon=ft.Icons.PIE_CHART,
+                label="Dashboard"
+            ),
             ft.NavigationRailDestination(
                 icon=ft.Icons.ANALYTICS_OUTLINED,
                 selected_icon=ft.Icons.ANALYTICS,
@@ -1100,6 +1292,7 @@ Consider all the data and the data in your training about the games to find the 
             [
                 rail,
                 ft.VerticalDivider(width=1),
+                view_stats,
                 view_ra,
                 view_sg,
                 view_br,
@@ -1109,6 +1302,9 @@ Consider all the data and the data in your training about the games to find the 
             expand=True,
         )
     )
+
+    # Trigger initial load
+    page.run_thread(load_stats_thread)
 
 if __name__ == "__main__":
     ft.run(main)
