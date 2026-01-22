@@ -472,3 +472,66 @@ def vault_search_batch(game_names: list[str]):
         results = results + game_result
 
     return results
+
+
+def get_vault_statistics():
+    """
+    Aggregates library data for the Dashboard Charts.
+    Returns a dictionary with:
+    - status_counts: {'Unplayed': 50, 'Finished': 12...}
+    - genre_counts: [{'tag': 'RPG', 'count': 40}, ...]
+    - total_hours: 5000
+    - backlog_hours: 2000 (Sum of HLTB for unplayed games)
+    """
+    stats = {
+        "status_counts": {},
+        "genre_counts": [],
+        "total_games": 0,
+        "total_hours": 0,
+        "backlog_hours": 0
+    }
+
+    with get_connection() as conn:
+        c = conn.cursor()
+
+        # 1. Status & Playtime & Backlog Debt
+        c.execute("SELECT status, playtime_forever, hltb_main FROM games")
+        rows = c.fetchall()
+
+        stats["total_games"] = len(rows)
+
+        for r in rows:
+            status = r['status']
+            playtime = r['playtime_forever'] or 0
+            hltb = r['hltb_main'] or 0
+
+            # Aggregate Status
+            stats["status_counts"][status] = stats["status_counts"].get(status, 0) + 1
+
+            # Aggregate Totals
+            stats["total_hours"] += playtime
+
+            if status == "Unplayed":
+                stats["backlog_hours"] += hltb
+
+        # 2. Genre Distribution (Reuse your existing logic or simplified)
+        # We fetch top 8 genres to keep the Pie Chart clean
+        c.execute("SELECT tags FROM games")
+        tag_rows = c.fetchall()
+
+        tag_tally = {}
+        for r in tag_rows:
+            if r['tags']:
+                # Take only the primary tag (first one) to avoid duplicates in the pie chart
+                # OR count all. Let's count Primary for a cleaner "Distribution" chart.
+                primary_tag = r['tags'].split(',')[0].strip()
+                tag_tally[primary_tag] = tag_tally.get(primary_tag, 0) + 1
+
+        # Sort and take Top 10
+        sorted_tags = sorted(tag_tally.items(), key=lambda x: x[1], reverse=True)[:10]
+        stats["genre_counts"] = [{"tag": k, "count": v} for k, v in sorted_tags]
+
+        # Convert minutes to hours
+        stats["total_hours"] = int(stats["total_hours"] / 60)
+
+    return stats

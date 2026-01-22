@@ -2,9 +2,7 @@
 import difflib
 import json
 import re
-import sys
 import urllib
-from datetime import datetime
 from time import sleep
 from typing import Any
 from urllib.parse import unquote
@@ -12,9 +10,6 @@ from urllib.parse import unquote
 import concurrent
 import requests
 import trafilatura
-from ddgs import results
-from steam_web_api import Steam
-import config
 import steamspypi
 from howlongtobeatpy import HowLongToBeat
 from bs4 import BeautifulSoup
@@ -23,6 +18,11 @@ from ai_tools import aiCall, clean_json_for_ai
 from vault import get_realtime_tags, calculate_status
 from basc_py4chan import Board
 import ddgs
+import concurrent.futures
+from datetime import datetime
+from steam_web_api import Steam
+import config
+
 max_tags = 10
 steam_id = None
 
@@ -1399,10 +1399,7 @@ def get_community_sentiment(game_name: str) :
     return result
 
 
-import concurrent.futures
-from datetime import datetime
-from steam_web_api import Steam
-import config
+
 
 
 # Ensure you have your resolve_steam_id imported or available
@@ -1419,7 +1416,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
     if not steam_id:
         return "Error: Could not resolve Steam ID."
 
-    print(f"--- FETCHING WISHLIST FOR ID: {steam_id} (Page {page}) ---")
+    print(f"FETCHING WISHLIST FOR ID: {steam_id} (Page {page})")
 
     try:
         steam = Steam(config.STEAM_API_KEY)
@@ -1429,7 +1426,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
         # This call bypasses the 'wishlistdata' URL redirect issue.
         raw_wishlist = steam.users.get_profile_wishlist(steam_id)
 
-        print(raw_wishlist)
+        #print(raw_wishlist)
 
         if not raw_wishlist:
             return "Wishlist is empty or private."
