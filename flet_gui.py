@@ -331,13 +331,10 @@ def main(page: ft.Page):
 
     # Enable standard window controls
     page.window.minimizable = True
-    page.window.maximizable = True # User asked for close or close+min, but max is standard. I'll keep it standard unless explicitly requested to block it.
-    # Actually user said "misses system close minimize and maximize... could he have just the close or the close and minimize?".
-    # This implies they *want* them but they are missing. Or they want *at least* close/min.
-    # Usually Flet/Electron defaults to all enabled. If they are missing, it might be frameless.
-    # But frameless is not set here.
-    # I will explicitely set them to True to be safe.
+    page.window.maximizable = True
     page.window.closable = True
+    page.window.frameless = False
+    page.window.title_bar_hidden = False
 
     # --- State Variables & Refs ---
 
@@ -902,7 +899,6 @@ Consider all the data and the data in your training about the games to find the 
                     ft.DataCell(ft.Text(str(game['appid']))),
                     ft.DataCell(ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS)),
                     ft.DataCell(ft.Text(f"{playtime_hrs} h"), data=playtime_hrs),  # Store raw value in data for custom sort if needed
-                    ft.DataCell(ft.Text(tags_str, overflow=ft.TextOverflow.ELLIPSIS)),
                     ft.DataCell(ft.Text(str(hltb_main) if hltb_main > 0 else "-"), data=hltb_main),
                     ft.DataCell(ft.Text(str(hltb_comp) if hltb_comp > 0 else "-"), data=hltb_comp),
                     ft.DataCell(ft.Text(status, color=get_status_color(status))),
@@ -924,7 +920,7 @@ Consider all the data and the data in your training about the games to find the 
 
     def sort_table(e):
         try:
-            # 0: AppID, 1: Name, 2: Playtime, 3: Tags, 4: Main Story, 5: Completionist, 6: Status
+            # 0: AppID, 1: Name, 2: Playtime, 3: Main Story, 4: Completionist, 5: Status
             col_index = e.column_index
             ascending = e.ascending
 
@@ -944,7 +940,7 @@ Consider all the data and the data in your training about the games to find the 
                     # Clean up formatted strings for backup numeric sort if 'data' wasn't set or is just a fallback
                     if index == 2: # Playtime "12.5 h"
                         return float(val.replace(" h", "").replace(",", "")) if val.replace(" h", "").replace(",", "").replace(".", "").isdigit() else 0
-                    if index in [4, 5]: # HLTB "-" or "10"
+                    if index in [3, 4]: # HLTB "-" or "10"
                         return float(val) if val != "-" and val.replace(".", "").isdigit() else -1
                     return val.lower() # Case insensitive string sort
                 return ""
@@ -1211,7 +1207,6 @@ Consider all the data and the data in your training about the games to find the 
                             ft.DataColumn(ft.Text("AppID"), numeric=True, on_sort=sort_table),
                             ft.DataColumn(ft.Text("Name"), on_sort=sort_table),
                             ft.DataColumn(ft.Text("Playtime (h)"), numeric=True, on_sort=sort_table),
-                            ft.DataColumn(ft.Text("Tags"), on_sort=sort_table),
                             ft.DataColumn(ft.Text("Main Story (h)"), numeric=True, on_sort=sort_table),
                             ft.DataColumn(ft.Text("Completionist (h)"), numeric=True, on_sort=sort_table),
                             ft.DataColumn(ft.Text("Status"), on_sort=sort_table),
@@ -1291,11 +1286,11 @@ Consider all the data and the data in your training about the games to find the 
     def on_nav_change(e):
         index = e.control.selected_index
         view_stats.visible = (index == 0)
-        view_ra.visible = (index == 1)
-        view_sg.visible = (index == 2)
-        view_br.visible = (index == 3)
-        view_gf.visible = (index == 4)
-        view_settings.visible = (index == 5)
+        # view_ra.visible = (index == 1)
+        # view_sg.visible = (index == 2)
+        view_br.visible = (index == 1)
+        view_gf.visible = (index == 2)
+        view_settings.visible = (index == 3)
         page.update()
 
         # Auto-load stats if switched to dashboard
@@ -1315,16 +1310,16 @@ Consider all the data and the data in your training about the games to find the 
                 selected_icon=ft.Icons.PIE_CHART,
                 label="Dashboard"
             ),
-            ft.NavigationRailDestination(
-                icon=ft.Icons.ANALYTICS_OUTLINED,
-                selected_icon=ft.Icons.ANALYTICS,
-                label="Review Analyzer"
-            ),
-            ft.NavigationRailDestination(
-                icon=ft.Icons.GAMES_OUTLINED,
-                selected_icon=ft.Icons.GAMES,
-                label="Suggest Games"
-            ),
+            # ft.NavigationRailDestination(
+            #     icon=ft.Icons.ANALYTICS_OUTLINED,
+            #     selected_icon=ft.Icons.ANALYTICS,
+            #     label="Review Analyzer"
+            # ),
+            # ft.NavigationRailDestination(
+            #     icon=ft.Icons.GAMES_OUTLINED,
+            #     selected_icon=ft.Icons.GAMES,
+            #     label="Suggest Games"
+            # ),
             ft.NavigationRailDestination(
                 icon=ft.Icons.CHAT_BUBBLE_OUTLINE,
                 selected_icon=ft.Icons.CHAT_BUBBLE,
@@ -1350,8 +1345,8 @@ Consider all the data and the data in your training about the games to find the 
                 rail,
                 ft.VerticalDivider(width=1),
                 view_stats,
-                view_ra,
-                view_sg,
+                # view_ra,
+                # view_sg,
                 view_br,
                 view_gf,
                 view_settings
