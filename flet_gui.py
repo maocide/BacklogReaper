@@ -2,6 +2,7 @@ import json
 import webbrowser
 from flet import FontWeight
 import flet as ft
+import flet_charts as ftc  # Import flet-charts
 
 import BacklogReaper as br
 import agent
@@ -322,8 +323,8 @@ def main(page: ft.Page):
     vs_metric_games = ft.Ref[ft.Text]()
     vs_metric_hours = ft.Ref[ft.Text]()
     vs_metric_backlog = ft.Ref[ft.Text]()
-    vs_pie_chart = ft.Ref[ft.PieChart]()
-    vs_bar_chart = ft.Ref[ft.BarChart]()
+    vs_pie_chart = ft.Ref[ftc.PieChart]()
+    vs_bar_chart = ft.Ref[ftc.BarChart]()
     vs_dashboard_container = ft.Ref[ft.Column]()
 
     # Review Analyzer Refs
@@ -437,7 +438,7 @@ def main(page: ft.Page):
                 if count > 0:
                     color = color_map.get(status, ft.Colors.WHITE24)
                     pie_sections.append(
-                        ft.PieChartSection(
+                        ftc.PieChartSection(
                             count,
                             title=f"{status}\n{count}",
                             title_style=ft.TextStyle(size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
@@ -457,10 +458,10 @@ def main(page: ft.Page):
                 count = item["count"]
                 if count > max_count: max_count = count
                 bar_groups.append(
-                    ft.BarChartGroup(
+                    ftc.BarChartGroup(
                         x=i,
                         bar_rods=[
-                            ft.BarChartRod(
+                            ftc.BarChartRod(
                                 from_y=0,
                                 to_y=count,
                                 width=20,
@@ -481,7 +482,7 @@ def main(page: ft.Page):
                  tag_name = item['tag']
                  if len(tag_name) > 10: tag_name = tag_name[:8] + ".."
 
-                 axis_labels.append(ft.ChartAxisLabel(value=i, label=ft.Container(ft.Text(tag_name, size=10), padding=5)))
+                 axis_labels.append(ftc.ChartAxisLabel(value=i, label=ft.Container(ft.Text(tag_name, size=10), padding=5)))
 
             vs_bar_chart.current.bottom_axis.labels = axis_labels
             vs_bar_chart.current.max_y = max_count + 5
@@ -977,7 +978,7 @@ Consider all the data and the data in your training about the games to find the 
                      ft.ResponsiveRow([
                          ft.Column([
                              ft.Text("Library Status", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
-                             ft.PieChart(
+                             ftc.PieChart(
                                  ref=vs_pie_chart,
                                  sections=[],
                                  sections_space=0,
@@ -987,13 +988,13 @@ Consider all the data and the data in your training about the games to find the 
                          ], col=6),
                          ft.Column([
                              ft.Text("Top Genres", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
-                             ft.BarChart(
+                             ftc.BarChart(
                                  ref=vs_bar_chart,
                                  bar_groups=[],
                                  border=ft.border.all(1, ft.Colors.GREY_800),
-                                 left_axis=ft.ChartAxis(labels_size=40, title=ft.Text("Games"), title_size=40),
-                                 bottom_axis=ft.ChartAxis(labels_size=40, labels_interval=1),
-                                 horizontal_grid_lines=ft.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
+                                 left_axis=ftc.ChartAxis(labels_size=40, title=ft.Text("Games"), title_size=40),
+                                 bottom_axis=ftc.ChartAxis(labels_size=40, labels_interval=1),
+                                 horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
                                  tooltip_bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900),
                                  interactive=True,
                                  expand=True,

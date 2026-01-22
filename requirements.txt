@@ -10,3 +10,4 @@ requests
 python-steam-api
 steamspypi
 flet
+flet-charts
