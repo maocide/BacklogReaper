@@ -291,25 +291,55 @@ def get_all_games():
         return [dict(row) for row in rows]
 
 
-def get_all_tags():
+def get_all_tags(limit=None):
     """
-    Returns a sorted list of unique tags found in the user's library.
+    Returns a list of tags in the user's library with stats.
+    Used by the Agent to know what genres are available to search.
     """
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute("SELECT tags FROM games")
+        c.execute("SELECT tags, playtime_forever FROM games")
         rows = c.fetchall()
 
-    unique_tags = set()
-    for row in rows:
-        if row['tags']:
-            # Split "Action, Indie, RPG" -> ["Action", "Indie", "RPG"]
-            tags = [t.strip() for t in row['tags'].split(',')]
-            unique_tags.update(tags)
+    stats = {}
 
-    return sorted(list(unique_tags))
+    for row in rows:
+        if not row['tags']: continue
+
+        # Split tags and clean whitespace
+        current_tags = [t.strip() for t in row['tags'].split(',')]
+        playtime_mins = row['playtime_forever'] or 0
+
+        for tag in current_tags:
+            if tag not in stats:
+                stats[tag] = {'count': 0, 'minutes': 0}
+
+            stats[tag]['count'] += 1
+            stats[tag]['minutes'] += playtime_mins
+
+    # Format for the Agent
+    results = []
+    for tag, data in stats.items():
+        results.append({
+            "name": tag,  # "name" is intuitive for the search parameter
+            "owned": data['count'],
+            "total_hours": round(data['minutes'] / 60, 1)
+        })
+
+    # Sort by 'owned' count so the most relevant genres appear first
+    results.sort(key=lambda x: x['owned'], reverse=True)
+
+    # If the list is huge (e.g. 300 tags), maybe slice it if no limit was requested to save tokens?
+    # But usually, providing all allows the agent to find niche tags.
+    if limit:
+        return results[:limit]
+
+    return results
 
 def is_game_owned(appid):
+    """
+    Returns True if the game is currently owned by the user's library.
+    """
     with get_connection() as conn:
         c = conn.cursor()
         c.execute("SELECT appid FROM games WHERE appid=?", (appid,))

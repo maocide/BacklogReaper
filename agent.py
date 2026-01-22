@@ -163,13 +163,13 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_user_tags",
-            "description": "Retrieve a list of all unique tags/genres existing in the user's library. Call this before vault_search if you need to know what tags are valid.",
+            "description": "Retrieve the list of valid genre tags in the user's library, along with stats (games owned, total playtime). Call this to see what genres the user hoards or neglects.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your persona."
                     }
                 },
                 "required": ["action_description"],
