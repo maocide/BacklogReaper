@@ -315,6 +315,10 @@ def main(page: ft.Page):
     page.window.width = 1200
     page.window.height = 800
 
+    # --- Setup Clipboard ---
+    app_clipboard = ft.Clipboard()
+    page.overlay.append(app_clipboard)
+
     # --- State Variables & Refs ---
 
     # Review Analyzer Refs
@@ -366,7 +370,8 @@ def main(page: ft.Page):
     # --- Shared Logic ---
     def copy_to_clipboard(ref):
         if ref.current and ref.current.value:
-            page.set_clipboard(ref.current.value)
+            page.run_task(app_clipboard.set, ref.current.value)
+
             page.snack_bar = ft.SnackBar(ft.Text("Copied to clipboard!"))
             page.snack_bar.open = True
             page.update()
@@ -380,7 +385,8 @@ def main(page: ft.Page):
             content = msg.get("content", "")
             full_log += f"**{role}**: {content}\n\n"
 
-        page.set_clipboard(full_log)
+        page.run_task(app_clipboard.set, full_log)
+
         page.snack_bar = ft.SnackBar(ft.Text("Chat history copied to clipboard!"))
         page.snack_bar.open = True
         page.update()
