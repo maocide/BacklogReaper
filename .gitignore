@@ -13,3 +13,7 @@ __pycache__/
 
 # Ignore TCL/TK library folders (often part of the python environment)
 tcl/
+
+# Ignore DB files
+backlog_vault.db
+*.db
