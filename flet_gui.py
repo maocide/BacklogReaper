@@ -460,7 +460,7 @@ def main(page: ft.Page):
                 bar_groups.append(
                     ftc.BarChartGroup(
                         x=i,
-                        bar_rods=[
+                        rods=[
                             ftc.BarChartRod(
                                 from_y=0,
                                 to_y=count,
@@ -473,7 +473,7 @@ def main(page: ft.Page):
                     )
                 )
 
-            vs_bar_chart.current.bar_groups = bar_groups
+            vs_bar_chart.current.groups = bar_groups
 
             # Create custom axis labels
             axis_labels = []
@@ -990,12 +990,12 @@ Consider all the data and the data in your training about the games to find the 
                              ft.Text("Top Genres", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
                              ftc.BarChart(
                                  ref=vs_bar_chart,
-                                 bar_groups=[],
-                                 border=ft.border.all(1, ft.Colors.GREY_800),
-                                 left_axis=ftc.ChartAxis(labels_size=40, title=ft.Text("Games"), title_size=40),
-                                 bottom_axis=ftc.ChartAxis(labels_size=40, labels_interval=1),
+                                 groups=[],
+                                 border=ft.Border.all(1, ft.Colors.GREY_800),
+                                 left_axis=ftc.ChartAxis(label_size=40, title=ft.Text("Games"), title_size=40),
+                                 bottom_axis=ftc.ChartAxis(label_size=40),
                                  horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
-                                 tooltip_bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900),
+                                 tooltip=ftc.BarChartTooltip(bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900)),
                                  interactive=True,
                                  expand=True,
                              )
