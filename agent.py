@@ -501,6 +501,30 @@ INSTRUCTIONS:
     final_history.extend(recent_context)
     return final_history
 
+def get_friendly_status(func_name):
+    """
+    Maps function names to friendly status messages with emojis.
+    """
+    mapping = {
+        # Vault / Local DB
+        "vault_search": "📂 Rummaging through your backlog...",
+        "vault_search_batch": "📂 Batch scanning your library...",
+        "get_user_tags": "🏷️ analyzing your genre habits...",
+        "find_similar_games": "🔍 Matching games in your vault...",
+        "get_achievements": "🏆 Checking your trophy cabinet...",
+        "get_user_wishlist": "🌠 Judging your wishlist...",
+
+        # External / Web
+        "search_steam_store": "🛍️ Browsing the Steam Store...",
+        "get_game_details": "📋 Fetching deep intel...",
+        "get_reviews": "🗣️ Reading player reviews...",
+        "get_community_sentiment": "🔥 Scouring the internet for drama...",
+        "web_search": "🌐 Searching the web...",
+        "get_webpage": "📄 Reading webpage content...",
+    }
+
+    return mapping.get(func_name, f"⚙️ Executing {func_name}...")
+
 def execute_tool(tool_request):
     tool_name = tool_request.get("tool")
     params = tool_request.get("params", {})
@@ -729,7 +753,8 @@ def agent_chat_loop_stream(user_input, chat_history):
                 func_args_str = tool_call["function"]["arguments"]
 
                 # Notify UI
-                yield "status", f"Executing: {func_name}"
+                friendly_status = get_friendly_status(func_name)
+                yield "status", friendly_status
                 print(f"Agent Calling: {func_name} | ID: {call_id}")
 
                 try:

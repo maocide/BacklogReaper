@@ -335,6 +335,7 @@ def main(page: ft.Page):
     page.window.closable = True
     page.window.frameless = False
     page.window.title_bar_hidden = False
+    page.window.title_bar_buttons_hidden = False
 
     # --- State Variables & Refs ---
 
@@ -897,7 +898,7 @@ Consider all the data and the data in your training about the games to find the 
 
                 cells = [
                     ft.DataCell(ft.Text(str(game['appid']))),
-                    ft.DataCell(ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS)),
+                    ft.DataCell(ft.Container(content=ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS), width=300)),
                     ft.DataCell(ft.Text(f"{playtime_hrs} h"), data=playtime_hrs),  # Store raw value in data for custom sort if needed
                     ft.DataCell(ft.Text(str(hltb_main) if hltb_main > 0 else "-"), data=hltb_main),
                     ft.DataCell(ft.Text(str(hltb_comp) if hltb_comp > 0 else "-"), data=hltb_comp),
@@ -995,7 +996,7 @@ Consider all the data and the data in your training about the games to find the 
                 content=ft.Column([
                     ft.Row([ft.Icon(icon), ft.Text(title, weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.CENTER),
                     ft.Text("0", ref=ref_value, size=30, weight=ft.FontWeight.BOLD, color=color, text_align=ft.TextAlign.CENTER)
-                ], alignment=ft.MainAxisAlignment.CENTER),
+                ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                 padding=20,
                 width=200,
                 height=120
