@@ -336,7 +336,7 @@ def main(page: ft.Page):
     page.window.frameless = False
     page.window.title_bar_hidden = False
     page.window.title_bar_buttons_hidden = False
-    page.window.title_bar_style = ft.WindowTitleBarStyle.NORMAL
+    # page.window.title_bar_style = ft.WindowTitleBarStyle.NORMAL
 
     # --- State Variables & Refs ---
 
@@ -1002,21 +1002,10 @@ Consider all the data and the data in your training about the games to find the 
                 if gf_btn_stop.current:
                     gf_btn_stop.current.disabled = True
                     gf_btn_stop.current.update()
-                # page.pubsub.unsubscribe_all()
-                # We should unsubscribe only this handler, but Flet's unsubscribe takes no args or topic?
-                # Actually page.pubsub.unsubscribe_all() removes ALL handlers for the session, breaking Chat.
-                # Flet 0.21+ pubsub.unsubscribe() removes the current session's subscription.
-                # However, since we defined 'on_fetch_message' locally, we want to stop listening.
-                # Flet's pubsub is simple. If we can't unsubscribe specific handler, we just let it run but ignore?
-                # No, we must unsubscribe to avoid duplicates next time.
-                # Safe approach: page.pubsub.unsubscribe_on_all(on_fetch_message) if it existed.
-                # Looking at standard Flet patterns:
-                page.pubsub.unsubscribe(on_fetch_message)
+                page.pubsub.unsubscribe_all()
 
         page.pubsub.subscribe(on_fetch_message)
-        t = threading.Thread(target=run_fetch_thread, args=(username,))
-        t.daemon = True
-        t.start()
+        page.run_thread(run_fetch_thread, username)
 
     def stop_fetch(e):
         stop_event_gf.set()
