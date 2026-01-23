@@ -487,6 +487,7 @@ def get_vault_statistics():
     stats = {
         "status_counts": {},
         "genre_counts": [],
+        "genre_hours": [],
         "total_games": 0,
         "total_hours": 0,
         "backlog_hours": 0
@@ -504,6 +505,7 @@ def get_vault_statistics():
     stats["total_games"] = len(games)
 
     tag_tally = {}
+    tag_hours_tally = {}
 
     for game in games:
         # Calculate status dynamically
@@ -527,12 +529,17 @@ def get_vault_statistics():
         if tags_str:
             primary_tag = tags_str.split(',')[0].strip()
             tag_tally[primary_tag] = tag_tally.get(primary_tag, 0) + 1
+            tag_hours_tally[primary_tag] = tag_hours_tally.get(primary_tag, 0) + playtime
 
     # Convert minutes to hours
     stats["total_hours"] = int(stats["total_hours"] / 60)
 
-    # Sort Genres and take Top 10
+    # Sort Genres and take Top 10 by COUNT
     sorted_tags = sorted(tag_tally.items(), key=lambda x: x[1], reverse=True)[:10]
     stats["genre_counts"] = [{"tag": k, "count": v} for k, v in sorted_tags]
+
+    # Sort Genres and take Top 10 by HOURS
+    sorted_tags_hours = sorted(tag_hours_tally.items(), key=lambda x: x[1], reverse=True)[:10]
+    stats["genre_hours"] = [{"tag": k, "count": int(v / 60)} for k, v in sorted_tags_hours]
 
     return stats

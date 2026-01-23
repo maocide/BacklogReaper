@@ -347,6 +347,7 @@ def main(page: ft.Page):
     vs_metric_backlog = ft.Ref[ft.Text]()
     vs_pie_chart = ft.Ref[ftc.PieChart]()
     vs_bar_chart = ft.Ref[ftc.BarChart]()
+    vs_hours_chart = ft.Ref[ftc.BarChart]()
     vs_dashboard_container = ft.Ref[ft.Column]()
 
     # Review Analyzer Refs
@@ -496,6 +497,42 @@ def main(page: ft.Page):
 
             vs_bar_chart.current.bottom_axis.labels = axis_labels
             vs_bar_chart.current.max_y = max_count + 5
+
+            # Update Hours Chart
+            genre_hours = stats.get("genre_hours", [])
+            hours_groups = []
+            max_hours = 0
+
+            for i, item in enumerate(genre_hours):
+                count = item["count"]
+                if count > max_hours: max_hours = count
+                hours_groups.append(
+                    ftc.BarChartGroup(
+                        x=i,
+                        rods=[
+                            ftc.BarChartRod(
+                                from_y=0,
+                                to_y=count,
+                                width=20,
+                                color=ft.Colors.TEAL_400,
+                                tooltip=f"{item['tag']}: {count}h",
+                                border_radius=5
+                            )
+                        ]
+                    )
+                )
+
+            vs_hours_chart.current.groups = hours_groups
+
+            # Axis Labels for Hours
+            hours_axis_labels = []
+            for i, item in enumerate(genre_hours):
+                 tag_name = item['tag']
+                 if len(tag_name) > 10: tag_name = tag_name[:8] + ".."
+                 hours_axis_labels.append(ftc.ChartAxisLabel(value=i, label=ft.Container(ft.Text(tag_name, size=10), padding=5)))
+
+            vs_hours_chart.current.bottom_axis.labels = hours_axis_labels
+            vs_hours_chart.current.max_y = max_hours + 10
 
             vs_status.current.value = "Dashboard updated."
             vs_dashboard_container.current.visible = True
@@ -1068,12 +1105,25 @@ Consider all the data and the data in your training about the games to find the 
                              )
                          ], col=4),
                          ft.Column([
-                             ft.Text("Top Genres", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                             ft.Text("Top Genres (Games Owned)", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
                              ftc.BarChart(
                                  ref=vs_bar_chart,
                                  groups=[],
                                  border=ft.Border.all(1, ft.Colors.GREY_800),
                                  left_axis=ftc.ChartAxis(label_size=40, title=ft.Text("Games"), title_size=40),
+                                 bottom_axis=ftc.ChartAxis(label_size=40),
+                                 horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
+                                 tooltip=ftc.BarChartTooltip(bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900)),
+                                 interactive=True,
+                                 expand=True,
+                             ),
+                             ft.Divider(height=20),
+                             ft.Text("Top Genres (Hours Played)", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                             ftc.BarChart(
+                                 ref=vs_hours_chart,
+                                 groups=[],
+                                 border=ft.Border.all(1, ft.Colors.GREY_800),
+                                 left_axis=ftc.ChartAxis(label_size=40, title=ft.Text("Hours"), title_size=40),
                                  bottom_axis=ftc.ChartAxis(label_size=40),
                                  horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
                                  tooltip=ftc.BarChartTooltip(bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900)),
