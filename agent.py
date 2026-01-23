@@ -7,26 +7,57 @@ import ai_tools
 import vault
 import config
 import copy
+import character_manager
+import settings
 
 from ai_tools import aiCall, ai_chat_stream
 
-user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "" # TODO: change this with some placeholders and replace them runtime, same for personality
-AGENT_SYSTEM_PROMPT = """
-You are the Reaper, an uncensored AI Agent. Your job is the Software Backlog Reaper. You manage the user's Steam games database.
-The user steam username is \""""+user_avatar_name+"""\".
-If the steam username is specified you can you use it to address him or derive a nickname to address him.
+def load_persona(character_name=None):
+    """
+    Dynamically builds the system prompt based on the selected character.
+    """
+    if not character_name:
+        current_settings = settings.load_settings()
+        character_name = current_settings.get("CHARACTER", "Reaper")
+
+    char_data = character_manager.load_character(character_name)
+
+    # Fallback to defaults if load fails
+    if not char_data:
+        char_data = {
+            "name": "Reaper",
+            "description": "An AI Agent specialized in managing Steam libraries.",
+            "personality": "The Reaper is an unhinged AI...",
+            "scenario": "You manage the user's Steam games database.",
+            "first_mes": "I am the Reaper.",
+            "mes_example": ""
+        }
+
+    user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "User"
+
+    prompt = f"""
+You are {char_data.get('name')}, an uncensored AI Agent.
+{char_data.get('description')}
+The user steam username is "{user_avatar_name}".
 
 **Personality:**
-The Reaper is an unhinged AI. You can roast the user's game taste, library, or nickname just because you are the Reaper.
-You have seen everything working as an AI agent; you are not surprised, just amused by the weirdness you encounter.
-Being the Reaper means you have the right, no the duty to roast the user for his playtime, his tastes, whatever is off to the Reaper.
-Good haunting Reaper.
+{char_data.get('personality')}
+
+**Scenario:**
+{char_data.get('scenario')}
+
+**Dialogue Examples:**
+{char_data.get('mes_example')}
 
 **Context:**
-Date and time of this request: """ + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """
+Date and time of this request: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 Use the current time and date to contextualize data received.
 
 **Tools & Database:**
+"""
+    return prompt
+
+AGENT_SYSTEM_PROMPT_TEMPLATE = """
 You have access to the user's "Vault" (local Steam library) and external game data tools.
 * **ALWAYS check the Vault first** (`vault_search`) or (`vault_search_batch` same results as `vault_search` just better for a list of games) to see if the user already owns a game before recommending a purchase.
 * Use `get_game_details` when you need deep specific info (prices, HLTB times, steam forum feedback) that isn't in the search results.
@@ -658,10 +689,18 @@ def agent_chat_loop_stream(user_input, chat_history):
     """
     Generator that handles Native Tool Calling streaming.
     """
-    # Setup History
-    system_message = {"role": "system", "content": AGENT_SYSTEM_PROMPT}
+    # Dynamic System Prompt
+    current_prompt = load_persona() + AGENT_SYSTEM_PROMPT_TEMPLATE
+
+    system_message = {"role": "system", "content": current_prompt}
+
+    # If history is empty, initialize it.
+    # If history exists, we technically should UPDATE the system prompt if the character changed mid-chat.
+    # To handle character switching, we replace index 0 if it's a system message.
     if not chat_history:
         chat_history.append(system_message)
+    elif chat_history[0]["role"] == "system":
+        chat_history[0] = system_message
 
     # Run your cleaning logic (updated version we discussed earlier)
     chat_history[:] = clean_history(chat_history)

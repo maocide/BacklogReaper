@@ -12,6 +12,7 @@ import traceback
 import vault
 import config
 import settings
+import character_manager
 from pathlib import Path
 
 def launch_game(appid):
@@ -304,7 +305,16 @@ def parse_and_render_message(text, is_user):
 
     # Avatar Logic
     user_avatar_name = config.STEAM_USER if config.STEAM_USER else "USER"
-    avatar_name = user_avatar_name if is_user else "Reaper"
+
+    # Get Current Character Name for Avatar
+    current_char = "Reaper"
+    try:
+        current_settings = settings.load_settings()
+        current_char = current_settings.get("CHARACTER", "Reaper")
+    except:
+        pass
+
+    avatar_name = user_avatar_name if is_user else current_char
     # Align the text label to match the message bubble's position
     avatar_alignment = ft.MainAxisAlignment.START if is_user else ft.MainAxisAlignment.END
 
@@ -388,6 +398,7 @@ def main(page: ft.Page):
     set_openai_base = ft.Ref[ft.TextField]()
     set_openai_model = ft.Ref[ft.TextField]()
     set_steam_user = ft.Ref[ft.TextField]()
+    set_character_dd = ft.Ref[ft.Dropdown]()
     set_status = ft.Ref[ft.Text]()
 
     # Threading Events
@@ -1318,7 +1329,8 @@ Consider all the data and the data in your training about the games to find the 
             "OPENAI_API_KEY": set_openai_api.current.value,
             "OPENAI_BASE_URL": set_openai_base.current.value,
             "OPENAI_MODEL": set_openai_model.current.value,
-            "STEAM_USER": set_steam_user.current.value
+            "STEAM_USER": set_steam_user.current.value,
+            "CHARACTER": set_character_dd.current.value
         }
 
         if settings.save_settings(new_settings):
@@ -1339,7 +1351,11 @@ Consider all the data and the data in your training about the games to find the 
     init_openai_base = current_settings.get("OPENAI_BASE_URL") or config.OPENAI_BASE_URL or ""
     init_openai_model = current_settings.get("OPENAI_MODEL") or config.OPENAI_MODEL or ""
     init_steam_user = current_settings.get("STEAM_USER") or config.STEAM_USER or ""
+    init_character = current_settings.get("CHARACTER", "Reaper")
 
+    # Load Characters
+    available_chars = character_manager.get_available_characters()
+    char_options = [ft.dropdown.Option(c) for c in available_chars]
 
     view_settings = ft.Column(
         visible=False,
@@ -1347,6 +1363,14 @@ Consider all the data and the data in your training about the games to find the 
         scroll=ft.ScrollMode.AUTO,
         controls=[
             ft.Text("Settings", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Divider(),
+            ft.Text("Persona", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
+            ft.Dropdown(
+                ref=set_character_dd,
+                label="Active Character",
+                options=char_options,
+                value=init_character
+            ),
             ft.Divider(),
             ft.Text("Steam API", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
             ft.TextField(ref=set_steam_api, label="Steam API Key", password=True, can_reveal_password=True, value=init_steam_key),

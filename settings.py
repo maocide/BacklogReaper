@@ -8,7 +8,8 @@ DEFAULT_SETTINGS = {
     "OPENAI_API_KEY": "",
     "OPENAI_BASE_URL": "",
     "OPENAI_MODEL": "",
-    "STEAM_USER": ""
+    "STEAM_USER": "",
+    "CHARACTER": "Reaper"
 }
 
 def load_settings():

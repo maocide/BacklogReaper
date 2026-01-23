@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/app/test_flet_web.py", line 2, in <module>
+    import flet_gui
+  File "/app/flet_gui.py", line 8, in <module>
+    import agent
+  File "/app/agent.py", line 104
+    You have access to the user's "Vault" (local Steam library) and external game data tools.
+                               ^
+SyntaxError: unterminated string literal (detected at line 104)
