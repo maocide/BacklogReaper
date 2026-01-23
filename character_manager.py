@@ -22,6 +22,13 @@ def get_available_characters():
                 chars.append(name)
     return sorted(chars)
 
+def get_character_real_name(filename):
+    """Loads the character data and returns the internal 'name' field, or falls back to filename."""
+    data = load_character(filename)
+    if data and "name" in data:
+        return data["name"]
+    return filename
+
 def load_character(name):
     """
     Loads character data by name.

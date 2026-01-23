@@ -807,18 +807,55 @@ Consider all the data and the data in your training about the games to find the 
                 state["status_text"] = ft.Text("Initializing...", italic=True, size=12, color=ft.Colors.GREY_500)
                 state["agent_markdown"] = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)
 
-                agent_container = ft.Container(
-                    content=ft.Column([
-                        state["status_text"],
-                        state["agent_markdown"]
-                    ]),
-                    padding=15,
+                # Get Real Name for Avatar
+                current_char_file = "Reaper"
+                try:
+                    current_settings = settings.load_settings()
+                    current_char_file = current_settings.get("CHARACTER", "Reaper")
+                except:
+                    pass
+                real_char_name = character_manager.get_character_real_name(current_char_file)
+
+                # Build Layout EXACTLY like parse_and_render_message
+                bubble_content = ft.Column([state["status_text"], state["agent_markdown"]], tight=True, spacing=5)
+
+                content_col_width = 11
+                spacer_col_width = 1
+
+                spacer = ft.Container(content=None, col=spacer_col_width, padding=0)
+                message_container = ft.Container(
+                    content=bubble_content,
+                    bgcolor=ft.Colors.BLACK38, # Reaper color
+                    col=content_col_width,
                     border_radius=10,
-                    bgcolor=ft.Colors.BLACK38,
-                    margin=ft.Margin(left=60, top=0, right=0, bottom=10)
+                    padding=15,
                 )
+
+                # Reaper Alignment: [Spacer, Message]
+                bubble_row = ft.ResponsiveRow(
+                    controls=[spacer, message_container],
+                    vertical_alignment=ft.CrossAxisAlignment.START
+                )
+
+                bubble_selectable = ft.SelectionArea(content=bubble_row)
+
+                full_message_block = ft.Container(
+                    content=ft.Column(
+                        controls=[
+                            ft.Row(
+                                [ft.Text(real_char_name, size=12, color=ft.Colors.GREY, weight=ft.FontWeight.BOLD)],
+                                alignment=ft.MainAxisAlignment.END # Reaper alignment
+                            ),
+                            bubble_selectable,
+                        ],
+                        spacing=2,
+                    ),
+                    margin=ft.Margin(left=0, top=0, right=0, bottom=15),
+                    padding=ft.Padding(left=10, top=0, right=10, bottom=0)
+                )
+
                 if br_chat_list.current:
-                    br_chat_list.current.controls.append(agent_container)
+                    br_chat_list.current.controls.append(full_message_block)
                     br_chat_list.current.update()
 
             elif msg_type == "status":

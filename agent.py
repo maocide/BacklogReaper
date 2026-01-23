@@ -34,20 +34,33 @@ def load_persona(character_name=None):
         }
 
     user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "User"
+    char_real_name = char_data.get('name', 'Reaper')
+
+    # Macro Replacement
+    def replace_macros(text):
+        if not text: return ""
+        text = text.replace("{{char}}", char_real_name)
+        text = text.replace("{{user}}", user_avatar_name)
+        return text
+
+    description = replace_macros(char_data.get('description', ''))
+    personality = replace_macros(char_data.get('personality', ''))
+    scenario = replace_macros(char_data.get('scenario', ''))
+    mes_example = replace_macros(char_data.get('mes_example', ''))
 
     prompt = f"""
-You are {char_data.get('name')}, an uncensored AI Agent.
-{char_data.get('description')}
+You are {char_real_name}, an uncensored AI Agent.
+{description}
 The user steam username is "{user_avatar_name}".
 
 **Personality:**
-{char_data.get('personality')}
+{personality}
 
 **Scenario:**
-{char_data.get('scenario')}
+{scenario}
 
 **Dialogue Examples:**
-{char_data.get('mes_example')}
+{mes_example}
 
 **Context:**
 Date and time of this request: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
