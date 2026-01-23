@@ -905,13 +905,11 @@ Consider all the data and the data in your training about the games to find the 
                 ]
                 rows.append(ft.DataRow(cells=cells))
 
-            page.pubsub.send_all({"type": "fetch_data", "content": rows, "count": len(games_list)})
+            page.pubsub.send_all({"type": "fetch_complete", "data": rows, "count": len(games_list)})
 
         except Exception as e:
             traceback.print_exc()
-            page.pubsub.send_all({"type": "fetch_error", "content": f"Error: {e}"})
-        finally:
-            page.pubsub.send_all({"type": "fetch_cleanup"})
+            page.pubsub.send_all({"type": "fetch_complete", "error": f"Error: {e}"})
 
     def sort_table(e):
         try:
@@ -981,27 +979,34 @@ Consider all the data and the data in your training about the games to find the 
                     gf_status.current.value = content
                     gf_status.current.update()
 
-            elif msg_type == "fetch_data":
-                count = message.get("count")
-                if gf_table.current:
-                    gf_table.current.rows = content
-                    gf_table.current.update()
-                if gf_status.current:
-                    gf_status.current.value = f"Vault loaded. {count} games found."
-                    gf_status.current.update()
+            elif msg_type == "fetch_complete":
+                # 1. Update Table (if data)
+                if "data" in message:
+                    rows = message.get("data")
+                    count = message.get("count")
+                    if gf_table.current:
+                        gf_table.current.rows = rows
+                        gf_table.current.update()
+                    if gf_status.current:
+                        gf_status.current.value = f"Vault loaded. {count} games found."
+                        gf_status.current.update()
 
-            elif msg_type == "fetch_error":
-                if gf_status.current:
-                    gf_status.current.value = content
-                    gf_status.current.update()
+                # 2. Update Status (if error)
+                if "error" in message:
+                    error_msg = message.get("error")
+                    if gf_status.current:
+                        gf_status.current.value = error_msg
+                        gf_status.current.update()
 
-            elif msg_type == "fetch_cleanup":
+                # 3. Enable Buttons (ALWAYS)
                 if gf_btn_fetch.current:
                     gf_btn_fetch.current.disabled = False
                     gf_btn_fetch.current.update()
                 if gf_btn_stop.current:
                     gf_btn_stop.current.disabled = True
                     gf_btn_stop.current.update()
+
+                # 4. Unsubscribe
                 page.pubsub.unsubscribe_all()
 
         page.pubsub.subscribe(on_fetch_message)
