@@ -336,6 +336,7 @@ def main(page: ft.Page):
     page.window.frameless = False
     page.window.title_bar_hidden = False
     page.window.title_bar_buttons_hidden = False
+    page.window.title_bar_style = ft.WindowTitleBarStyle.NORMAL
 
     # --- State Variables & Refs ---
 
@@ -842,8 +843,7 @@ Consider all the data and the data in your training about the games to find the 
         try:
             if stop_event_gf.is_set(): return
 
-            gf_status.current.value = f"Opening the Vault for {username}..."
-            page.update()
+            page.pubsub.send_all({"type": "fetch_status", "content": f"Opening the Vault for {username}..."})
 
             # force_update = gf_chk_force.current.value # Removed
             force_update = False
@@ -857,14 +857,13 @@ Consider all the data and the data in your training about the games to find the 
 
             if stop_event_gf.is_set(): return
 
-            gf_status.current.value = "Reading from Vault..."
-            page.update()
+            page.pubsub.send_all({"type": "fetch_status", "content": "Reading from Vault..."})
 
             # FETCH FROM DB
             games_list = vault.get_all_games()
 
             if not games_list:
-                gf_status.current.value = "Vault is empty. Something went wrong."
+                page.pubsub.send_all({"type": "fetch_error", "content": "Vault is empty. Something went wrong."})
                 return
 
             # Store the list locally for client-side sorting if needed later
@@ -906,18 +905,13 @@ Consider all the data and the data in your training about the games to find the 
                 ]
                 rows.append(ft.DataRow(cells=cells))
 
-            gf_table.current.rows = rows
-            gf_status.current.value = f"Vault loaded. {len(games_list)} games found."
+            page.pubsub.send_all({"type": "fetch_data", "content": rows, "count": len(games_list)})
 
         except Exception as e:
-            gf_status.current.value = f"Error: {e}"
             traceback.print_exc()
+            page.pubsub.send_all({"type": "fetch_error", "content": f"Error: {e}"})
         finally:
-            if gf_btn_fetch.current:
-                gf_btn_fetch.current.disabled = False
-            if gf_btn_stop.current:
-                gf_btn_stop.current.disabled = True
-            page.update()
+            page.pubsub.send_all({"type": "fetch_cleanup"})
 
     def sort_table(e):
         try:
@@ -978,6 +972,48 @@ Consider all the data and the data in your training about the games to find the 
         gf_status.current.value = "Starting fetch..."
         page.update()
 
+        def on_fetch_message(message):
+            msg_type = message.get("type")
+            content = message.get("content")
+
+            if msg_type == "fetch_status":
+                if gf_status.current:
+                    gf_status.current.value = content
+                    gf_status.current.update()
+
+            elif msg_type == "fetch_data":
+                count = message.get("count")
+                if gf_table.current:
+                    gf_table.current.rows = content
+                    gf_table.current.update()
+                if gf_status.current:
+                    gf_status.current.value = f"Vault loaded. {count} games found."
+                    gf_status.current.update()
+
+            elif msg_type == "fetch_error":
+                if gf_status.current:
+                    gf_status.current.value = content
+                    gf_status.current.update()
+
+            elif msg_type == "fetch_cleanup":
+                if gf_btn_fetch.current:
+                    gf_btn_fetch.current.disabled = False
+                    gf_btn_fetch.current.update()
+                if gf_btn_stop.current:
+                    gf_btn_stop.current.disabled = True
+                    gf_btn_stop.current.update()
+                # page.pubsub.unsubscribe_all()
+                # We should unsubscribe only this handler, but Flet's unsubscribe takes no args or topic?
+                # Actually page.pubsub.unsubscribe_all() removes ALL handlers for the session, breaking Chat.
+                # Flet 0.21+ pubsub.unsubscribe() removes the current session's subscription.
+                # However, since we defined 'on_fetch_message' locally, we want to stop listening.
+                # Flet's pubsub is simple. If we can't unsubscribe specific handler, we just let it run but ignore?
+                # No, we must unsubscribe to avoid duplicates next time.
+                # Safe approach: page.pubsub.unsubscribe_on_all(on_fetch_message) if it existed.
+                # Looking at standard Flet patterns:
+                page.pubsub.unsubscribe(on_fetch_message)
+
+        page.pubsub.subscribe(on_fetch_message)
         t = threading.Thread(target=run_fetch_thread, args=(username,))
         t.daemon = True
         t.start()

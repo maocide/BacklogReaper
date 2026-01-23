@@ -716,7 +716,8 @@ def agent_chat_loop_stream(user_input, chat_history):
                     if tool_chunk.function.name:
                         tool_calls_buffer[idx]["name"] += tool_chunk.function.name
                         # Optional: Yield action update
-                        yield "status", f"Preparing {tool_calls_buffer[idx]['name']}..."
+                        friendly_name = get_friendly_status(tool_calls_buffer[idx]['name'])
+                        yield "status", f"{friendly_name}"
 
                     if tool_chunk.function.arguments:
                         tool_calls_buffer[idx]["args"] += tool_chunk.function.arguments
@@ -754,7 +755,7 @@ def agent_chat_loop_stream(user_input, chat_history):
 
                 # Notify UI
                 friendly_status = get_friendly_status(func_name)
-                yield "status", friendly_status
+                yield "status", f"{friendly_status} Working..."
                 print(f"Agent Calling: {func_name} | ID: {call_id}")
 
                 try:
