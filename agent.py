@@ -176,7 +176,7 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["action_description"],
@@ -235,7 +235,7 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["game_name", "action_description"],
@@ -258,7 +258,7 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["game_names", "action_description"],
@@ -280,7 +280,7 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["search_term", "action_description"],
@@ -302,7 +302,7 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["game_name", "action_description"],
@@ -321,7 +321,7 @@ tools_schema = [
                     "game_name": {"type": "string"},
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["game_name", "action_description"],
@@ -340,7 +340,7 @@ tools_schema = [
                     "game_name": {"type": "string"},
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["game_name", "action_description"],
@@ -359,7 +359,7 @@ tools_schema = [
                     "search": {"type": "string"},
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["search", "action_description"],
@@ -378,7 +378,7 @@ tools_schema = [
                     "url": {"type": "string"},
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["url", "action_description"],
@@ -405,7 +405,7 @@ tools_schema = [
                     },
                     "action_description": {
                         "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your persona (e.g. 'Scraping the digital grave...', 'Judging your backlog...')."
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["action_description"],
