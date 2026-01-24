@@ -757,7 +757,7 @@ Consider all the data and the data in your training about the games to find the 
 
             for event_type, content in stream:
                 if stop_event_br.is_set(): break
-                # time.sleep(0.01) # Small yield might still be useful, but pubsub handles context
+                time.sleep(0.02) # Small yield might still be useful, but pubsub handles context... ACTUALLY MANDATORY, flet would mess streaming order otherwise, this keeps it intact
                 page.pubsub.send_all({"type": event_type, "content": content})
 
             # 4. Final Cleanup
