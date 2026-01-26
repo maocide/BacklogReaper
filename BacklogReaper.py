@@ -488,9 +488,44 @@ def get_global_game_info(game_name):
     if positive is not None and negative is not None and positive + negative != 0:
         approval = round(positive / (positive + negative), 2)
 
+    # --- PRICE PER HOUR CALCULATION ---
+    price_per_hour = "N/A"
+    price_per_hour_low = "N/A"
+
+    try:
+        # 1. Get Main Story Hours
+        main_hours = 0
+        if how_long_to_beat and len(how_long_to_beat) > 0:
+            main_hours = float(how_long_to_beat[0].main_story)
+
+        if main_hours > 0:
+            # 2. Calculate for Official Steam Price
+            # game_info['price'] is usually in Cents (e.g. 1999 for $19.99)
+            steam_price_cents = game_info.get('price')
+            if steam_price_cents is not None:
+                steam_price = float(steam_price_cents) / 100.0
+                pph = steam_price / main_hours
+                price_per_hour = f"${pph:.2f}/h"
+
+            # 3. Calculate for Lowest Found Price (CheapShark)
+            if best_deal and 'price' in best_deal:
+                # best_deal['price'] is usually a string "14.99"
+                deal_price = float(best_deal['price'])
+                pph_low = deal_price / main_hours
+                price_per_hour_low = f"${pph_low:.2f}/h"
+
+    except Exception as e:
+        print(f"Error calculating PPH: {e}")
+
     payload = {
         "title": game_info['name'],
         "description": short_description,
+        "market_analysis": {
+            "price_per_hour": price_per_hour,
+            "price_per_hour_low": price_per_hour_low,
+            "official_current": price_str,
+            "lowest_recorded": f"${best_deal['price']} ({best_deal['store']})" if best_deal else "N/A"
+        },
         "price": price_str,
         "discount": discount,
         "best_deal": best_deal,
