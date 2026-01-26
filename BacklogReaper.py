@@ -447,6 +447,13 @@ def get_global_game_info(game_name):
     else:
         how_long_to_beat_hours = {}
 
+    # Handle missing playtime data clearly for AI
+    avg_forever_val = game_info.get('average_forever', 0)
+    med_forever_val = game_info.get('median_forever', 0)
+
+    playtime_avg_str = f"{round(avg_forever_val / 60, 1)} h" if avg_forever_val > 0 else "No Data"
+    median_forever_str = f"{round(med_forever_val / 60, 1)} h" if med_forever_val > 0 else "No Data"
+
     all_tags = game_info.get('tags', {})
     # Sort by votes (high to low) and take the top 5
     if not all_tags is None and len(all_tags) > 0:
@@ -460,8 +467,8 @@ def get_global_game_info(game_name):
 
     positive = summary.get('total_positive')
     negative = summary.get('total_negative')
-    average_forever = round(game_info.get('average_forever') / 60, 1)
-    median_forever = round(game_info.get('median_forever')/ 60, 1)
+    # average_forever = round(game_info.get('average_forever') / 60, 1) # Moved up
+    # median_forever = round(game_info.get('median_forever')/ 60, 1) # Moved up
     ccu = str(game_info.get('ccu')) if game_info.get('ccu') != 0 else "N/A" # For ai values of 0, implies missing.
     short_description = app_details['short_description']
 
@@ -489,8 +496,8 @@ def get_global_game_info(game_name):
         approval = round(positive / (positive + negative), 2)
 
     # --- PRICE PER HOUR CALCULATION ---
-    price_per_hour = "N/A"
-    price_per_hour_low = "N/A"
+    price_per_hour = "N/A (No Data)"
+    price_per_hour_low = "N/A (No Data)"
 
     try:
         # 1. Get Main Story Hours
@@ -513,6 +520,10 @@ def get_global_game_info(game_name):
                 deal_price = float(best_deal['price'])
                 pph_low = deal_price / main_hours
                 price_per_hour_low = f"${pph_low:.2f}/h"
+        else:
+            # Explicitly state why
+            price_per_hour = "N/A (No HLTB Data)"
+            price_per_hour_low = "N/A (No HLTB Data)"
 
     except Exception as e:
         print(f"Error calculating PPH: {e}")
@@ -535,8 +546,8 @@ def get_global_game_info(game_name):
         "total_positive": positive,
         "total_negative": negative,
         "user_score": f"{approval * 100}% Positive",  # Calculated approval
-        "playtime_avg": f"{average_forever} h",  # Tells AI if it's replayable
-        "median_forever": f"{median_forever} h",
+        "playtime_avg": playtime_avg_str,  # Tells AI if it's replayable
+        "median_forever": median_forever_str,
         "how_long_to_beat_hours" : how_long_to_beat_hours, # Various values taken from how long to beat
         "ccu" : str(ccu) if ccu != 0 else "N/A",
         "tags": top_tags,  # The top tags sorted
