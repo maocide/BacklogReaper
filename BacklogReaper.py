@@ -487,7 +487,12 @@ def get_global_game_info(game_name):
     initial_formatted = fmt_price(game_info.get('initialprice', 0))
     discount_percent = game_info.get('discount', 0)
 
-    if int(discount_percent, 0) > 0:
+    try:
+        disc_val = int(discount_percent)
+    except:
+        disc_val = 0
+
+    if disc_val > 0:
         price_str = f"{final_formatted} (MSRP: {initial_formatted} | -{discount_percent}% OFF)"
     else:
         price_str = final_formatted
