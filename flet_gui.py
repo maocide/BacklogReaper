@@ -6,6 +6,7 @@ import flet_charts as ftc  # Import flet-charts
 
 import BacklogReaper as br
 import agent
+from ai_tools import aiCall
 import threading
 import time
 import traceback
@@ -612,7 +613,7 @@ The review will follow as user message:"""
             print(ai_request) # Debug
             print(reviews) # debug
 
-            ai_out = agent.aiCall(reviews, ai_request)
+            ai_out = aiCall(reviews, ai_request)
 
             if stop_event_ra.is_set():
                 ra_status.current.value = "Analysis stopped."
@@ -697,7 +698,7 @@ Consider all the data and the data in your training about the games to find the 
 
             # print(ai_request)
 
-            ai_out = agent.aiCall("", ai_request)
+            ai_out = aiCall("", ai_request)
 
             if stop_event_sg.is_set():
                 sg_status.current.value = "Suggest stopped."

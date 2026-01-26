@@ -12,3 +12,4 @@ steamspypi
 flet
 flet-charts
 Pillow
+trafilatura
