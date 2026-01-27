@@ -503,6 +503,7 @@ def get_global_game_info(game_name):
     # --- PRICE PER HOUR CALCULATION ---
     price_per_hour = "N/A (No Data)"
     price_per_hour_low = "N/A (No Data)"
+    user_price_per_hour = "N/A (Not Owned)"
 
     try:
         # 1. Get Main Story Hours
@@ -530,6 +531,21 @@ def get_global_game_info(game_name):
             price_per_hour = "N/A (No HLTB Data)"
             price_per_hour_low = "N/A (No HLTB Data)"
 
+        # 4. User Cost Per Hour (Your Cost / Your Playtime)
+        # Use Current Store Price as proxy for "Your Cost" since we don't have purchase history
+        game_in_vault = vault.get_game_by_appid(appid)
+        if game_in_vault:
+             user_playtime_hrs = game_in_vault.get('playtime_forever', 0) / 60.0
+             if user_playtime_hrs > 0.5: # Minimum 30 mins to avoid division by near-zero or massive numbers
+                 current_price_cents = game_info.get('price', 0)
+                 # Treat '0' as Free
+                 if current_price_cents is not None:
+                     current_price = float(current_price_cents) / 100.0
+                     user_pph = current_price / user_playtime_hrs
+                     user_price_per_hour = f"${user_pph:.2f}/h"
+             else:
+                 user_price_per_hour = "N/A (Low Playtime)"
+
     except Exception as e:
         print(f"Error calculating PPH: {e}")
 
@@ -539,6 +555,7 @@ def get_global_game_info(game_name):
         "market_analysis": {
             "price_per_hour": price_per_hour,
             "price_per_hour_low": price_per_hour_low,
+            "user_price_per_hour": user_price_per_hour,
             "official_current": price_str,
             "lowest_recorded": f"${best_deal['price']} ({best_deal['store']})" if best_deal else "N/A"
         },

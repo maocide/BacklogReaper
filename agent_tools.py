@@ -140,7 +140,7 @@ tools_schema = [
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["Unplayed", "Bounced", "Testing", "Addicted", "Finished", "Active", "Abandoned", "Played"]
+                            "enum": ["Unplayed", "Bounced", "Testing", "Completionist", "Invested", "Seasoned", "Started", "Abandoned", "Forgotten", "Hooked", "Mastered", "Played"]
                         },
                         "description": "Filter by game completion status."
                     },

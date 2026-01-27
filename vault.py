@@ -22,60 +22,80 @@ def calculate_status(game):
     """
     Classifies the game state using Playtime, HLTB, Recency, and Tags.
     Returns a single string label.
+
+    Hierarchy:
+    1. Unplayed (< 10m)
+    2. Completionist / Invested (> 100% Story)
+    3. Bounced / Testing (< 2h)
+    4. Seasoned / Forgotten (50-100% Story)
+    5. Started / Abandoned (10-50% Story)
+    6. Hooked / Mastered (Multiplayer/Endless)
+    7. Played (Fallback)
     """
     playtime_min = game.get('playtime_forever', 0)
     last_played_ts = game.get('rtime_last_played', 0)
     hltb_main = game.get('hltb_main', 0)
-    hltb_comp = game.get('hltb_completionist', 0)
     tags = game.get('tags', '').lower()
+    is_multiplayer_db = game.get('is_multiplayer', 0)
 
     # Derived Metrics
     playtime_hrs = playtime_min / 60.0
 
-    # Days since last launch (86400 seconds = 1 day)
-    # If last_played is 0, treat as ancient history (9999 days)
+    # Days since last launch
     days_since_played = (time.time() - last_played_ts) / 86400 if last_played_ts > 0 else 9999
 
-    # THE "GHOST" (Pure Backlog)
-    if playtime_min < 1:
+    # 1. UNPLAYED
+    # Increased threshold to 10 minutes as requested
+    if playtime_min < 10:
         return "Unplayed"
 
-    # THE "TOURIST" (Bought, tried, quit immediately)
-    # Played less than 2 hours...
-    if playtime_min < 120:
-        # ...and hasn't touched it in 2 weeks.
-        if days_since_played > 14:
-            return "Bounced"
-        return "Testing"  # Recently bought/installed
-
-    # THE "ADDICT" (Multiplayer / Endless)
-    # Logic: If it's a multiplayer game with significant hours,
-    # OR if you've played 3x the completionist time.
-    is_multiplayer = "multiplayer" in tags or "mmo" in tags or "co-op" in tags
-
-    if (is_multiplayer and playtime_hrs > 50) or (hltb_comp > 0 and playtime_hrs > hltb_comp * 3):
-        return "Addicted"
-
-    # HLTB PROGRESS LOGIC
+    # Ratio Calculation (Playtime / Main Story)
+    ratio = 0
     if hltb_main > 0:
         ratio = playtime_hrs / hltb_main
 
-        # > 80% of Main Story length -> Likely Finished
-        if ratio >= 0.8:
-            return "Finished"
+    # 2. FINISHED / COMPLETIONIST (Overrides "Bounced" for short games)
+    if hltb_main > 0:
+        if ratio > 1.3:
+            return "Completionist"
+        if ratio >= 1.0:
+            return "Invested"
 
-        # 10% to 80% -> In Progress
-        if ratio > 0.1:
-            # The Critical Distinction: Active vs Abandoned
+    # 3. EARLY GAME (Bounced vs Testing)
+    # If played less than 2 hours (and didn't finish it per above)
+    if playtime_min < 120:
+        if days_since_played > 14:
+            return "Bounced"
+        return "Testing"  # Recent purchase/install
+
+    # 4. MID-GAME (Story Progress)
+    if hltb_main > 0:
+        # 50% - 100%
+        if ratio >= 0.5:
             if days_since_played < 60:
-                return "Active"  # Playing it this month/recently
+                return "Seasoned"
             else:
-                return "Abandoned"  # Stopped midway ages ago
+                return "Forgotten"
 
-    # FALLBACK (No HLTB Data)
-    # We can only judge by recency if we don't know how long the game is
-    if days_since_played < 30: return "Active"
+        # 10% - 50%
+        if ratio > 0.1:
+            if days_since_played < 60:
+                return "Started"
+            else:
+                return "Abandoned"
 
+    # 5. MULTIPLAYER / ENDLESS
+    # Check DB flag OR keywords
+    is_mp_tag = "multiplayer" in tags or "mmo" in tags or "co-op" in tags or "online" in tags
+
+    # If it's multiplayer OR just played a ton (> 50h)
+    if is_multiplayer_db or is_mp_tag or playtime_hrs > 50:
+        if days_since_played < 30:
+            return "Hooked"
+        else:
+            return "Mastered"
+
+    # 6. FALLBACK
     return "Played"
 
 def format_time_ago(ts):
@@ -290,6 +310,18 @@ def get_all_games():
         # Convert to list of dicts immediately to avoid threading issues with Row objects later
         return [dict(row) for row in rows]
 
+def get_game_by_appid(appid):
+    """
+    Efficiently retrieves a single game by AppID.
+    Returns dict or None.
+    """
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM games WHERE appid=?", (appid,))
+        row = c.fetchone()
+        if row:
+            return dict(row)
+    return None
 
 def get_all_tags(limit=None):
     """
