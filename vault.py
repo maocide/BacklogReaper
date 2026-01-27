@@ -98,6 +98,33 @@ def calculate_status(game):
     # 6. FALLBACK
     return "Played"
 
+def calculate_simple_status(game):
+    """
+    Returns a simplified status group for Charting (5 groups).
+    """
+    detailed = calculate_status(game)
+
+    mapping = {
+        "Unplayed": "Backlog",
+
+        "Testing": "Trying",
+        "Bounced": "Trying",
+
+        "Started": "Active",
+        "Seasoned": "Active",
+        "Hooked": "Active",
+
+        "Invested": "Finished",
+        "Completionist": "Finished",
+        "Played": "Finished",
+
+        "Abandoned": "Shelved",
+        "Forgotten": "Shelved",
+        "Mastered": "Shelved"
+    }
+
+    return mapping.get(detailed, "Played")
+
 def format_time_ago(ts):
     if ts == 0: return "Never"
     days = int((time.time() - ts) / 86400)
@@ -542,12 +569,14 @@ def get_vault_statistics():
     for game in games:
         # Calculate status dynamically
         status = calculate_status(game)
+        simple_status = calculate_simple_status(game) # Use simplified for chart
+
         playtime = game.get('playtime_forever', 0)
         hltb = game.get('hltb_main', 0)
         tags_str = game.get('tags', '')
 
-        # Aggregate Status
-        stats["status_counts"][status] = stats["status_counts"].get(status, 0) + 1
+        # Aggregate Status (Use Simple!)
+        stats["status_counts"][simple_status] = stats["status_counts"].get(simple_status, 0) + 1
 
         # Aggregate Totals
         stats["total_hours"] += playtime

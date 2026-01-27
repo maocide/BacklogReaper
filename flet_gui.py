@@ -28,18 +28,30 @@ def launch_game(appid):
 def get_status_color(status):
     """Returns the color corresponding to a game status."""
     color_map = {
-        "Completionist": ft.Colors.GREEN_400,
-        "Invested": ft.Colors.TEAL_400,
-        "Seasoned": ft.Colors.AMBER_600,
-        "Started": ft.Colors.AMBER_200,
-        "Hooked": ft.Colors.PURPLE_400,
-        "Mastered": ft.Colors.DEEP_PURPLE_400,
-        "Forgotten": ft.Colors.BROWN_200,
-        "Abandoned": ft.Colors.BROWN_400,
-        "Bounced": ft.Colors.DEEP_ORANGE_400,
-        "Testing": ft.Colors.AMBER_400,
+        # Simplified Chart Categories
+        "Backlog": ft.Colors.GREY_500,  # Unplayed
+        "Trying": ft.Colors.AMBER_400,  # Testing, Bounced
+        "Active": ft.Colors.BLUE_400,   # Started, Seasoned, Hooked
+        "Finished": ft.Colors.GREEN_400,# Invested, Completionist, Played
+        "Shelved": ft.Colors.BROWN_400, # Abandoned, Forgotten, Mastered
+
+        # Detailed Game Card Categories (Fallback to related simplified color)
         "Unplayed": ft.Colors.GREY_500,
-        "Played": ft.Colors.TEAL_400
+
+        "Testing": ft.Colors.AMBER_400,
+        "Bounced": ft.Colors.DEEP_ORANGE_400, # Distinction: Orange for bounced
+
+        "Started": ft.Colors.BLUE_200,
+        "Seasoned": ft.Colors.BLUE_600,
+        "Hooked": ft.Colors.PURPLE_400, # Distinction: Purple for endless/multi
+
+        "Invested": ft.Colors.GREEN_300,
+        "Completionist": ft.Colors.GREEN_500,
+        "Played": ft.Colors.TEAL_400, # Distinction: Teal for generic played
+
+        "Abandoned": ft.Colors.BROWN_400,
+        "Forgotten": ft.Colors.BROWN_200,
+        "Mastered": ft.Colors.DEEP_PURPLE_400 # Distinction: Deep Purple for shelved master
     }
     return color_map.get(status, ft.Colors.WHITE)
 
