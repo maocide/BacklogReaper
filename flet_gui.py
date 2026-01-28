@@ -121,7 +121,10 @@ def create_game_card(game_data):
 
             row = ft.Row(
                 controls=[
-                    ft.Text(f"{formatted_label}:", color=ft.Colors.WHITE38, weight=ft.FontWeight.BOLD),
+                    ft.Container(
+                        content=ft.Text(f"{formatted_label}:", color=ft.Colors.WHITE38, weight=ft.FontWeight.BOLD),
+                        width=85,
+                    ),
                     ft.Text(str(content), color=ft.Colors.GREY, expand=True),  # expand prevents overflow push
                 ],
                 alignment=ft.MainAxisAlignment.START,
