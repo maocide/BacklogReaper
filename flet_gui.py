@@ -223,7 +223,7 @@ def create_game_card(game_data):
     # )
 
 
-def parse_and_render_message(text, is_user):
+def parse_and_render_message(text, is_user, reasoning_text=None):
     """
     Analyzes the text. Finds ALL JSON blocks of games and renders them as Cards.
     Handles mixed content: Text -> JSON -> Text -> JSON -> Text.
@@ -335,19 +335,38 @@ def parse_and_render_message(text, is_user):
     # Align the text label to match the message bubble's position
     avatar_alignment = ft.MainAxisAlignment.START if is_user else ft.MainAxisAlignment.END
 
+    main_column_controls = [
+        ft.Row(
+            [ft.Text(avatar_name, size=12, color=ft.Colors.GREY, weight=FontWeight.BOLD)],
+            alignment=avatar_alignment
+        )
+    ]
+
+    if reasoning_text and not is_user:
+        main_column_controls.append(
+            ft.SelectionArea(
+                content=ft.ResponsiveRow(
+                    controls=[
+                        ft.Container(col=1),
+                        ft.Container(
+                            content=ft.Text(reasoning_text, italic=True, color=ft.Colors.GREY_500, size=12, selectable=True),
+                            col=11,
+                        )
+                    ],
+                )
+            )
+        )
+
+    main_column_controls.append(bubble_selectable)
+
     return ft.Container(
         content=ft.Column(
-            controls=[
-                ft.Row(
-                    [ft.Text(avatar_name, size=12, color=ft.Colors.GREY, weight=FontWeight.BOLD)],
-                    alignment=avatar_alignment
-                ),
-                bubble_selectable,
-            ],
+            controls=main_column_controls,
             spacing=2,
         ),
         margin=ft.Margin(left=0, top=0, right=0, bottom=15),
-        padding=ft.Padding(left=10, top=0, right=10, bottom=0)  # Add slight global padding
+        padding=ft.Padding(left=10, top=0, right=10, bottom=0),  # Add slight global padding
+        data="user_message" if is_user else "assistant_message"
     )
 
 def main(page: ft.Page):
@@ -788,30 +807,27 @@ Consider all the data and the data in your training about the games to find the 
             page.pubsub.send_all({"type": "cleanup"})
 
 
-    def send_message(e):
-        user_message = br_input.current.value
-        if not user_message:
-            return
+    def remove_regen_button():
+        if br_chat_list.current and br_chat_list.current.controls:
+            last_ctrl = br_chat_list.current.controls[-1]
+            # Check if it's our regeneration button container (now a Row)
+            if isinstance(last_ctrl, ft.Row) and last_ctrl.controls and isinstance(last_ctrl.controls[0], ft.IconButton):
+                 if last_ctrl.controls[0].icon == ft.Icons.REFRESH:
+                    br_chat_list.current.controls.pop()
+                    br_chat_list.current.update()
+            # Fallback for old single button style
+            elif isinstance(last_ctrl, ft.IconButton) and last_ctrl.icon == ft.Icons.REFRESH:
+                br_chat_list.current.controls.pop()
+                br_chat_list.current.update()
 
-        # 1. Show User Message Immediately
-        if br_chat_list.current:
-            br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
-            br_chat_list.current.update()
-
-        br_input.current.value = ""
-        br_input.current.disabled = True
-        br_btn_send.current.disabled = True
-
-        br_input.current.update()
-        br_btn_send.current.update()
-
-        stop_event_br.clear()
-
+    def start_chat_thread(user_message):
         # Define UI handlers for PubSub
         # This state needs to be accessible to the on_message handler
         state = {
             "status_text": None,
             "agent_markdown": None,
+            "reasoning_view": None,
+            "reasoning_buffer": "",
             "previous_was_tool": False,
             "first_text": True
         }
@@ -823,6 +839,8 @@ Consider all the data and the data in your training about the games to find the 
             if msg_type == "init":
                 state["status_text"] = ft.Text("Initializing...", italic=True, size=12, color=ft.Colors.GREY_500)
                 state["agent_markdown"] = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)
+                state["reasoning_view"] = ft.Text("", italic=True, color=ft.Colors.GREY_500, size=12, visible=False, selectable=True)
+                state["reasoning_buffer"] = ""
 
                 # Get Real Name for Avatar
                 current_char_file = "Reaper"
@@ -834,6 +852,22 @@ Consider all the data and the data in your training about the games to find the 
                 real_char_name = character_manager.get_character_real_name(current_char_file)
 
                 # Build Layout EXACTLY like parse_and_render_message
+
+                # Reasoning View Container
+                reasoning_container = ft.SelectionArea(
+                    content=ft.ResponsiveRow(
+                        controls=[
+                            ft.Container(col=1),
+                            ft.Container(
+                                content=state["reasoning_view"],
+                                col=11,
+                            )
+                        ],
+                    ),
+                    visible=False # Initially hidden until content arrives
+                )
+                state["reasoning_container"] = reasoning_container
+
                 bubble_content = ft.Column([state["status_text"], state["agent_markdown"]], tight=True, spacing=5)
 
                 content_col_width = 11
@@ -856,24 +890,38 @@ Consider all the data and the data in your training about the games to find the 
 
                 bubble_selectable = ft.SelectionArea(content=bubble_row)
 
+                full_block_controls = [
+                    ft.Row(
+                        [ft.Text(real_char_name, size=12, color=ft.Colors.GREY, weight=ft.FontWeight.BOLD)],
+                        alignment=ft.MainAxisAlignment.END # Reaper alignment
+                    ),
+                    state["reasoning_container"],
+                    bubble_selectable
+                ]
+
                 full_message_block = ft.Container(
                     content=ft.Column(
-                        controls=[
-                            ft.Row(
-                                [ft.Text(real_char_name, size=12, color=ft.Colors.GREY, weight=ft.FontWeight.BOLD)],
-                                alignment=ft.MainAxisAlignment.END # Reaper alignment
-                            ),
-                            bubble_selectable,
-                        ],
+                        controls=full_block_controls,
                         spacing=2,
                     ),
                     margin=ft.Margin(left=0, top=0, right=0, bottom=15),
-                    padding=ft.Padding(left=10, top=0, right=10, bottom=0)
+                    padding=ft.Padding(left=10, top=0, right=10, bottom=0),
+                    data="assistant_message"
                 )
 
                 if br_chat_list.current:
                     br_chat_list.current.controls.append(full_message_block)
                     br_chat_list.current.update()
+
+            elif msg_type == "reasoning":
+                state["reasoning_buffer"] += content
+                if state["reasoning_view"]:
+                    state["reasoning_view"].value = state["reasoning_buffer"]
+                    state["reasoning_view"].visible = True
+                    state["reasoning_view"].update()
+                    if "reasoning_container" in state:
+                        state["reasoning_container"].visible = True
+                        state["reasoning_container"].update()
 
             elif msg_type == "status":
                 if state["status_text"]:
@@ -909,9 +957,27 @@ Consider all the data and the data in your training about the games to find the 
 
             elif msg_type == "finish":
                 final_text = state["agent_markdown"].value
+                final_reasoning = state["reasoning_buffer"]
+
                 if br_chat_list.current:
                     br_chat_list.current.controls.pop()
-                    br_chat_list.current.controls.append(parse_and_render_message(final_text, is_user=False))
+                    br_chat_list.current.controls.append(parse_and_render_message(final_text, is_user=False, reasoning_text=final_reasoning))
+
+                    # Add Regenerate Button (Aligned Right)
+                    regen_btn = ft.Row(
+                        controls=[
+                            ft.IconButton(
+                                icon=ft.Icons.REFRESH,
+                                tooltip="Regenerate Response",
+                                icon_color=ft.Colors.GREY_500,
+                                on_click=regenerate_click,
+                                icon_size=20,
+                            )
+                        ],
+                        alignment=ft.MainAxisAlignment.END
+                    )
+                    br_chat_list.current.controls.append(regen_btn)
+
                     br_chat_list.current.update()
 
                 if br_status.current:
@@ -939,6 +1005,69 @@ Consider all the data and the data in your training about the games to find the 
 
         page.pubsub.subscribe(on_message)
         page.run_thread(run_backlog_reaping_thread, user_message)
+
+    def regenerate_click(e):
+        remove_regen_button()
+
+        # 1. Prune History Backwards until we hit a User or System message
+        # This removes Assistant turns, including Tool Calls and Tool Outputs.
+        while br_chat_history and br_chat_history[-1]["role"] not in ("user", "system"):
+            br_chat_history.pop()
+
+        # 2. Prune UI Backwards until we hit a User message bubble
+        # This removes Assistant bubbles AND intermediate "Action" status texts.
+        if br_chat_list.current:
+            while br_chat_list.current.controls:
+                last_ctrl = br_chat_list.current.controls[-1]
+                # Check if it's a User Message (tagged via data)
+                if getattr(last_ctrl, "data", None) == "user_message":
+                    break
+                br_chat_list.current.controls.pop()
+
+            br_chat_list.current.update()
+
+        # 3. Disable Inputs
+        br_input.current.disabled = True
+        br_btn_send.current.disabled = True
+        br_input.current.update()
+        br_btn_send.current.update()
+
+        # 4. Restart Thread (Retrying the last user message)
+        # We need the last user message content.
+        # It should be the last thing in history now.
+        if br_chat_history:
+             last_msg = br_chat_history[-1]
+             if last_msg["role"] == "user":
+                 user_message = last_msg["content"]
+                 # Remove from history so it doesn't get duplicated by agent loop
+                 br_chat_history.pop()
+
+                 stop_event_br.clear()
+                 start_chat_thread(user_message)
+
+
+    def send_message(e):
+        user_message = br_input.current.value
+        if not user_message:
+            return
+
+        remove_regen_button()
+
+        # 1. Show User Message Immediately
+        if br_chat_list.current:
+            br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
+            br_chat_list.current.update()
+
+        br_input.current.value = ""
+        br_input.current.disabled = True
+        br_btn_send.current.disabled = True
+
+        br_input.current.update()
+        br_btn_send.current.update()
+
+        stop_event_br.clear()
+
+        start_chat_thread(user_message)
 
     # Game Fetcher
     def run_fetch_thread(username):

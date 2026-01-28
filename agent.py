@@ -123,7 +123,13 @@ def agent_chat_loop_stream(user_input, chat_history):
     # Run your cleaning logic
     chat_history[:] = clean_history(chat_history)
 
-    chat_history.append({"role": "user", "content": user_input})
+    # --- Lorebook Injection Logic (Disabled for now) ---
+    # if user_input:
+    #      chat_history.append({"role": "user", "content": user_input})
+    # --------------------------------
+
+    if user_input:
+        chat_history.append({"role": "user", "content": user_input})
 
     max_turns = 25
     turn = 0
@@ -139,8 +145,13 @@ def agent_chat_loop_stream(user_input, chat_history):
         )
 
         full_content_buffer = ""
+        full_reasoning_buffer = "" # DeepSeek / reasoning model support
         tool_calls_buffer = {}  # Dict to handle parallel tool streams {index: {id, name, args}}
         is_tool_call = False
+
+        # State tracking for formatting
+        has_started_reasoning = False
+        has_finished_reasoning = False
 
         yield "status", "🤔 Thinking..."
 
@@ -148,13 +159,30 @@ def agent_chat_loop_stream(user_input, chat_history):
         for chunk in stream:
             delta = chunk.choices[0].delta
 
-            # --- CASE A: TEXT CONTENT (Normal Reply) ---
+            # --- CASE A: REASONING CONTENT (DeepSeek R1 / Thinking Models) ---
+            # Process reasoning BEFORE content to ensure logical stream order if both are present.
+            if hasattr(delta, "reasoning_content") and delta.reasoning_content:
+                if not has_started_reasoning:
+                    has_started_reasoning = True
+
+                # Stream reasoning as plain text (no italics or headers)
+                yield "reasoning", delta.reasoning_content
+
+                full_reasoning_buffer += delta.reasoning_content
+
+            # --- CASE B: TEXT CONTENT (Normal Reply) ---
             if delta.content:
+                # Detect transition from reasoning to content
+                if has_started_reasoning and not has_finished_reasoning:
+                    # yield "text", "\n\n---\n\n" # Separator only
+                    has_finished_reasoning = True
+
                 yield "text", delta.content
                 full_content_buffer += delta.content
 
-            # --- CASE B: TOOL CALLING (Native) ---
+            # --- CASE C: TOOL CALLING (Native) ---
             if delta.tool_calls:
+                # We do NOT close reasoning here. Let it flow until actual content starts.
                 is_tool_call = True
 
                 for tool_chunk in delta.tool_calls:
@@ -197,11 +225,15 @@ def agent_chat_loop_stream(user_input, chat_history):
 
             # Append ASSISTANT message to history (The "Request")
             # Note: Content is null for pure tool calls
-            chat_history.append({
+            assistant_msg = {
                 "role": "assistant",
                 "content": full_content_buffer if full_content_buffer else None,
                 "tool_calls": final_tool_calls
-            })
+            }
+            if full_reasoning_buffer:
+                assistant_msg["reasoning_content"] = full_reasoning_buffer
+
+            chat_history.append(assistant_msg)
 
             # 4. EXECUTE TOOLS
             for tool_call in final_tool_calls:
@@ -243,7 +275,14 @@ def agent_chat_loop_stream(user_input, chat_history):
 
         else:
             # Just text, we are done
-            chat_history.append({"role": "assistant", "content": full_content_buffer})
+            assistant_msg = {
+                "role": "assistant",
+                "content": full_content_buffer
+            }
+            if full_reasoning_buffer:
+                assistant_msg["reasoning_content"] = full_reasoning_buffer
+
+            chat_history.append(assistant_msg)
             return
 
     yield "text", "\n\n(Max turns reached.)"
