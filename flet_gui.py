@@ -347,16 +347,30 @@ def parse_and_render_message(text, is_user, reasoning_text=None):
 
     if reasoning_text and not is_user:
         main_column_controls.append(
-            ft.SelectionArea(
-                content=ft.ResponsiveRow(
-                    controls=[
-                        ft.Container(col=1),
-                        ft.Container(
-                            content=ft.Text(reasoning_text, italic=True, color=ft.Colors.GREY_500, size=12, selectable=True),
-                            col=11,
-                        )
-                    ],
-                )
+            ft.ResponsiveRow(
+                controls=[
+                    ft.Container(col=1),
+                    ft.Container(
+                        col=11,
+                        content=ft.SelectionArea(
+                            content=ft.ExpansionTile(
+                                title=ft.Text("Reasoning"),
+                                tile_padding=0,
+                                controls=[
+                                    ft.Container(
+                                        content=ft.Text(
+                                            reasoning_text,
+                                            italic=True,
+                                            color=ft.Colors.GREY_500,
+                                            size=12
+                                        ),
+                                        padding=ft.Padding.only(left=10, bottom=10)
+                                    )
+                                ],
+                            )
+                        ),
+                    ),
+                ]
             )
         )
 
@@ -857,18 +871,29 @@ Consider all the data and the data in your training about the games to find the 
                 # Build Layout EXACTLY like parse_and_render_message
 
                 # Reasoning View Container
-                reasoning_container = ft.SelectionArea(
-                    content=ft.ResponsiveRow(
-                        controls=[
-                            ft.Container(col=1),
-                            ft.Container(
-                                content=state["reasoning_view"],
-                                col=11,
-                            )
-                        ],
-                    ),
-                    visible=False # Initially hidden until content arrives
+                reasoning_container = ft.ResponsiveRow(
+                    controls=[
+                        ft.Container(col=1),
+                        ft.Container(
+                            col=11,
+                            content=ft.SelectionArea(
+                                content=ft.ExpansionTile(
+                                    title=ft.Text("Thinking..."),
+                                    tile_padding=0,
+                                    controls=[
+                                        ft.Container(
+                                            content=state["reasoning_view"],
+                                            padding=ft.Padding.only(left=10, bottom=10)
+                                        )
+                                    ],
+                                )
+                            ),
+                        ),
+                    ],
+                    visible = False  # Initially hidden until content arrives
                 )
+
+
                 state["reasoning_container"] = reasoning_container
 
                 bubble_content = ft.Column([state["status_text"], state["agent_markdown"]], tight=True, spacing=5)
