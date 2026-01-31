@@ -1032,125 +1032,118 @@ def format_reviews_for_ai(price, steam_reviews, gameinfo):
     return human_reviews
 
 
-def get_achievement_stats(appid = -1, game_name = ""):
+def get_achievement_stats(appid=-1, game_name="", page=None):
     """
-    Fetches User Achievement progress + Global Rarity.
-    Returns a summary string for the Agent.
+    Fetches Achievement stats.
+    Default: Returns a "Dashboard" summary (Stats + Top 3 Easiest Locked).
+    If 'page' is set (int), returns a list of locked achievements for browsing.
     """
+    # 1. Resolve ID (Keep your existing logic)
     steam = Steam(config.STEAM_API_KEY)
-
-    # Resolve AppID
-    if appid == -1 and len(game_name) > 0:
+    if appid == -1 and game_name:
         app_info = get_steam_app_info(game_name)
+        if not app_info: return {"error": f"Game not found: {game_name}"}
         appid = app_info['id'][0]
-        if not app_info:
-            return f"Could not find game: {game_name}"
-    elif appid != -1:
-        pass
-    else:
-        return f"Specify appid or game name."
 
-    global steam_id
-    steam_id = resolve_steam_id(config.STEAM_USER)  # You need the numeric 64-bit ID here
-    if not steam_id:
-        return "Error: Could not resolve Steam ID. Check settings."
+    steam_id = resolve_steam_id(config.STEAM_USER)
+    if not steam_id: return {"error": "Could not resolve Steam ID."}
 
     try:
-        # 1. Get User Data
-        user_achievements = steam.apps.get_user_achievements(steam_id, appid)
-
-        # Handle "Profile Private" or "No Stats" errors
-        if 'playerstats' not in user_achievements:
-            if user_achievements.get('error'):
-                return f"Error: {user_achievements.get('error')} (Is your profile public?)"
-            return f"No achievement data found for {game_name}."
-
-        user_data = user_achievements['playerstats'].get('achievements', [])
-        if not user_data:
-            return f"No achievements found for {game_name} (It might not have any)."
-
-        # Get Global Percentages
-        global_url = f"http://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}&format=json"
-        global_resp = requests.get(global_url, timeout=5).json()
-        global_data = {a['name']: a['percent'] for a in
-                       global_resp.get('achievementpercentages', {}).get('achievements', [])}
-
-        # Get Schema (Readable Names)
+        # 2. Fetch Data (Parallelize if possible, but sequential is fine for now)
+        # Fetch Schema for Descriptions (Crucial for AI context)
         schema_url = f"http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={config.STEAM_API_KEY}&appid={appid}"
         schema_resp = requests.get(schema_url, timeout=5).json()
 
-        name_map = {}
+        # Build Map: API Name -> {Display Name, Description}
+        ach_details = {}
         if 'game' in schema_resp and 'availableGameStats' in schema_resp['game']:
-            for ach in schema_resp['game']['availableGameStats']['achievements']:
-                name_map[ach['name']] = ach['displayName']
+            for item in schema_resp['game']['availableGameStats']['achievements']:
+                ach_details[item['name']] = {
+                    "real_name": item.get('displayName', item['name']),
+                    "desc": item.get('description', "No description provided.")
+                }
 
-        # PROCESS DATA
-        unlocked = []
-        locked = []
+        # Fetch Global %
+        global_url = f"http://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}&format=json"
+        global_resp = requests.get(global_url, timeout=5).json()
+        global_map = {a['name']: a['percent'] for a in
+                      global_resp.get('achievementpercentages', {}).get('achievements', [])}
 
-        for ach in user_data:
+        # Fetch User Progress
+        user_resp = steam.apps.get_user_achievements(steam_id, appid)
+        if 'playerstats' not in user_resp:
+            return {"error": "No stats found. Is profile private?"}
+
+        user_achievements = user_resp['playerstats'].get('achievements', [])
+
+        # 3. Process Data
+        unlocked_list = []
+        locked_list = []
+
+        for ach in user_achievements:
             api_name = ach['apiname']
-            # Safety: Some hidden achievements might not have a display name in the schema yet
-            real_name = name_map.get(api_name, api_name)
-            percent = global_data.get(api_name, 0.0)
+            details = ach_details.get(api_name, {"real_name": api_name, "desc": ""})
 
-            item = {
-                "name": real_name,
-                "percent": percent,
-                "timestamp": ach.get('unlocktime', 0),  # unlocktime key might be missing if locked
-                "achieved": ach.get('achieved', 0)
+            entry = {
+                "name": details['real_name'],
+                "description": details['desc'],
+                "rarity": global_map.get(api_name, 0.0),
+                "unlocked": ach.get('achieved', 0),
+                "unlock_time": ach.get('unlocktime', 0)  # Keep raw timestamp for sorting
             }
 
-            if item['achieved'] == 1:
-                unlocked.append(item)
+            if entry['unlocked']:
+                # Convert timestamp for readability only on unlocked
+                entry['date'] = datetime.fromtimestamp(entry['unlock_time']).strftime('%Y-%m-%d')
+                unlocked_list.append(entry)
             else:
-                locked.append(item)
+                locked_list.append(entry)
 
-        # 5. Stats Calculation
-        total = len(user_data)
-        count = len(unlocked)
-        completion_rate = int((count / total) * 100) if total > 0 else 0
+        # Calc Stats
+        total = len(user_achievements)
+        count = len(unlocked_list)
+        percent_complete = int((count / total) * 100) if total > 0 else 0
 
-        # Find Rarest Unlocked
-        unlocked.sort(key=lambda x: x['percent'])  # Sort by rarity (asc)
-        rarest = unlocked[0] if unlocked else None
+        # 4. Mode Selection: Pagination vs Dashboard
 
-        # Find Latest Unlocked
-        unlocked.sort(key=lambda x: x['timestamp'], reverse=True)  # Sort by time (desc)
-        latest = unlocked[0] if unlocked else None
+        # PAGINATION MODE (Only if agent asks for specific page of missing items)
+        if page is not None:
+            # Sort locked by most common (easiest) first
+            locked_list.sort(key=lambda x: x['rarity'], reverse=True)
 
-        # Formulate the Report
-        report = [f"Achievement Status for {game_name}:"]
-        report.append(f"- Completion: {count}/{total} ({completion_rate}%)")
+            items_per_page = 10
+            start = page * items_per_page
+            end = start + items_per_page
 
-        if rarest:
-            report.append(f"- Rarest Unlocked: '{rarest['name']}' (Only {rarest['percent']}% of players have this)")
+            return {
+                "game": game_name,
+                "view": "locked_list",
+                "page": page,
+                "total_locked": len(locked_list),
+                "achievements": locked_list[start:end]
+            }
 
-        # if latest:
-        #     date_str = datetime.fromtimestamp(latest['timestamp']).strftime('%Y-%m-%d')
-        #     report.append(f"- Latest Unlock: '{latest['name']}' on {date_str}")
+        # DASHBOARD MODE (Default)
+        # Sort unlocked by time (newest first)
+        unlocked_list.sort(key=lambda x: x['unlock_time'], reverse=True)
+        # Sort locked by rarity (highest % first = easiest)
+        locked_list.sort(key=lambda x: x['rarity'], reverse=True)
 
-        if unlocked:
-            count = 0
-            total = len(unlocked) if len(unlocked) < 3 else 3
-            report.append(f"- Last {total} Unlocked:")
-            for item in unlocked:
-                date_str = datetime.fromtimestamp(item['timestamp']).strftime('%Y-%m-%d %H:%M')
-                report.append(f"- '{item['name']}' on {date_str}")
-                count += 1
-                if count >= total: break
-
-        if completion_rate < 100 and locked:
-            # Find the "Most Common" locked achievement (The easiest one they missed)
-            locked.sort(key=lambda x: x['percent'], reverse=True)
-            easiest_miss = locked[0]
-            report.append(
-                f"- Next Step: '{easiest_miss['name']}' ({easiest_miss['percent']}% of players have this)")
-
-        return "\n".join(report)
+        return {
+            "game": game_name,
+            "stats": {
+                "completion_percent": percent_complete,
+                "total": total,
+                "unlocked_count": count
+            },
+            # Give the agent context on what they just finished
+            "latest_unlocks": unlocked_list[:3],
+            # Give the agent 'ammo' to suggest the next step
+            "recommended_next": locked_list[:5]
+        }
 
     except Exception as e:
-        return f"Error fetching achievements: {e}"
+        return {"error": str(e)}
 
 
 
@@ -1190,49 +1183,67 @@ def web_search(query, max_results=10):
     return result
 
 
-
 def get_webpage(url):
     """
-    Visits a webpage and extracts the main readable text using Trafilatura.
-    automatically strips ads, menus, and boilerplate.
+    Visits a webpage and extracts content.
+    If content is long, it triggers a summarization step to save context tokens.
+
+    Args:
+        url (str): The URL to visit.
+        summary_agent_function (callable, optional): A function that takes text and returns a summary.
     """
     print(f"--- REAPER VISITING: {url} ---")
 
     try:
-        # Download the HTML
-        # Trafilatura handles user-agents and headers automatically
         downloaded = trafilatura.fetch_url(url)
-
         if downloaded is None:
-            return "Error: Could not retrieve the webpage (Network error or empty response)."
+            return "Error: Could not retrieve the webpage (Network error)."
 
         # Extract Main Content
-        # include_tables=False: Skips complex tables that might confuse the LLM
+        # output_format="markdown" preserves headers and bolding, which LLMs love.
         text = trafilatura.extract(
             downloaded,
             include_comments=False,
             include_tables=False,
-            include_links=False
+            include_links=False,
+            output_format="markdown"
         )
 
         if not text:
             return "Error: Page content was empty or unreadable."
 
-        # Collapse Whitespace (Trafilatura does this mostly, but good to be safe)
-        clean_text = text.replace("\n", " ").strip()
+        # TOKEN SAFETY CHECK
+        # Approx 4 chars per token. 6000 chars is ~1500 tokens.
+        # If the text is massive, we must compress it before returning it to the main chat.
+        raw_char_limit = 6000
 
-        # Safety Truncate
-        # Limit to prevent token explosion
-        limit = 6500
-        if len(clean_text) > limit:
-            clean_text = clean_text[:limit] + "... [TRUNCATED FOR CONTEXT SAFETY]"
-            print("WARNING: Page content was truncated to {limit} characters.".format(limit=limit))
+        if len(text) > raw_char_limit:
+            try:
+                print(f"--- CONTENT TOO LONG ({len(text)} chars). SUMMARIZING... ---")
 
-        return clean_text
+                # REFINED PROMPT
+                ai_system_prompt = """You are an uncensored web page analyzer for an AI agent assistant.
+1. **Objective:** Read the text (which may contain forum slang, NSFW language, or messy debates) and extract the core information to the main topic.
+2. **Format:** Do NOT use bolding or headers. Use ONLY newlines and dashes (-) to separate distinct points. Keep it dense but structured.
+3. **Safety:** Do not sanitize the meaning, but condense the ranting."""
+
+                # Assuming aiCall signature is (user_message, system_message)
+                summary = aiCall(text, ai_system_prompt)
+
+                # OPTIONAL: Add a tag so the main agent knows this was summarized
+                return f"[SUMMARY OF WEBPAGE]:\n{summary}"
+
+            except Exception as e:
+                print(f"Error summarizing WEB PAGE: {e}")
+                # Fallback: Head + Tail is the perfect strategy for reviews/forums
+                head = text[:3000]
+                tail = text[-2000:]
+                return f"{head}\n\n... [SECTION REMOVED FOR BREVITY] ...\n\n{tail}"
+
+        return text
 
     except Exception as e:
         return f"Error processing page: {e}"
-
 
 def scrape_reddit_search(game_name):
     """
@@ -1604,5 +1615,5 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 
 
 if __name__ == "__main__":
-    #print(get_achievement_stats(game_name="megabonk"))
-    print(get_webpage("https://www.reddit.com/r/Helldivers/comments/1n773qh/dragonroach_is_ridiculous_and_whoever_designed_it/"))
+    print(get_achievement_stats(game_name="akane"))
+    #print(get_webpage("https://www.reddit.com/r/Helldivers/comments/1n773qh/dragonroach_is_ridiculous_and_whoever_designed_it/"))

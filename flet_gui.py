@@ -358,12 +358,7 @@ def parse_and_render_message(text, is_user, reasoning_text=None):
                                 tile_padding=0,
                                 controls=[
                                     ft.Container(
-                                        content=ft.Text(
-                                            reasoning_text,
-                                            italic=True,
-                                            color=ft.Colors.GREY_500,
-                                            size=12
-                                        ),
+                                        content=ft.Markdown(value=reasoning_text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, visible=True, selectable=True),
                                         padding=ft.Padding.only(left=10, bottom=10)
                                     )
                                 ],
@@ -856,7 +851,7 @@ Consider all the data and the data in your training about the games to find the 
             if msg_type == "init":
                 state["status_text"] = ft.Text("Initializing...", italic=True, size=12, color=ft.Colors.GREY_500)
                 state["agent_markdown"] = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)
-                state["reasoning_view"] = ft.Text("", italic=True, color=ft.Colors.GREY_500, size=12, visible=False, selectable=True)
+                state["reasoning_view"] = ft.Markdown("", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, visible=False, selectable=True)
                 state["reasoning_buffer"] = ""
 
                 # Get Real Name for Avatar

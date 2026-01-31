@@ -374,7 +374,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_webpage",
-            "description": "Use this for getting the content from URLs you have when needed. You will get the content of a webpage in text format.",
+            "description": "Visits a URL. If the page is a long article or forum thread, it automatically returns an AI generated condensed summary of key points.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -392,30 +392,29 @@ tools_schema = [
     {
         "type": "function",
         "function": {
-            "name": "get_user_wishlist",
-            "description": "Retrieve the user's Steam Wishlist to see what games they want to buy. Returns prices, discounts, and priority rank. Use this to understand buying habits or find deals.",
+            "name": "get_achievements",
+            "description": "Get achievement stats. Returns a 'Dashboard' by default (Completion %, Latest Unlocks, and the 'Easiest Missing' achievements). Use this to encourage the user with low-hanging fruit or check if they beat the game.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "sort_by": {
+                    "game_name": {
                         "type": "string",
-                        "enum": ["priority", "recent", "cheapest", "discount"],
-                        "description": "How to sort the wishlist. 'priority' is (User's rank). 'recent' for most recent additions, 'cheapest' and 'discount' are good for finding deals."
+                        "description": "The name of the game."
                     },
                     "page": {
                         "type": "integer",
-                        "description": "Pagination index (default 0)."
+                        "description": "Optional. If provided (0, 1, 2...), returns 10 results page in a paginated list of ALL locked achievements instead of the default dashboard."
                     },
                     "action_description": {
                         "type": "string",
                         "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
-                "required": ["action_description"],
+                "required": ["game_name", "action_description"],
                 "additionalProperties": False
             }
         }
-    }
+    },
 ]
 
 def get_friendly_status(func_name):
@@ -544,7 +543,11 @@ def execute_tool(tool_request):
             tool_output_str = json.dumps(br.get_community_sentiment(clean_params.get('game_name')))
 
         elif tool_name == "get_achievements":
-            tool_output_str = json.dumps(br.get_achievement_stats(game_name=clean_params.get('game_name')))
+            stats = br.get_achievement_stats(
+                game_name=clean_params.get('game_name'),
+                page=clean_params.get('page')
+            )
+            tool_output_str = json.dumps(stats)
 
         elif tool_name == "web_search":
             tool_output_str = json.dumps(br.web_search(clean_params.get('search')))
