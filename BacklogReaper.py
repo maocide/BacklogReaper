@@ -375,9 +375,7 @@ def get_global_game_info(game_name):
 
     appid = app_info['id'][0]
 
-    # 2. Define the tasks we want to run in parallel
-    # keys are just labels for us to retrieve results later
-    # values are tuples: (Function, *Arguments)
+    # Define the tasks we want to run in parallel
     tasks = {
         "details": (get_steam_app_details, appid),
         "spy": (get_steamspy_game_info, appid),
@@ -385,14 +383,12 @@ def get_global_game_info(game_name):
         "hltb": (HowLongToBeat().search, game_name),
         "discount": (get_steam_app_discount, game_name),
         "deals": (get_game_deals, game_name, appid),
-        "achievements": (get_achievement_stats, appid),
     }
 
 
 
     results = {}
 
-    # Assuming you have a helper like vault.is_game_owned(appid)
     if vault.is_game_owned(appid):
         tasks["achievements"] = (get_achievement_stats, appid)
     else:
