@@ -386,15 +386,6 @@ def get_global_game_info(game_name):
         "discount": (get_steam_app_discount, game_name),
         "deals": (get_game_deals, game_name, appid),
         "achievements": (get_achievement_stats, appid),
-        #"forums": (scrape_steam_forums, appid, game_name)  # Adding your new forum scraper
-    }
-
-    # In get_global_game_info or get_game_details
-    # ...
-    tasks = {
-        "details": (get_steam_app_details, appid),
-        "spy": (get_steamspy_game_info, appid),
-        # ...
     }
 
 
