@@ -161,12 +161,17 @@ def get_similar_games(game_name):
             # In standard Steam URLs, the name is usually at index 5
             # 0=https:, 1=, 2=store..., 3=app, 4=ID, 5=Name
             game_slug = parts[5]
+            try:
+                game_id = int(parts[4])
+            except ValueError:
+                continue
 
             # Clean up the name (remove underscores, decode URL characters)
             game_title = game_slug.replace('_', ' ')
 
             games_found.append({
                 "title": game_title,
+                "appid": game_id,
                 "url": url
             })
         except IndexError:
@@ -175,12 +180,12 @@ def get_similar_games(game_name):
     # Output results
     print(f"Found {len(games_found)} games:")
     similar_games = []
-    similar_games.append(get_global_game_info(game_name))
+    similar_games.append(get_global_game_info(game_name, appid=target_appid))
 
     for game in games_found:
         print(f"- {game['title']}")
 
-        payload = get_global_game_info(game['title'])
+        payload = get_global_game_info(game['title'], appid=game['appid'])
 
         print(payload)
 
@@ -350,7 +355,7 @@ The JSON formatted TOPICS will follow."""
     return analysis
 
 
-def get_global_game_info(game_name):
+def get_global_game_info(game_name, appid=None):
     """
     Retrieves comprehensive information about a game from various sources.
 
@@ -362,6 +367,7 @@ def get_global_game_info(game_name):
 
     Args:
         game_name (str): The name of the game to retrieve information for.
+        appid (int|str): Optional AppID to skip the search step.
 
     Returns:
         dict: A dictionary containing aggregated game information
@@ -369,11 +375,12 @@ def get_global_game_info(game_name):
 
     # CRITICAL We must get the AppID first.
     # We can't parallelize this because other calls need the ID.
-    app_info = get_steam_app_info(game_name)
-    if not app_info:
-        return {"error": "Could not retrieve game information (appid)."}
+    if appid is None:
+        app_info = get_steam_app_info(game_name)
+        if not app_info:
+            return {"error": "Could not retrieve game information (appid)."}
 
-    appid = app_info['id'][0]
+        appid = app_info['id'][0]
 
     # Define the tasks we want to run in parallel
     tasks = {
@@ -956,7 +963,7 @@ def get_reviews_byname_formatted(game_name, count=5):
     sleep(1) # Must be preserved to keep the api from chocking.
     #gameinfo = get_steamspy_game_info(appid)
 
-    global_gameinfo = get_global_game_info(game_name)
+    global_gameinfo = get_global_game_info(game_name, appid=appid)
 
     return format_reviews_for_ai(price, steam_reviews, global_gameinfo)
 
