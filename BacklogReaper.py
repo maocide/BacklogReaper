@@ -103,12 +103,18 @@ def search_steam_store(term, limit=10):
                 # The data-tooltip-html attribute often has the detailed score
                 reviews = review_span.get('data-tooltip-html', '').split('<br>')[0]
 
+            # Check ownership (Safe cast)
+            is_owned = False
+            if appid and appid.isdigit():
+                is_owned = vault.is_game_owned(int(appid))
+
             results.append({
                 "appid": appid,
                 "name": title,
                 "price": price,
                 "reviews": reviews,
-                "link": href
+                "link": href,
+                "owned": is_owned
             })
 
         return results
@@ -396,7 +402,8 @@ def get_global_game_info(game_name, appid=None):
 
     results = {}
 
-    if vault.is_game_owned(appid):
+    is_owned = vault.is_game_owned(appid)
+    if is_owned:
         tasks["achievements"] = (get_achievement_stats, appid)
     else:
         # Just return a placeholder so the Agent knows why it's missing
@@ -545,6 +552,7 @@ def get_global_game_info(game_name, appid=None):
 
     payload = {
         "title": game_info['name'],
+        "owned": is_owned,
         "description": short_description,
         "market_analysis": {
             "price_per_hour": price_per_hour,
