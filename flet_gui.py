@@ -1,4 +1,5 @@
 import json
+import random
 import webbrowser
 from flet import FontWeight
 import flet as ft
@@ -63,7 +64,36 @@ def create_game_card(game_data):
 
     # Use 'header.jpg' (460x215) as it fits small cards better than the huge hero image
     #bg_image = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg" if appid else ""
-    bg_image = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg" if appid else ""
+
+    bg_image = None
+    tint_color = "#1a1a1a"
+    # DYNAMIC BACKGROUND LOGIC
+    if appid == "ROAST":
+        # 1. Determine Archetype based on stats
+        # You can pass a hidden 'theme' key in game_data from the Agent
+        theme = game_data.get("theme", "default")
+
+        # # Map themes to local assets
+        # bg_map = {
+        #     "hoarder": "assets/roast_hoarder.jpg",
+        #     "casual": "assets/roast_casual.jpg",
+        #     "broke": "assets/roast_broke.jpg",
+        #     "hardcore": "assets/roast_fire.jpg"
+        # }
+        #
+        # # Select background
+        # bg_image = bg_map.get(theme, "assets/roast_default.jpg")
+
+        bg_image = None
+
+        # 2. Add Dynamic Color Tint (Flet functionality)
+        # Randomly choose a 'mood' color for the overlay
+        tint_color = random.choice([ft.Colors.RED_900, ft.Colors.PURPLE_900, ft.Colors.BROWN_900])
+
+    elif appid:
+        # Standard Game behavior
+        bg_image = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg" if appid else ""
+
 
     controls_list = []
 
@@ -153,8 +183,7 @@ def create_game_card(game_data):
             )
         )
 
-    # --- CHANGE 2: Build the Stack ---
-    # Instead of putting the Column directly in the Container, we put it in a Stack
+    # Build the Stack
     stack_controls = []
 
     # LAYER 0: The Background Image (Only if valid)
@@ -189,9 +218,9 @@ def create_game_card(game_data):
         elevation=5,  # Add slight shadow for depth
         content=ft.Container(
             width=220,
-            # Height is optional, but helps uniform look. Remove if you want auto-height.
+            # optional. auto-height is default
             # height=300,
-            bgcolor="#1a1a1a",  # Fallback background color
+            bgcolor=tint_color,
             border_radius=10,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,  # Clips the image to the rounded corners
             content=card_content
