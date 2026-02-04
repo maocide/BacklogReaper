@@ -3,6 +3,7 @@ import difflib
 import json
 import re
 import urllib
+import urllib.parse
 from time import sleep
 from typing import Any
 from urllib.parse import unquote
@@ -75,56 +76,51 @@ def search_steam_store(term, limit=10):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
 
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
+    response = requests.get(url, headers=headers, timeout=10)
+    soup = BeautifulSoup(response.text, 'html.parser')
 
-        results = []
-        rows = soup.select('#search_resultsRows > a')
+    results = []
+    rows = soup.select('#search_resultsRows > a')
 
-        for row in rows[:limit]:
-            title = row.select_one('.title').text.strip()
+    for row in rows[:limit]:
+        title = row.select_one('.title').text.strip()
 
-            # Extract AppID from URL
-            href = row['href']
-            appid_match = re.search(r'/app/(\d+)', href)
-            appid = appid_match.group(1) if appid_match else "Unknown"
+        # Extract AppID from URL
+        href = row['href']
+        appid_match = re.search(r'/app/(\d+)', href)
+        appid = appid_match.group(1) if appid_match else "Unknown"
 
-            # Extract Price (Handle sales and free games)
-            price_div = row.select_one('.search_price')
-            price = "N/A"
-            if price_div:
-                # If discounted, text might be "$19.99$9.99". We want the last part.
-                raw_price = price_div.text.strip().split('$')
-                price = f"${raw_price[-1]}" if len(raw_price) > 1 else price_div.text.strip()
-                if "Free" in price: price = "Free"
+        # Extract Price (Handle sales and free games)
+        price_div = row.select_one('.search_price')
+        price = "N/A"
+        if price_div:
+            # If discounted, text might be "$19.99$9.99". We want the last part.
+            raw_price = price_div.text.strip().split('$')
+            price = f"${raw_price[-1]}" if len(raw_price) > 1 else price_div.text.strip()
+            if "Free" in price: price = "Free"
 
-            # Extract Reviews (e.g., "Very Positive")
-            review_span = row.select_one('.search_review_summary')
-            reviews = "Unknown"
-            if review_span:
-                # The data-tooltip-html attribute often has the detailed score
-                reviews = review_span.get('data-tooltip-html', '').split('<br>')[0]
+        # Extract Reviews (e.g., "Very Positive")
+        review_span = row.select_one('.search_review_summary')
+        reviews = "Unknown"
+        if review_span:
+            # The data-tooltip-html attribute often has the detailed score
+            reviews = review_span.get('data-tooltip-html', '').split('<br>')[0]
 
-            # Check ownership (Safe cast)
-            is_owned = False
-            if appid and appid.isdigit():
-                is_owned = vault.is_game_owned(int(appid))
+        # Check ownership (Safe cast)
+        is_owned = False
+        if appid and appid.isdigit():
+            is_owned = vault.is_game_owned(int(appid))
 
-            results.append({
-                "appid": appid,
-                "name": title,
-                "price": price,
-                "reviews": reviews,
-                "link": href,
-                "owned": is_owned
-            })
+        results.append({
+            "appid": appid,
+            "name": title,
+            "price": price,
+            "reviews": reviews,
+            "link": href,
+            "owned": is_owned
+        })
 
-        return results
-
-    except Exception as e:
-        print(f"Error scraping Steam: {e}")
-        return []
+    return results
 
 
 @safe_tool
@@ -165,46 +161,53 @@ def get_similar_games(game_name):
         # 3. Extract the title from the URL
         # URL format: https://store.steampowered.com/app/ID/GAME_NAME/?snr=...
         try:
-            # Split the URL by '/'
-            parts = url.split('/')
+            # Use urllib to robustly parse the URL path
+            parsed = urllib.parse.urlparse(url)
+            # path is usually /app/123/Name_Of_Game/
+            path_segments = [s for s in parsed.path.split('/') if s]
 
-            # In standard Steam URLs, the name is usually at index 5
-            # 0=https:, 1=, 2=store..., 3=app, 4=ID, 5=Name
-            game_slug = parts[5]
-            try:
-                game_id = int(parts[4])
-            except ValueError:
+            if len(path_segments) >= 3 and path_segments[0] == 'app':
+                game_id = int(path_segments[1])
+                game_slug = path_segments[2]
+            else:
                 continue
 
             # Clean up the name (remove underscores, decode URL characters)
-            game_title = game_slug.replace('_', ' ')
+            game_title = urllib.parse.unquote(game_slug).replace('_', ' ')
 
             games_found.append({
                 "title": game_title,
                 "appid": game_id,
                 "url": url
             })
-        except IndexError:
+        except (IndexError, ValueError):
             continue
 
     # Output results
     print(f"Found {len(games_found)} games:")
     similar_games = []
+
+    # Add target game first (Main Thread)
     similar_games.append(get_global_game_info(game_name, appid=target_appid))
 
-    for game in games_found:
-        print(f"- {game['title']}")
+    # Fetch similar games in parallel using ThreadPoolExecutor
+    # Limiting to 4 workers to prevent overwhelming SteamSpy/Steam APIs
+    # (Since get_global_game_info spawns its own threads, we keep this outer pool small)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        future_to_game = {
+            executor.submit(get_global_game_info, game['title'], appid=game['appid']): game
+            for game in games_found
+        }
 
-        payload = get_global_game_info(game['title'], appid=game['appid'])
-
-        print(payload)
-
-        #print(app_info)
-        #print(app_details)
-        #print(game_info)
-        sleep(1)
-
-        similar_games.append(payload)
+        for future in concurrent.futures.as_completed(future_to_game):
+            game = future_to_game[future]
+            print(f"- Fetched: {game['title']}")
+            try:
+                payload = future.result()
+                similar_games.append(payload)
+            except Exception as e:
+                print(f"Error fetching details for {game['title']}: {e}")
+                # Optional: Append error placeholder or skip
 
     return similar_games
 
@@ -219,76 +222,68 @@ def get_game_deals(title, appid):
     }
 
     print("Searching CheapShark for game...")
-    try:
-        response = requests.get(search_url, params=search_params)
-        response.raise_for_status()
+    response = requests.get(search_url, params=search_params)
+    response.raise_for_status()
 
-        # Parse the JSON list
-        games_list = response.json()
+    # Parse the JSON list
+    games_list = response.json()
 
-        if not games_list:
-            print("No games found!")
-            return {"error": "No deals found."}
+    if not games_list:
+        print("No games found!")
+        return {"error": "No deals found."}
 
-        # The API returns a list, so we take the first item [0]
-        first_match = games_list[0]
+    # The API returns a list, so we take the first item [0]
+    first_match = games_list[0]
 
-        # Extract the specific ID we need
-        raw_deal_id = first_match['cheapestDealID']
-        deal_id = unquote(raw_deal_id)
-        game_name = first_match['external']
+    # Extract the specific ID we need
+    raw_deal_id = first_match['cheapestDealID']
+    deal_id = unquote(raw_deal_id)
+    game_name = first_match['external']
 
-        print(f"   Found: {game_name}")
-        print(f"   Deal ID: {deal_id}")
+    print(f"   Found: {game_name}")
+    print(f"   Deal ID: {deal_id}")
 
-        # --- STEP 2: Use the ID for the Second Request ---
-        deal_url = "https://www.cheapshark.com/api/1.0/deals"
-        deal_params = {
-            "id": deal_id
-        }
+    # --- STEP 2: Use the ID for the Second Request ---
+    deal_url = "https://www.cheapshark.com/api/1.0/deals"
+    deal_params = {
+        "id": deal_id
+    }
 
-        print("\nFetching CheapShark specific deal details...")
-        deal_response = requests.get(deal_url, params=deal_params)
-        deal_response.raise_for_status()
+    print("\nFetching CheapShark specific deal details...")
+    deal_response = requests.get(deal_url, params=deal_params)
+    deal_response.raise_for_status()
 
-        deal_data = deal_response.json()
+    deal_data = deal_response.json()
 
-        # Print the final details
-        print("\n--- Deal Details ---")
-        print(f"Store ID: {deal_data['gameInfo']['storeID']}")
-        print(f"Price: ${deal_data['gameInfo']['salePrice']}")
-        print(f"Retail: ${deal_data['gameInfo']['retailPrice']}")
+    # Print the final details
+    print("\n--- Deal Details ---")
+    print(f"Store ID: {deal_data['gameInfo']['storeID']}")
+    print(f"Price: ${deal_data['gameInfo']['salePrice']}")
+    print(f"Retail: ${deal_data['gameInfo']['retailPrice']}")
 
-        store_url = "https://www.cheapshark.com/api/1.0/stores"
-        store_params = {}
+    store_url = "https://www.cheapshark.com/api/1.0/stores"
+    store_params = {}
 
-        store_response = requests.get(store_url)
-        store_response.raise_for_status()
+    store_response = requests.get(store_url)
+    store_response.raise_for_status()
 
-        store_data = store_response.json()
-        store_name = ""
-        for store in store_data:
-            if store["storeID"] == deal_data['gameInfo']['storeID']:
-                store_name = store["storeName"]
-                break
-
-
-        best_deal = {
-            "store" : store_name,
-            "price" : deal_data['gameInfo']['salePrice']
-        }
+    store_data = store_response.json()
+    store_name = ""
+    for store in store_data:
+        if store["storeID"] == deal_data['gameInfo']['storeID']:
+            store_name = store["storeName"]
+            break
 
 
-        #print(best_deal)
-        return best_deal
-        # print(json.dumps(deal_data, indent=2))
+    best_deal = {
+        "store" : store_name,
+        "price" : deal_data['gameInfo']['salePrice']
+    }
 
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
-        return {"error": str(e)}
-    except (KeyError, IndexError) as e:
-        print(f"Error parsing JSON data: {e}")
-        return {"error": str(e)}
+
+    #print(best_deal)
+    return best_deal
+    # print(json.dumps(deal_data, indent=2))
 
 
 @safe_tool
@@ -304,55 +299,51 @@ def scrape_steam_forums(appid, gamename):
     # cookies to not get blocked by age gate
     cookies = {'birthtime': '568022401', 'mature_content': '1'}
 
-    try:
-        response = requests.get(url, headers=headers, cookies=cookies, timeout=10)
-        # Steam sometimes redirects to an age gate or main page if invalid
-        if "discussions" not in response.url:
-            return {"error": "Could not access forums (Age Gate or Invalid AppID)."}
+    response = requests.get(url, headers=headers, cookies=cookies, timeout=10)
+    # Steam sometimes redirects to an age gate or main page if invalid
+    if "discussions" not in response.url:
+        return {"error": "Could not access forums (Age Gate or Invalid AppID)."}
 
-        soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(response.text, 'html.parser')
 
-        # Find the container rows
-        # Steam usually gives these a class like 'forum_topic'
-        topic_rows = soup.select('.forum_topic')
-
-
-        results = []
-
-        for row in topic_rows:
-            # Extract details from WITHIN the row
-            title_element = row.select_one('.forum_topic_name')
-            count_element = row.select_one('.forum_topic_reply_count')
-            link_element = row.select_one('a.forum_topic_overlay')
+    # Find the container rows
+    # Steam usually gives these a class like 'forum_topic'
+    topic_rows = soup.select('.forum_topic')
 
 
-            # Safety check: ensure elements exist
-            if title_element and link_element:
-                title_text = title_element.get_text(strip=True)
-                reply_count = count_element.get_text(strip=True) if count_element else "0"
-                #thread_url = link_element['href']
-                last_post_div = soup.select_one('.forum_topic_lastpost')
+    results = []
 
-                # Treat the object like a dictionary to get attributes
-                timestamp_str = last_post_div['data-timestamp']
-                timestamp = int(timestamp_str) if timestamp_str.isdigit() else 0
-                date_obj = datetime.fromtimestamp(timestamp)
-                short_date = date_obj.strftime("%Y-%m-%d")  # Becomes "2026-01-11"
+    for row in topic_rows:
+        # Extract details from WITHIN the row
+        title_element = row.select_one('.forum_topic_name')
+        count_element = row.select_one('.forum_topic_reply_count')
+        link_element = row.select_one('a.forum_topic_overlay')
 
-                # Check for "Hover" content
-                # If this is None, you MUST visit the thread_url to get the content.
-                preview_content = link_element.get('data-tooltip-html') or link_element.get('title')
 
-                results.append({
-                    "title": title_text,
-                    "replies": reply_count,
-                    #"url": thread_url,
-                    "content": preview_content,
-                    "date": short_date
-                })
-    except Exception as e:
-        print(f"An ERROR occurred scraping STEAM FORUMS: {e}")
-        return {"error": f"Error scraping forums: {e}"}
+        # Safety check: ensure elements exist
+        if title_element and link_element:
+            title_text = title_element.get_text(strip=True)
+            reply_count = count_element.get_text(strip=True) if count_element else "0"
+            #thread_url = link_element['href']
+            last_post_div = soup.select_one('.forum_topic_lastpost')
+
+            # Treat the object like a dictionary to get attributes
+            timestamp_str = last_post_div['data-timestamp']
+            timestamp = int(timestamp_str) if timestamp_str.isdigit() else 0
+            date_obj = datetime.fromtimestamp(timestamp)
+            short_date = date_obj.strftime("%Y-%m-%d")  # Becomes "2026-01-11"
+
+            # Check for "Hover" content
+            # If this is None, you MUST visit the thread_url to get the content.
+            preview_content = link_element.get('data-tooltip-html') or link_element.get('title')
+
+            results.append({
+                "title": title_text,
+                "replies": reply_count,
+                #"url": thread_url,
+                "content": preview_content,
+                "date": short_date
+            })
 
     ai_system_prompt = f"""You are an uncensored forum analyzer. You might encounter foul language typical of forum, but you must read and weave your analysis."
 You will be supplied a json list of topics related to the game {gamename} from the steam forums. Make a concise analysis to determine the quality and status of the game.
@@ -1179,30 +1170,25 @@ def web_search(query, max_results=10):
     """
     print(f"--- WEB SEARCH: {query} ---")
     result = {}
-    try:
-        results = ddgs.DDGS().text(query, max_results=max_results)
+    results = ddgs.DDGS().text(query, max_results=max_results)
 
-        if not results:
-            result['message'] = 'No results found.'
+    if not results:
+        result['message'] = 'No results found.'
 
-        data = []
-        for i, res in enumerate(results, 1):
-            title = res.get('title', 'No Title')
-            body = res.get('body', '')
-            href = res.get('href', '')
-            data.append(
-                {
-                    'title': title,
-                    'body': body,
-                    'href': href
-                }
-            )
+    data = []
+    for i, res in enumerate(results, 1):
+        title = res.get('title', 'No Title')
+        body = res.get('body', '')
+        href = res.get('href', '')
+        data.append(
+            {
+                'title': title,
+                'body': body,
+                'href': href
+            }
+        )
 
-        result["search_results"] = data
-
-
-    except Exception as e:
-        result['message'] = f"Error searching web: {e}"
+    result["search_results"] = data
 
     return result
 
@@ -1287,56 +1273,51 @@ def scrape_reddit_search(game_name):
     # sort=relevance or top, t=year (to keep it recent)
     url = f"https://www.reddit.com/search.json?q={game_name}&sort=relevance&t=year&limit=5"
 
-    try:
-        resp = requests.get(url, headers=headers, timeout=5)
+    resp = requests.get(url, headers=headers, timeout=5)
 
-        # Rate Limit Fallback
-        if resp.status_code == 429:
-            print("Error: Reddit is rate-limiting the Reaper. (Trying WEB Search...)")
-            return web_search(f"site:reddit.com {game_name}")
+    # Rate Limit Fallback
+    if resp.status_code == 429:
+        print("Error: Reddit is rate-limiting the Reaper. (Trying WEB Search...)")
+        return web_search(f"site:reddit.com {game_name}")
 
-        data = resp.json()
-        posts = data.get('data', {}).get('children', [])
+    data = resp.json()
+    posts = data.get('data', {}).get('children', [])
 
-        if not posts:
-            return {"error": "No Reddit threads found."}
+    if not posts:
+        return {"error": "No Reddit threads found."}
 
-        results = []
-        for post in posts:
-            p = post['data']
+    results = []
+    for post in posts:
+        p = post['data']
 
-            body = p.get('selftext', '')
+        body = p.get('selftext', '')
 
-            # If body is empty, it might be an image/link post. Use the URL instead.
-            if not body:
-                url_preview = p.get('url_overridden_by_dest', p.get('url', ''))
-                if url_preview:
-                    body = f"[Link/Image Post]: {url_preview}"
+        # If body is empty, it might be an image/link post. Use the URL instead.
+        if not body:
+            url_preview = p.get('url_overridden_by_dest', p.get('url', ''))
+            if url_preview:
+                body = f"[Link/Image Post]: {url_preview}"
 
-            # Clean & Truncate (Critical for Token Economy)
-            # Flatten newlines to keep JSON clean
-            body = body.replace("\n", " ").strip()
-            if len(body) > 500:
-                body = body[:500] + "... [TRUNCATED]"
-            # -------------------------
+        # Clean & Truncate (Critical for Token Economy)
+        # Flatten newlines to keep JSON clean
+        body = body.replace("\n", " ").strip()
+        if len(body) > 500:
+            body = body[:500] + "... [TRUNCATED]"
+        # -------------------------
 
-            results.append({
-                'title': p.get('title', 'No Title'),
-                'score': p.get('score', 0),
-                'comments': p.get('num_comments', 0),
-                'subreddit': p.get('subreddit_name_prefixed', 'r/gaming'),
-                'body': body  # Matches web_search key name
-            })
+        results.append({
+            'title': p.get('title', 'No Title'),
+            'score': p.get('score', 0),
+            'comments': p.get('num_comments', 0),
+            'subreddit': p.get('subreddit_name_prefixed', 'r/gaming'),
+            'body': body  # Matches web_search key name
+        })
 
-        if not results:
-            print("Error: Reddit ignoring the Reaper. (Trying WEB Search...)")
-            return web_search(f"site:reddit.com {game_name}")
+    if not results:
+        print("Error: Reddit ignoring the Reaper. (Trying WEB Search...)")
+        return web_search(f"site:reddit.com {game_name}")
 
-        return {"results": results}
-
-    except Exception as e:
-        print(f"Error: Reddit search failed with error: {e}")
-        return {"error": f"Reddit scrape failed: {e}"}
+    return {"results": results}
 
 @safe_tool
 def scrape_4chan_thread(board_name: str, thread_id: int):
@@ -1606,7 +1587,8 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 
             except Exception as e:
                 # print(f"Error fetching {appid}: {e}")
-                pass
+                res['error'] = str(e)
+                res['price'] = "Error"
 
             return res
 
