@@ -5,7 +5,7 @@ from flet import FontWeight
 import flet as ft
 import flet_charts as ftc  # Import flet-charts
 
-import BacklogReaper as br
+import reaper_backend as br
 import agent
 from ai_tools import aiCall
 import threading
@@ -16,6 +16,7 @@ import config
 import settings
 import character_manager
 from pathlib import Path
+import startup
 
 def launch_game(appid):
     """Launches the game using the steam protocol."""
@@ -425,6 +426,20 @@ def main(page: ft.Page):
     page.window.title_bar_buttons_hidden = False
     # page.window.title_bar_style = ft.WindowTitleBarStyle.NORMAL
 
+    # 0. GATEKEEPER CHECK (New)
+    is_ready, failures = startup.check_all()
+    if not is_ready:
+        # For now, just log to console or show a snackbar, as per instructions "just handle logic flow"
+        # and "show a Setup Wizard (I will implement the UI later)"
+        print("STARTUP CHECKS FAILED:")
+        for f in failures:
+            print(f" - {f}")
+        # We could also redirect to Settings tab if we wanted, but sticking to logic only.
+
+        # Adding a visual TODO indicator
+        page.snack_bar = ft.SnackBar(ft.Text(f"Setup Needed: {', '.join(failures)}"))
+        page.snack_bar.open = True
+
     # --- State Variables & Refs ---
 
     # Dashboard Refs
@@ -648,7 +663,8 @@ def main(page: ft.Page):
             ra_status.current.value = f"Fetching reviews for {game_name}..."
             page.update()
 
-            reviews = br.get_reviews_byname_formatted(game_name, review_count)
+            reviews_payload = br.get_reviews_byname_formatted(game_name, review_count)
+            reviews = reviews_payload.get("formatted_reviews", str(reviews_payload))
             #print(reviews) # Debug
 
             if stop_event_ra.is_set():
@@ -657,7 +673,8 @@ def main(page: ft.Page):
                 return
 
             # Load DNA
-            user_dna_content = br.generate_contextual_dna(game_name)
+            dna_response = br.generate_contextual_dna(game_name)
+            user_dna_content = dna_response.get("dna_report", str(dna_response))
             print("User DNA computed.")
 
 
@@ -745,6 +762,14 @@ The review will follow as user message:"""
             page.update()
 
             similar_games = br.get_similar_games(game_name)
+            # similar_games is a list of dicts or {"error": ...}
+
+            if isinstance(similar_games, dict) and "error" in similar_games:
+                 raise Exception(similar_games["error"])
+
+            if not similar_games:
+                 raise Exception("No similar games found.")
+
             original_game = similar_games[0]
             similar_games_list = similar_games[1:]
 
@@ -942,18 +967,16 @@ Consider all the data and the data in your training about the games to find the 
 
                 bubble_selectable = ft.SelectionArea(content=bubble_row)
 
-                full_block_controls = [
-                    ft.Row(
-                        [ft.Text(real_char_name, size=12, color=ft.Colors.GREY, weight=ft.FontWeight.BOLD)],
-                        alignment=ft.MainAxisAlignment.END # Reaper alignment
-                    ),
-                    state["reasoning_container"],
-                    bubble_selectable
-                ]
-
                 full_message_block = ft.Container(
                     content=ft.Column(
-                        controls=full_block_controls,
+                        controls=[
+                            ft.Row(
+                                [ft.Text(real_char_name, size=12, color=ft.Colors.GREY, weight=ft.FontWeight.BOLD)],
+                                alignment=ft.MainAxisAlignment.END # Reaper alignment
+                            ),
+                            state["reasoning_container"],
+                            bubble_selectable
+                        ],
                         spacing=2,
                     ),
                     margin=ft.Margin(left=0, top=0, right=0, bottom=15),

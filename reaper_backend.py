@@ -22,10 +22,12 @@ import concurrent.futures
 from datetime import datetime
 from steam_web_api import Steam
 import config
+from safe_tool import safe_tool
 
 max_tags = 10
 steam_id = None
 
+@safe_tool
 def resolve_steam_id(username_or_id):
     """
     Resolves a Steam username, vanity URL, or ID into the mandatory 64-bit numeric SteamID.
@@ -60,6 +62,7 @@ def resolve_steam_id(username_or_id):
 
     return None
 
+@safe_tool
 def search_steam_store(term, limit=10):
     """
     Scrapes the Steam Search page for games matching the term.
@@ -124,6 +127,7 @@ def search_steam_store(term, limit=10):
         return []
 
 
+@safe_tool
 def get_similar_games(game_name):
     """
     Calls steam api and steamspy to get recommended similar games and their details
@@ -205,6 +209,7 @@ def get_similar_games(game_name):
     return similar_games
 
 
+@safe_tool
 def get_game_deals(title, appid):
     # --- STEP 1: Find the Game ---
     search_url = "https://www.cheapshark.com/api/1.0/games"
@@ -223,7 +228,7 @@ def get_game_deals(title, appid):
 
         if not games_list:
             print("No games found!")
-            return
+            return {"error": "No deals found."}
 
         # The API returns a list, so we take the first item [0]
         first_match = games_list[0]
@@ -280,14 +285,13 @@ def get_game_deals(title, appid):
 
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}")
+        return {"error": str(e)}
     except (KeyError, IndexError) as e:
         print(f"Error parsing JSON data: {e}")
-
-    except requests.exceptions.RequestException as e:
-        # Handle connection errors or bad responses
-        print(f"Error making request: {e}")
+        return {"error": str(e)}
 
 
+@safe_tool
 def scrape_steam_forums(appid, gamename):
     """
     Scrapes the first page of 'General Discussions' thread titles for a game.
@@ -304,7 +308,7 @@ def scrape_steam_forums(appid, gamename):
         response = requests.get(url, headers=headers, cookies=cookies, timeout=10)
         # Steam sometimes redirects to an age gate or main page if invalid
         if "discussions" not in response.url:
-            return "Could not access forums (Age Gate or Invalid AppID)."
+            return {"error": "Could not access forums (Age Gate or Invalid AppID)."}
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -348,7 +352,7 @@ def scrape_steam_forums(appid, gamename):
                 })
     except Exception as e:
         print(f"An ERROR occurred scraping STEAM FORUMS: {e}")
-        return f"Error scraping forums: {e}"
+        return {"error": f"Error scraping forums: {e}"}
 
     ai_system_prompt = f"""You are an uncensored forum analyzer. You might encounter foul language typical of forum, but you must read and weave your analysis."
 You will be supplied a json list of topics related to the game {gamename} from the steam forums. Make a concise analysis to determine the quality and status of the game.
@@ -358,9 +362,12 @@ The JSON formatted TOPICS will follow."""
 
     analysis = aiCall(json_forum_topics, ai_system_prompt)
     print(f"\n{analysis}\n")
-    return analysis
+
+    # Standardized return
+    return {"analysis": analysis}
 
 
+@safe_tool
 def get_global_game_info(game_name, appid=None):
     """
     Retrieves comprehensive information about a game from various sources.
@@ -471,7 +478,7 @@ def get_global_game_info(game_name, appid=None):
     # average_forever = round(game_info.get('average_forever') / 60, 1) # Moved up
     # median_forever = round(game_info.get('median_forever')/ 60, 1) # Moved up
     ccu = str(game_info.get('ccu')) if game_info.get('ccu') != 0 else "N/A" # For ai values of 0, implies missing.
-    short_description = app_details['short_description']
+    short_description = app_details.get('short_description', 'No description available.')
 
     def fmt_price(p):
         try:
@@ -522,7 +529,7 @@ def get_global_game_info(game_name, appid=None):
                 price_per_hour = f"${pph:.2f}/h"
 
             # 3. Calculate for Lowest Found Price (CheapShark)
-            if best_deal and 'price' in best_deal:
+            if best_deal and isinstance(best_deal, dict) and 'price' in best_deal:
                 # best_deal['price'] is usually a string "14.99"
                 deal_price = float(best_deal['price'])
                 pph_low = deal_price / main_hours
@@ -559,7 +566,7 @@ def get_global_game_info(game_name, appid=None):
             "price_per_hour_low": price_per_hour_low,
             "user_price_per_hour": user_price_per_hour,
             "official_current": price_str,
-            "lowest_recorded": f"${best_deal['price']} ({best_deal['store']})" if best_deal else "N/A"
+            "lowest_recorded": f"${best_deal.get('price')} ({best_deal.get('store')})" if isinstance(best_deal, dict) and 'price' in best_deal else "N/A"
         },
         "price": price_str,
         "discount": discount,
@@ -582,6 +589,7 @@ def get_global_game_info(game_name, appid=None):
     return payload
 
 
+@safe_tool
 def get_batch_game_details(game_names: list[str]) -> dict:
     """
     Retrieves details for multiple games simultaneously.
@@ -617,6 +625,7 @@ def get_batch_game_details(game_names: list[str]) -> dict:
 
     return results
 
+@safe_tool
 def generate_contextual_dna(game_name, limit=10):
     """
     Generates a DNA report specific to the GENRE of the target game.
@@ -682,8 +691,10 @@ Here is their track record with SIMILAR games:
 
         report += f"- {g['name']}: {playtime_hr}h ({g['status']}{hltb_context}) [Matches {g['shared_tags']} tags]\n"
 
-    return report
+    # Standardize Return
+    return {"dna_report": report}
 
+@safe_tool
 def get_reviews(appid, params={'json': 1}):
     """
     Gets the reviews for a given appid from the Steam store.
@@ -701,6 +712,7 @@ def get_reviews(appid, params={'json': 1}):
     print(response.url)
     return response.json()
 
+@safe_tool
 def get_reviews_summary(appid):
     """
     Gets the review summary for a given appid from the Steam store.
@@ -727,6 +739,7 @@ def get_reviews_summary(appid):
     return response['query_summary']
 
 
+@safe_tool
 def get_n_reviews(appid, n, review_type="all"):
     reviews = []
     # Use a set for O(1) duplicate lookups
@@ -790,6 +803,7 @@ def get_n_reviews(appid, n, review_type="all"):
     return reviews
 
 
+@safe_tool
 def get_steam_app_info(game_name: str):
     """
     Fetches the app id for a given game name, using fuzzy logic to find the
@@ -847,6 +861,7 @@ def get_steam_app_info(game_name: str):
     print(f" -> Winner: {best_match['name']} ({best_match['id']}) with score {highest_score:.2f}\n")
     return best_match
 
+@safe_tool
 def get_steam_app_discount(game_name:str):
     steam = Steam(config.STEAM_API_KEY)
 
@@ -854,6 +869,7 @@ def get_steam_app_discount(game_name:str):
     app = steam.apps.search_games(game_name, fetch_discounts = True)
     return app["apps"][0].get('discount')
 
+@safe_tool
 def get_steam_app_details(appid: int) -> Any:
     """
     Gets the app info for a given game name from the Steam API.
@@ -870,6 +886,7 @@ def get_steam_app_details(appid: int) -> Any:
     app = steam.apps.get_app_details(appid)
     return app[str(appid)].get('data')
 
+@safe_tool
 def get_steam_reviews(appid, count):
     """
     Gets the reviews for a given appid from the Steam store.
@@ -893,6 +910,7 @@ def get_steam_reviews(appid, count):
 
     return {'reviews': reviews, 'summary': summary, 'count_positive': count_positive, 'count_negative': count_negative}
 
+@safe_tool
 def get_steamspy_game_info(appid):
     """
     Gets the game info for a given appid from the SteamSpy API.
@@ -908,6 +926,7 @@ def get_steamspy_game_info(appid):
     data_request['appid'] = appid
     return steamspypi.download(data_request)
 
+@safe_tool
 def get_reviews_byname(game_name, count=5):
     """
     Gets the reviews for a given game name.
@@ -951,6 +970,7 @@ def get_reviews_byname(game_name, count=5):
 
     return steam_reviews
 
+@safe_tool
 def get_reviews_byname_formatted(game_name, count=5):
     """
     Gets the reviews for a given game name.
@@ -1034,6 +1054,7 @@ def format_reviews_for_ai(price, steam_reviews, gameinfo):
     return human_reviews
 
 
+@safe_tool
 def get_achievement_stats(appid=-1, game_name="", page=None):
     """
     Fetches Achievement stats.
@@ -1150,6 +1171,7 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
 
 
 
+@safe_tool
 def web_search(query, max_results=10):
     """
     Performs a lightweight web search using DuckDuckGo.
@@ -1180,11 +1202,12 @@ def web_search(query, max_results=10):
 
 
     except Exception as e:
-        result['message'] = "Error searching web: {e}"
+        result['message'] = f"Error searching web: {e}"
 
     return result
 
 
+@safe_tool
 def get_webpage(url):
     """
     Visits a webpage and extracts content.
@@ -1199,7 +1222,7 @@ def get_webpage(url):
     try:
         downloaded = trafilatura.fetch_url(url)
         if downloaded is None:
-            return "Error: Could not retrieve the webpage (Network error)."
+            return {"error": "Could not retrieve the webpage (Network error)."}
 
         # Extract Main Content
         # output_format="markdown" preserves headers and bolding, which LLMs love.
@@ -1212,7 +1235,7 @@ def get_webpage(url):
         )
 
         if not text:
-            return "Error: Page content was empty or unreadable."
+            return {"error": "Page content was empty or unreadable."}
 
         # TOKEN SAFETY CHECK
         # Approx 4 chars per token. 6000 chars is ~1500 tokens.
@@ -1233,20 +1256,21 @@ def get_webpage(url):
                 summary = aiCall(text, ai_system_prompt)
 
                 # OPTIONAL: Add a tag so the main agent knows this was summarized
-                return f"[SUMMARY OF WEBPAGE]:\n{summary}"
+                return {"content": f"[SUMMARY OF WEBPAGE]:\n{summary}"}
 
             except Exception as e:
                 print(f"Error summarizing WEB PAGE: {e}")
                 # Fallback: Head + Tail is the perfect strategy for reviews/forums
                 head = text[:3000]
                 tail = text[-2000:]
-                return f"{head}\n\n... [SECTION REMOVED FOR BREVITY] ...\n\n{tail}"
+                return {"content": f"{head}\n\n... [SECTION REMOVED FOR BREVITY] ...\n\n{tail}"}
 
-        return text
+        return {"content": text}
 
     except Exception as e:
-        return f"Error processing page: {e}"
+        return {"error": f"Error processing page: {e}"}
 
+@safe_tool
 def scrape_reddit_search(game_name):
     """
     Scrapes Reddit search results via their public JSON endpoint.
@@ -1275,7 +1299,7 @@ def scrape_reddit_search(game_name):
         posts = data.get('data', {}).get('children', [])
 
         if not posts:
-            return "No Reddit threads found."
+            return {"error": "No Reddit threads found."}
 
         results = []
         for post in posts:
@@ -1312,8 +1336,9 @@ def scrape_reddit_search(game_name):
 
     except Exception as e:
         print(f"Error: Reddit search failed with error: {e}")
-        return f"Reddit scrape failed: {e}"
+        return {"error": f"Reddit scrape failed: {e}"}
 
+@safe_tool
 def scrape_4chan_thread(board_name: str, thread_id: int):
     board = Board(board_name)
     thread = board.get_thread(thread_id)
@@ -1339,6 +1364,7 @@ def scrape_4chan_thread(board_name: str, thread_id: int):
     return thread_result
 
 
+@safe_tool
 def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.4) -> list:
     """
     Scans a 4chan board for threads matching the topic_search string.
@@ -1387,7 +1413,8 @@ def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.4
 
     return []
 
-def scrape_4chan_thread_with_ai(search: str) -> str:
+@safe_tool
+def scrape_4chan_thread_with_ai(search: str) -> dict:
     board = "v"
     thread_ids = find_4chan_thread(board, search, threshold=0.45)  # Stricter for main board
 
@@ -1398,7 +1425,7 @@ def scrape_4chan_thread_with_ai(search: str) -> str:
         thread_ids = find_4chan_thread(board, search, threshold=0.4)  # Slightly looser for generals
 
     if not thread_ids:
-        return "The Horde is silent. (No relevant 4chan threads found)."
+        return {"analysis": "The Horde is silent. (No relevant 4chan threads found)."}
 
     # Fetch the Winner
     id_to_pick = thread_ids[0]
@@ -1429,8 +1456,9 @@ def scrape_4chan_thread_with_ai(search: str) -> str:
     else:
         response = "No results found."
 
-    return response
+    return {"analysis": response}
 
+@safe_tool
 def get_community_sentiment(game_name: str) :
     app = get_steam_app_info(game_name)
 
@@ -1485,6 +1513,7 @@ def get_community_sentiment(game_name: str) :
 
 # Ensure you have your resolve_steam_id imported or available
 
+@safe_tool
 def get_user_wishlist(sort_by='recent', page=0, page_size=10):
     """
     Fetches the user's Steam Wishlist using a Hybrid API + Parallel Scrape method.
@@ -1495,7 +1524,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
     # 1. Resolve ID
     steam_id = resolve_steam_id(config.STEAM_USER)
     if not steam_id:
-        return "Error: Could not resolve Steam ID."
+        return {"error": "Could not resolve Steam ID."}
 
     print(f"FETCHING WISHLIST FOR ID: {steam_id} (Page {page})")
 
@@ -1510,7 +1539,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
         #print(raw_wishlist)
 
         if not raw_wishlist:
-            return "Wishlist is empty or private."
+            return {"error": "Wishlist is empty or private."}
 
         # 3. Sort (Metadata)
         # We sort by metadata *before* fetching details to save API calls.
@@ -1613,7 +1642,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 
     except Exception as e:
         print(f"Wishlist Logic Error: {e}")
-        return f"Error: {e}"
+        return {"error": f"Error: {e}"}
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ import sys
 import re
 from datetime import datetime
 
-import BacklogReaper as br
+import reaper_backend as br
 import vault
 import config
 import settings
@@ -555,8 +555,8 @@ def execute_tool(tool_request):
             system_hint = "System Note: Here are the valid tags."
 
         elif tool_name == "find_similar_games":
-            # This function already returns a nice string report
-            tool_output_str = br.generate_contextual_dna(clean_params.get('game_name'), result_limit)
+            output = br.generate_contextual_dna(clean_params.get('game_name'), result_limit)
+            tool_output_str = json.dumps(output)
             system_hint = f"System Note: These are {result_limit} games in the user's library that match the target."
 
         elif tool_name == "search_steam_store":
