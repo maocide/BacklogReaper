@@ -1,7 +1,7 @@
 import json
 import random
 import webbrowser
-from flet import FontWeight
+from flet import FontWeight, RoundedRectangleBorder
 import flet as ft
 import flet_charts as ftc  # Import flet-charts
 
@@ -57,6 +57,27 @@ def get_status_color(status):
     }
     return color_map.get(status, ft.Colors.WHITE)
 
+def get_roast_asset(status_text):
+    """
+    Maps the Agent's wild text output to a safe local asset.
+    Case-insensitive and fault-tolerant.
+    """
+    # Normalize the input (Agent might say "Hoarder" or "HOARDER" or "Status: Hoarder")
+    key = status_text.upper().strip()
+
+    # Define the strict mapping
+    assets = {
+        "HOARDER": "assets/cards/hoarder.png",
+        "CASUAL": "assets/cards/casual.png",
+        "BROKE": "assets/cards/broke.png",
+        "HARDCORE": "assets/cards/hardcore.png",
+        "ROASTED": "assets/cards/roasted.png",
+        "DEFAULT": "assets/cards/default.png"
+    }
+
+    # Return the specific asset, or the Clean card if the Agent invents a new status
+    return assets.get(key, "assets/cards/default.png")
+
 def create_game_card(game_data):
     """Creates a stylized card for a single game."""
 
@@ -67,29 +88,19 @@ def create_game_card(game_data):
     #bg_image = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg" if appid else ""
 
     bg_image = None
-    tint_color = "#1a1a1a"
+    bg_opacity = 0.30
+    card_width = 270
+    tint_color = ft.Colors.TRANSPARENT #tint_color = "#1a1a1a"
+
+
     # DYNAMIC BACKGROUND LOGIC
-    if appid == "ROAST":
-        # 1. Determine Archetype based on stats
-        # You can pass a hidden 'theme' key in game_data from the Agent
-        theme = game_data.get("theme", "default")
+    if appid == "ROAST" or not appid:
+        # Determine Archetype based on stats
+        theme = game_data.get("bg_theme", "default")
 
-        # # Map themes to local assets
-        # bg_map = {
-        #     "hoarder": "assets/roast_hoarder.jpg",
-        #     "casual": "assets/roast_casual.jpg",
-        #     "broke": "assets/roast_broke.jpg",
-        #     "hardcore": "assets/roast_fire.jpg"
-        # }
-        #
-        # # Select background
-        # bg_image = bg_map.get(theme, "assets/roast_default.jpg")
-
-        bg_image = None
-
-        # 2. Add Dynamic Color Tint (Flet functionality)
-        # Randomly choose a 'mood' color for the overlay
-        tint_color = random.choice([ft.Colors.RED_900, ft.Colors.PURPLE_900, ft.Colors.BROWN_900])
+        # Map themes to local assets
+        bg_image = get_roast_asset(theme)
+        #bg_opacity = 0.45
 
     elif appid:
         # Standard Game behavior
@@ -105,17 +116,17 @@ def create_game_card(game_data):
     }
 
     # Items to skip in the generic loop
-    ignore = ["appid", "name"]
+    ignore = ["appid", "name", "bg_theme"]
 
-    # HANDLE NAME FIRST (Ensures it is always at the top)
-    name_value = game_data.get("name", "Unknown Game")
+    # HANDLE NAME FIRST
+    name_value = game_data.get("name", "")
     controls_list.append(
         ft.Row(
             controls=[
                 ft.Text(
                     name_value,
                     weight=ft.FontWeight.BOLD,
-                    size=16,
+                    size=15,
                     no_wrap=True,
                     overflow=ft.TextOverflow.ELLIPSIS,
                     tooltip=name_value,
@@ -128,11 +139,14 @@ def create_game_card(game_data):
     # Add the divider as a separate item in the COLUMN, not the Row
     controls_list.append(ft.Divider(height=1, thickness=1))
 
+    controls_list.append(ft.Row(height=45))  # Spacer after name and horizontal row
+
     # LOOP THROUGH THE REST
     for title, content in game_data.items():
         # Check if title is in the ignore list
         if title in ignore:
             continue
+
 
         elif title == "comment":
             row = ft.Row(
@@ -154,7 +168,7 @@ def create_game_card(game_data):
                 controls=[
                     ft.Container(
                         content=ft.Text(f"{formatted_label}:", color=ft.Colors.WHITE38, weight=ft.FontWeight.BOLD),
-                        width=85,
+                        width=100,
                     ),
                     ft.Text(str(content), color=ft.Colors.GREY, expand=True),  # expand prevents overflow push
                 ],
@@ -163,11 +177,28 @@ def create_game_card(game_data):
             )
             controls_list.append(row)
 
-    # HANDLE BUTTON LAST
-    if appid and vault.is_game_owned(appid):
-        # Add a vertical spacer (Container) before the button
-        controls_list.append(ft.Container(height=10))
+    controls_list.append(ft.Container(height=10))
 
+
+
+    # Save Button
+    if appid == "ROAST":
+        controls_list.append(
+            ft.Row(
+                controls=[
+                    ft.FilledButton(
+                        "Save it",
+                        icon=ft.Icons.SAVE,
+                        height=30,
+                        style=ft.ButtonStyle(padding=5),
+                        # Capture appid safely in lambda
+                        on_click=lambda e, a=appid: launch_game(a)
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.END  # Aligns right
+            )
+        )
+    else: # Launch Button
         controls_list.append(
             ft.Row(
                 controls=[
@@ -180,7 +211,7 @@ def create_game_card(game_data):
                         on_click=lambda e, a=appid: launch_game(a)
                     )
                 ],
-                alignment=ft.MainAxisAlignment.END  # Aligns button to the right (optional, looks nice)
+                alignment=ft.MainAxisAlignment.END  # Aligns right
             )
         )
 
@@ -192,15 +223,15 @@ def create_game_card(game_data):
         stack_controls.append(
             ft.Image(
                 src=bg_image,
-                width=220,
+                width=card_width,
                 fit=ft.BoxFit.COVER,
-                opacity=0.15,
+                opacity=bg_opacity,
                 repeat=ft.ImageRepeat.NO_REPEAT,
                 gapless_playback=True,
             )
         )
 
-    # LAYER 1: Your Original Content
+    # LAYER 1
     stack_controls.append(
         ft.Container(
             padding=10,
@@ -214,15 +245,17 @@ def create_game_card(game_data):
 
     card_content = ft.Stack(controls=stack_controls)
 
-    # --- CHANGE 3: Return Card with Stack ---
+    # Return Card with Stack
     game_card = ft.Card(
         elevation=5,  # Add slight shadow for depth
+        bgcolor=tint_color,
+        shape=RoundedRectangleBorder(radius=25.0),
         content=ft.Container(
-            width=220,
+            width=card_width,
             # optional. auto-height is default
             # height=300,
             bgcolor=tint_color,
-            border_radius=10,
+            border_radius=25,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,  # Clips the image to the rounded corners
             content=card_content
         )
