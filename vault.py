@@ -53,7 +53,8 @@ def calculate_status(game):
     # Ratio Calculation (Playtime / Main Story)
     ratio = 0
     if hltb_main > 0:
-        ratio = playtime_hrs / hltb_main
+        # Both are now in minutes
+        ratio = playtime_min / hltb_main
 
     # 2. FINISHED / COMPLETIONIST (Overrides "Bounced" for short games)
     if hltb_main > 0:
@@ -247,8 +248,9 @@ def fetch_game_details_worker(game):
         hltb_results = get_hltb_search_scrape(name)
         if hltb_results:
             best_match = max(hltb_results, key=lambda x: x.similarity)
-            main_story = best_match.main_story
-            completionist = best_match.completionist
+            # Store as MINUTES (Integer)
+            main_story = int(best_match.main_story * 60)
+            completionist = int(best_match.completionist * 60)
     except Exception as e:
         print(f"HLTB failed for {name}: {e}")
 
@@ -534,11 +536,11 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         if min_playtime is not None and pt < min_playtime: continue
         if max_playtime is not None and pt > max_playtime: continue
 
-        # HLTB FILTER (in Hours)
+        # HLTB FILTER (Input is Hours, DB is Minutes)
         main_story = game['hltb_main'] or 0
         if hltb_max is not None:
             if main_story == 0: continue  # Skip games with no data if searching by length
-            if main_story > hltb_max: continue
+            if main_story > hltb_max * 60: continue
 
         # REVIEW SCORE FILTER
         if min_review_score is not None:
@@ -550,6 +552,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         # Inject the calculated fields so the AI sees them
         game['calculated_status'] = game_status
         game['hours'] = round(float(game['playtime_forever']) / 60.0, 1)
+        game['hltb_hours'] = round(float(game['hltb_main']) / 60.0, 1) if game['hltb_main'] else 0
         game['last_played'] = last_played_str
 
         results.append(game)
@@ -651,6 +654,7 @@ def get_vault_statistics():
 
     # Convert minutes to hours
     stats["total_hours"] = int(stats["total_hours"] / 60)
+    stats["backlog_hours"] = int(stats["backlog_hours"] / 60)
 
     # Sort Genres and take Top 10 by COUNT
     sorted_tags = sorted(tag_tally.items(), key=lambda x: x[1], reverse=True)[:10]

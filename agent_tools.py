@@ -572,7 +572,7 @@ def execute_tool(tool_request):
                         # "playtime_forever": res['playtime_forever'], # Remove the raw minutes
                         "status": res['calculated_status'],
                         "review_score": res['review_score'],
-                        "hltb_story": res.get('hltb_main', 0)  # Rename for clarity
+                        "hltb_story": res.get('hltb_hours', 0)  # Rename for clarity
                     })
 
                 tool_output_str = json.dumps(lean_results)
@@ -595,7 +595,7 @@ def execute_tool(tool_request):
                     # "playtime_forever": res['playtime_forever'], # Remove the raw minutes
                     "status": res['calculated_status'],
                     "review_score": res['review_score'],
-                    "hltb_story": res.get('hltb_main', 0)  # Rename for clarity
+                    "hltb_story": res.get('hltb_hours', 0)  # Rename for clarity
                 })
 
             tool_output_str = json.dumps(lean_results)
