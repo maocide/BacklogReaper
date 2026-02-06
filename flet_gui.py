@@ -218,7 +218,7 @@ def main(page: ft.Page):
 
     def update_data_sources():
         vault.update(config.STEAM_USER)
-        vibes = VibeEngine()
+        vibes = VibeEngine.get_instance()
         vibes.ingest_library()
 
     # --- Dashboard Logic ---

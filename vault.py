@@ -36,7 +36,11 @@ def calculate_status(game):
     playtime_min = game.get('playtime_forever', 0)
     last_played_ts = game.get('rtime_last_played', 0)
     hltb_main = game.get('hltb_main', 0)
-    tags = game.get('tags', '').lower()
+
+    # Safely get tags
+    tags_raw = game.get('tags', '')
+    tags = tags_raw.lower() if tags_raw else ""
+
     is_multiplayer_db = game.get('is_multiplayer', 0)
 
     # Derived Metrics
@@ -394,7 +398,13 @@ def get_all_games():
         c.execute("SELECT * FROM games ORDER BY playtime_forever DESC")
         rows = c.fetchall()
         # Convert to list of dicts immediately to avoid threading issues with Row objects later
-        return [dict(row) for row in rows]
+        games = [dict(row) for row in rows]
+
+        # Inject hltb_hours for all games
+        for game in games:
+            game['hltb_hours'] = round(float(game['hltb_main']) / 60.0, 1) if game['hltb_main'] else 0
+
+        return games
 
 def get_game_by_appid(appid):
     """
@@ -406,7 +416,10 @@ def get_game_by_appid(appid):
         c.execute("SELECT * FROM games WHERE appid=?", (appid,))
         row = c.fetchone()
         if row:
-            return dict(row)
+            game = dict(row)
+            # Inject hltb_hours
+            game['hltb_hours'] = round(float(game['hltb_main']) / 60.0, 1) if game['hltb_main'] else 0
+            return game
     return None
 
 def get_all_tags(limit=None):
@@ -752,5 +765,5 @@ if __name__ == "__main__":
     #hltb_test = get_hltb_search_scrape("Akane")
     #print(hltb_test)
     import vibe_engine
-    vibes = vibe_engine.VibeEngine()
+    vibes = vibe_engine.VibeEngine.get_instance()
     print(vibes.search("gloomy"))

@@ -647,7 +647,7 @@ def execute_tool(tool_request):
 
         elif tool_name == "search_by_vibe":
             # Get the Engine
-            vibe = vibe_engine.VibeEngine() # TODO:implement singleton or similar
+            vibe = vibe_engine.VibeEngine.get_instance()
 
             # (Ideally, you run vibe.ingest_library() at app startup,
             # but checking here ensures we don't crash on an empty vector cache)
