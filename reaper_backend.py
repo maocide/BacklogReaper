@@ -473,16 +473,16 @@ def get_global_game_info(game_name, appid=None):
 
     def fmt_price(p):
         try:
-            if p is None: return "0.00"
+            if p is None: return "N/A"
             val = int(p)
-            if val == 0: return "Free"
+            if val == 0: return "N/A"
             return f"{val / 100:.2f}"
         except:
             return str(p)
 
     # Default price values
     price_data = {}
-    final_formatted = fmt_price(game_info.get('price', 0))
+    final_formatted = fmt_price(game_info.get('price', "N/A"))
     initial_formatted = fmt_price(game_info.get('initialprice', 0))
     discount_percent = game_info.get('discount', 0)
 
@@ -1628,5 +1628,5 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 
 
 if __name__ == "__main__":
-    print(get_achievement_stats(game_name="akane"))
+    print(get_batch_game_details(game_names=["Jackal"]))
     #print(get_webpage("https://www.reddit.com/r/Helldivers/comments/1n773qh/dragonroach_is_ridiculous_and_whoever_designed_it/"))

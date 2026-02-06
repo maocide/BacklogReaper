@@ -4,6 +4,7 @@ import webbrowser
 from flet import FontWeight, RoundedRectangleBorder
 import flet as ft
 import flet_charts as ftc  # Import flet-charts
+from flet.controls.border_radius import vertical
 
 import reaper_backend as br
 import agent
@@ -88,6 +89,7 @@ def create_game_card(game_data):
     #bg_image = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg" if appid else ""
 
     bg_image = None
+    theme = None
     bg_opacity = 0.30
     card_width = 270
     tint_color = ft.Colors.TRANSPARENT #tint_color = "#1a1a1a"
@@ -133,13 +135,23 @@ def create_game_card(game_data):
                     expand=True  # Allows text to take available space before cutting off
                 ),
             ],
+            margin=ft.Margin(5,5,5,0),
             alignment=ft.MainAxisAlignment.START
         )
     )
     # Add the divider as a separate item in the COLUMN, not the Row
     controls_list.append(ft.Divider(height=1, thickness=1))
 
-    controls_list.append(ft.Row(height=45))  # Spacer after name and horizontal row
+    # Add theme subtitle for roast
+    # if theme and bg_image:
+    #     controls_list.append(
+    #         ft.Row(
+    #             controls=[
+    #                 ft.Text(str(theme), italic=True, size=15, color=ft.Colors.GREY_800),
+    #             ],
+    #             margin=ft.Margin(5, 0, 5, 0)
+    #         )
+    #     )
 
     # LOOP THROUGH THE REST
     for title, content in game_data.items():
@@ -153,6 +165,7 @@ def create_game_card(game_data):
                 controls=[
                     ft.Text(str(content), italic=True, size=12, color=ft.Colors.BLUE_GREY),
                 ],
+                margin=ft.Margin(5, 0, 5, 0),
                 wrap=True  # Allow comments to wrap to next line if long
             )
             controls_list.append(row)
@@ -173,6 +186,7 @@ def create_game_card(game_data):
                     ft.Text(str(content), color=ft.Colors.GREY, expand=True),  # expand prevents overflow push
                 ],
                 alignment=ft.MainAxisAlignment.START,
+                margin=ft.Margin(5, 0, 5, 0),
                 vertical_alignment=ft.CrossAxisAlignment.START  # Aligns text to top if content wraps
             )
             controls_list.append(row)
@@ -195,7 +209,8 @@ def create_game_card(game_data):
                         on_click=lambda e, a=appid: launch_game(a)
                     )
                 ],
-                alignment=ft.MainAxisAlignment.END  # Aligns right
+                alignment=ft.MainAxisAlignment.END,
+                vertical_alignment=ft.CrossAxisAlignment.END
             )
         )
     else: # Launch Button
@@ -211,7 +226,8 @@ def create_game_card(game_data):
                         on_click=lambda e, a=appid: launch_game(a)
                     )
                 ],
-                alignment=ft.MainAxisAlignment.END  # Aligns right
+                alignment=ft.MainAxisAlignment.END,
+                vertical_alignment=ft.CrossAxisAlignment.END
             )
         )
 
