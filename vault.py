@@ -134,20 +134,40 @@ def format_time_ago(ts):
     return f"{int(days/365)} years ago"
 
 
-def get_realtime_tags(app_id):
+def get_store_data(app_id, max_tags=10):
+    """
+    Scrapes BOTH Tags and Description from the store page in one request.
+    """
     url = f"https://store.steampowered.com/app/{app_id}/"
     cookies = {'birthtime': '568022401', 'mature_content': '1'}
+
+    data = {
+        "tags": [],
+        "description": ""
+    }
+
     try:
         response = requests.get(url, cookies=cookies, timeout=10)
-        if response.status_code != 200: return []
+        if response.status_code != 200:
+            return data
+
         soup = BeautifulSoup(response.text, 'html.parser')
+
+        # 1. Get Tags
         tags_div = soup.find("div", {"class": "glance_tags popular_tags"})
         if tags_div:
-            return [tag.text.strip() for tag in tags_div.find_all("a", {"class": "app_tag"})][:5]
-        return []
+            data["tags"] = [tag.text.strip() for tag in tags_div.find_all("a", {"class": "app_tag"})][:max_tags]
+
+        # 2. Get Description Snippet (Best for Vibes)
+        desc_div = soup.find("div", {"class": "game_description_snippet"})
+        if desc_div:
+            data["description"] = desc_div.text.strip()
+
+        return data
+
     except Exception as e:
-        print(f"Error scraping tags for {app_id}: {e}")
-        return []
+        print(f"Error scraping store data for {app_id}: {e}")
+        return {"tags":[], "description":None, "Error": f"Error scraping store data for {app_id}: {e}"}
 
 
 def fetch_review_summary(appid):
@@ -196,11 +216,11 @@ def init_db():
             name TEXT,
             playtime_forever INTEGER,
             rtime_last_played INTEGER,  -- <--- (Unix Timestamp)
-            genre TEXT,
             tags TEXT,
+            description TEXT,
             hltb_main INTEGER,
             hltb_completionist INTEGER,
-            is_multiplayer INTEGER DEFAULT 0, -- <--- NEEDS TO BE POPULATED
+            is_multiplayer INTEGER DEFAULT 0,
             last_updated REAL,
             review_score INTEGER DEFAULT -1
         )''')
@@ -236,7 +256,7 @@ def update(username):
     with get_connection() as conn:
         c = conn.cursor()
 
-        for game in owned_games:
+        for i, game in enumerate(owned_games, start=1):
             appid = game['appid']
             name = game['name']
             playtime = game['playtime_forever']
@@ -258,20 +278,23 @@ def update(username):
                 continue
 
             # Slow Path: New Game
-            print(f"New recruit detected: {name} ({appid})")
+            print(f"New recruit detected: {name} ({appid}) {i}/{len(owned_games)}")
 
             # Fetch Review Score
             review_score = fetch_review_summary(appid)
 
             tags_str = ""
             try:
-                # Use the LOCAL function, not the one from 'br'
-                tags_list = get_realtime_tags(appid)
+                # Use the LOCAL function, not the one from backend
+                store_data = get_store_data(appid)
+                description = store_data.get('description', '')
+                tags_list = store_data.get('tags', '')
                 tags_str = ",".join(tags_list)
 
                 time.sleep(0.25)
-            except:
-                pass
+            except Exception as e:
+                print(f"Error fetching reviews for appid: {appid}")
+                print(store_data)
 
             if tags_str:
                 # Convert string "Action, Indie" -> set("action", "indie")
@@ -292,7 +315,7 @@ def update(username):
                 print(f"HLTB failed: {e}")
 
             c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
-                      (appid, name, playtime, last_played, "", tags_str, main_story, completionist, is_multiplayer, time.time(), review_score))
+                      (appid, name, playtime, last_played, tags_str, description, main_story, completionist, is_multiplayer, time.time(), review_score))
             conn.commit()
 
     global last_refreshed

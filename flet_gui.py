@@ -19,6 +19,7 @@ import character_manager
 from pathlib import Path
 import startup
 import ui_components as ui
+from vibe_engine import VibeEngine
 
 
 def parse_and_render_message(text, is_user, reasoning_text=None):
@@ -214,6 +215,11 @@ def main(page: ft.Page):
         page.snack_bar = ft.SnackBar(ft.Text("Chat history copied to clipboard!"))
         page.snack_bar.open = True
         page.update()
+
+    def update_data_sources():
+        vault.update(config.STEAM_USER)
+        vibes = VibeEngine()
+        vibes.ingest_library()
 
     # --- Dashboard Logic ---
     def load_stats_thread():
@@ -535,13 +541,14 @@ Consider all the data and the data in your training about the games to find the 
 
     # --- Backlog Reaping Logic ---
 
+
     def run_backlog_reaping_thread(user_message):
         try:
             if stop_event_br.is_set(): return
 
             # Update db if not done for 20 mins
             if vault.get_games_count() and vault.get_elapsed_since_update() > 1200:
-                vault.update(config.STEAM_USER)
+                update_data_sources()
 
             # Signal initialization
             page.pubsub.send_all({"type": "init"})
@@ -806,7 +813,7 @@ Consider all the data and the data in your training about the games to find the 
 
             if game_count == 0 or force_update:
                 # UPDATE THE DB
-                vault.update(username)
+                update_data_sources()
 
             if stop_event_gf.is_set(): return
 

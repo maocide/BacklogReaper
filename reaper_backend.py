@@ -16,7 +16,7 @@ from howlongtobeatpy import HowLongToBeat
 from bs4 import BeautifulSoup
 import vault, ai_tools
 from ai_tools import aiCall, clean_json_for_ai
-from vault import get_realtime_tags, calculate_status
+from vault import get_store_data, calculate_status
 from basc_py4chan import Board
 import ddgs
 import concurrent.futures
@@ -458,7 +458,7 @@ def get_global_game_info(game_name, appid=None):
     if not all_tags is None and len(all_tags) > 0:
         top_tags = sorted(all_tags, key=all_tags.get, reverse=True)[:max_tags]
     else:
-        top_tags = get_realtime_tags(appid) # fallback to steam scraping to get tags
+        top_tags = get_store_data(appid, max_tags)["tags"] # fallback to steam scraping to get tags
 
     approval = 0
 

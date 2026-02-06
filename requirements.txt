@@ -13,3 +13,5 @@ flet
 flet-charts
 Pillow
 trafilatura
+sentence_transformers
+numpy
