@@ -226,6 +226,24 @@ tools_schema = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_library_stats",
+            "description": "Returns aggregated stats for the User's library to facilitate a 'Roast' or 'Audit'. Includes shame percentage, completion rate, and top genres.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
 {
         "type": "function",
         "function": {
@@ -465,6 +483,7 @@ def get_friendly_status(func_name):
         "vault_search": "📂 Rummaging through your backlog...",
         "vault_search_batch": "📂 Batch scanning your library...",
         "get_user_tags": "🏷️ analyzing your genre habits...",
+        "get_library_stats": "🧮 Auditing your entire life...",
         "find_similar_games": "🔍 Matching games in your vault...",
         "get_achievements": "🏆 Checking your trophy cabinet...",
         "get_user_wishlist": "🌠 Judging your wishlist...",
@@ -561,6 +580,11 @@ def execute_tool(tool_request):
             tags = vault.get_all_tags()
             tool_output_str = json.dumps(tags)
             system_hint = "System Note: Here are the valid tags."
+
+        elif tool_name == "get_library_stats":
+            stats = vault.get_library_stats()
+            tool_output_str = json.dumps(stats)
+            system_hint = "System Note: Use this data to roast the user or analyze their habits."
 
         elif tool_name == "find_similar_games":
             output = br.generate_contextual_dna(clean_params.get('game_name'), result_limit)

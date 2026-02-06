@@ -604,3 +604,83 @@ def get_vault_statistics():
     stats["genre_hours"] = [{"tag": k, "count": int(v / 60)} for k, v in sorted_tags_hours]
 
     return stats
+
+def get_library_stats():
+    """
+    Returns aggregated stats for the User's library to facilitate a 'Roast' or 'Audit'.
+    Includes:
+    - total_games
+    - unplayed_count (Status: Unplayed)
+    - bounced_count (Status: Bounced)
+    - shame_percentage ((Unplayed + Bounced) / Total * 100)
+    - total_hours
+    - completion_rate ((Invested + Completionist) / Total * 100)
+    - top_played_genres (Top 5 by hours)
+    - top_owned_genres (Top 5 by count)
+    """
+    try:
+        games = get_all_games()
+    except Exception:
+        return {"total_games": 0, "error": "Could not access vault."}
+
+    total_games = len(games)
+    if total_games == 0:
+        return {"total_games": 0, "error": "Library is empty."}
+
+    unplayed_count = 0
+    bounced_count = 0
+    finished_count = 0
+    total_minutes = 0
+
+    tag_counts = {}
+    tag_minutes = {}
+
+    for game in games:
+        status = calculate_status(game)
+        playtime = game.get('playtime_forever', 0)
+        tags_str = game.get('tags', '')
+
+        # Global totals
+        total_minutes += playtime
+
+        # Status Counts
+        if status == "Unplayed":
+            unplayed_count += 1
+        elif status == "Bounced":
+            bounced_count += 1
+        elif status in ("Invested", "Completionist"):
+            finished_count += 1
+
+        # Genre Analysis (Split all tags)
+        if tags_str:
+            tags = [t.strip() for t in tags_str.split(',')]
+            for tag in tags:
+                if not tag: continue
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+                tag_minutes[tag] = tag_minutes.get(tag, 0) + playtime
+
+    # Derived Metrics
+    # Shame = Unplayed + Bounced
+    shame_percentage = int(((unplayed_count + bounced_count) / total_games) * 100)
+    completion_rate = int((finished_count / total_games) * 100)
+    total_hours = int(total_minutes / 60)
+    avg_playtime_hours = round(total_hours / total_games, 1)
+
+    # Top Genres
+    top_played = sorted(tag_minutes.items(), key=lambda x: x[1], reverse=True)[:5]
+    top_played_fmt = [{"tag": k, "hours": int(v/60)} for k, v in top_played]
+
+    top_owned = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    top_owned_fmt = [{"tag": k, "count": v} for k, v in top_owned]
+
+    return {
+        "total_games": total_games,
+        "unplayed_count": unplayed_count,
+        "bounced_count": bounced_count,
+        "shame_percentage": f"{shame_percentage}%",
+        "total_hours": total_hours,
+        "avg_playtime_hours": avg_playtime_hours,
+        "completion_rate": f"{completion_rate}%",
+        "top_played_genres": top_played_fmt,
+        "top_owned_genres": top_owned_fmt
+    }
