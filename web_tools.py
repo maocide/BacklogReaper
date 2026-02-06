@@ -167,7 +167,8 @@ def get_hltb_search_scrape(game_name):
             highest_score = score
             best_candidate = url
 
-    if not best_candidate:
+    if not best_candidate or highest_score < 0.45:
+        print(f"   [HLTB] No close match found for '{game_name}' (Best: {highest_score:.2f}). Skipping.")
         return []
 
     # --- STEP 2: Scrape the Winner ---
@@ -187,16 +188,36 @@ def get_hltb_search_scrape(game_name):
 
         # Helper to extract time
         def extract_hours(label_text):
+            # Find the label (e.g., "Main Story")
             label = soup.find(string=re.compile(label_text, re.IGNORECASE))
             if not label: return 0
-            container = label.find_parent('div') or label.find_parent('li')
-            if container:
-                full_text = container.get_text()
-                # Regex for "10 Hours", "10½ Hours", "10 1/2 Hours"
-                match = re.search(r'(\d+)(?:[.,]\d+|½|\s+1/2)?', full_text.replace(label, ""))
-                if match:
-                    val_str = match.group(0).replace('½', '.5').replace(' 1/2', '.5').replace(',', '.')
-                    return float(val_str)
+
+            # Find the container
+            container = label.find_parent('li') or label.find_parent('div')
+            if not container: return 0
+
+            # Get text but remove the label itself to avoid confusion
+            full_text = container.get_text(" ", strip=True).replace(label, "")
+
+            # IMPROVED REGEX: Look for number + Unit (Hours/Mins)
+            # Matches: "10 Hours", "10½ Hours", "10 Mins"
+            # It ignores independent numbers like "4,029 Polled"
+            pattern = r'(\d+(?:[.,]\d+|½|\s+1/2)?)\s*(Hours?|Mins?)'
+            match = re.search(pattern, full_text, re.IGNORECASE)
+
+            if match:
+                val_str = match.group(1).replace('½', '.5').replace(' 1/2', '.5').replace(',', '.')
+                unit = match.group(2).lower()
+
+                try:
+                    val = float(val_str)
+                    # Convert Mins to Hours
+                    if 'min' in unit:
+                        return round(val / 60.0, 1)
+                    return val
+                except ValueError:
+                    return 0
+
             return 0
 
         # Create Dictionary of stats
@@ -204,7 +225,7 @@ def get_hltb_search_scrape(game_name):
             "game_name": game_name,
             "similarity": highest_score,  # <--- The value you needed
             "main_story": extract_hours("Main Story"),
-            "main_extra": extract_hours("Main \+ Extra"),
+            "main_extra": extract_hours(r"Main \+ Extra"),
             "completionist": extract_hours("Completionist")
         }
 
