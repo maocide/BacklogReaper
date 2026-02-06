@@ -339,7 +339,8 @@ def create_chat_row(avatar_name, content_control, is_user, reasoning_control=Non
                                     padding=ft.Padding.only(left=10, bottom=10)
                                 )
                             ],
-                            initially_expanded=False
+                            # initially_expanded=False, # Deprecated in some versions?
+                            # expanded=False # Not available in 0.80.5
                         )
                     ),
                 ),

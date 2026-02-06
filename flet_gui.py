@@ -633,18 +633,22 @@ Consider all the data and the data in your training about the games to find the 
                 if state["reasoning_view"]:
                     state["reasoning_view"].value = state["reasoning_buffer"]
                     state["reasoning_view"].visible = True
-                    state["reasoning_view"].update()
+                    if state["reasoning_view"].page:
+                        state["reasoning_view"].update()
                     if "reasoning_container_ref" in state and state["reasoning_container_ref"].current:
                         state["reasoning_container_ref"].current.visible = True
-                        state["reasoning_container_ref"].current.update()
+                        if state["reasoning_container_ref"].current.page:
+                            state["reasoning_container_ref"].current.update()
 
             elif msg_type == "status":
                 if state["status_text"]:
                     state["status_text"].value = content
-                    state["status_text"].update()
+                    if state["status_text"].page:
+                        state["status_text"].update()
                 if br_status.current:
                     br_status.current.value = content
-                    br_status.current.update()
+                    if br_status.current.page:
+                        br_status.current.update()
 
             elif msg_type == "action":
                 if br_chat_list.current:
@@ -653,19 +657,22 @@ Consider all the data and the data in your training about the games to find the 
                         position,
                         ft.Text(content, size=14, italic=True, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
                     )
-                    br_chat_list.current.update()
+                    if br_chat_list.current.page:
+                        br_chat_list.current.update()
                 state["previous_was_tool"] = True
 
             elif msg_type == "text":
                 if state["status_text"] and state["status_text"].visible:
                     state["status_text"].visible = False
-                    state["status_text"].update()
+                    if state["status_text"].page:
+                        state["status_text"].update()
 
                 if state["previous_was_tool"] and not state["first_text"]:
                     state["agent_markdown"].value += "\n\n"
 
                 state["agent_markdown"].value += content
-                state["agent_markdown"].update()
+                if state["agent_markdown"].page:
+                    state["agent_markdown"].update()
 
                 state["previous_was_tool"] = False
                 state["first_text"] = False
