@@ -81,7 +81,7 @@ class VibeEngine:
         # 4. Fetch actual game data for the top K
         final_picks = []
         for appid, score in results[:top_k]:
-            game = vault.get_game_by_id(int(appid))
+            game = vault.get_game_by_appid(int(appid))
             if game:
                 # Add the 'vibe_score' so the Agent knows how confident we are
                 game['vibe_match'] = f"{int(score * 100)}%"

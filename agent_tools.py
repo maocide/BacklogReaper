@@ -8,6 +8,7 @@ import vault
 import config
 import settings
 import character_manager
+import vibe_engine
 
 AGENT_SYSTEM_PROMPT_TEMPLATE = """
 You have access to the user's "Vault" (local Steam library) and external game data tools.
@@ -472,6 +473,28 @@ tools_schema = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_by_vibe",
+            "description": "Semantic Search. Use this when the user describes a FEELING, ATMOSPHERE, or PLOT CONCEPT rather than specific genres. Examples: 'Games that feel like a rainy Sunday', 'Stressful management games', 'Lovecraftian horror in the ocean'. Do NOT use for simple queries like 'Show me FPS games' (use vault_search for that).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The abstract concept or atmosphere to search for."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "Flavor text for the UI."
+                    }
+                },
+                "required": ["query", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
 ]
 
 def get_friendly_status(func_name):
@@ -487,6 +510,7 @@ def get_friendly_status(func_name):
         "find_similar_games": "🔍 Matching games in your vault...",
         "get_achievements": "🏆 Checking your trophy cabinet...",
         "get_user_wishlist": "🌠 Judging your wishlist...",
+        "search_by_vibe": "✨ Vibe searching your games...",
 
         # External / Web
         "search_steam_store": "🛍️ Browsing the Steam Store...",
@@ -620,6 +644,33 @@ def execute_tool(tool_request):
 
         elif tool_name == "get_user_wishlist":
             tool_output_str = json.dumps(br.get_user_wishlist(sort_by=clean_params.get('sort_by'), page=clean_params.get('page', 0)))
+
+        elif tool_name == "search_by_vibe":
+            # Get the Engine
+            vibe = vibe_engine.VibeEngine() # TODO:implement singleton or similar
+
+            # (Ideally, you run vibe.ingest_library() at app startup,
+            # but checking here ensures we don't crash on an empty vector cache)
+            if not vibe.cache:
+                vibe.ingest_library()
+
+            # 3. Search
+            query = clean_params.get('query')
+            results = vibe.search(query, top_k=10)
+
+            # We strip heavy data, just giving the Agent the name and the "Match Confidence"
+            lean_results = []
+            for game in results:
+                lean_results.append({
+                    "name": game['name'],
+                    "appid": game['appid'],
+                    "vibe_match_score": game.get('vibe_match', 'N/A'),  # The engine adds this
+                    "playtime": round(game['playtime_forever'] / 60, 1),
+                    "status": vault.calculate_status(game)  # Helper from your vault.py
+                })
+
+            tool_output_str = json.dumps(lean_results)
+            system_hint = f"System Note: Found {len(lean_results)} games matching that vibe via vector search."
 
     except Exception as e:
         print(sys.exc_info())

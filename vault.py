@@ -1,5 +1,6 @@
+import concurrent
+import re
 import sqlite3
-import time
 import random
 import difflib
 
@@ -7,14 +8,14 @@ import requests
 from bs4 import BeautifulSoup
 from steam_web_api import Steam
 import config
-from howlongtobeatpy import HowLongToBeat
+from web_tools import get_store_data
+from web_tools import get_hltb_search_scrape
 
 # Config
 DB_NAME = 'backlog_vault.db'
 
 import time
 from datetime import datetime
-
 
 last_refreshed = 0
 
@@ -134,40 +135,6 @@ def format_time_ago(ts):
     return f"{int(days/365)} years ago"
 
 
-def get_store_data(app_id, max_tags=10):
-    """
-    Scrapes BOTH Tags and Description from the store page in one request.
-    """
-    url = f"https://store.steampowered.com/app/{app_id}/"
-    cookies = {'birthtime': '568022401', 'mature_content': '1'}
-
-    data = {
-        "tags": [],
-        "description": ""
-    }
-
-    try:
-        response = requests.get(url, cookies=cookies, timeout=10)
-        if response.status_code != 200:
-            return data
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # 1. Get Tags
-        tags_div = soup.find("div", {"class": "glance_tags popular_tags"})
-        if tags_div:
-            data["tags"] = [tag.text.strip() for tag in tags_div.find_all("a", {"class": "app_tag"})][:max_tags]
-
-        # 2. Get Description Snippet (Best for Vibes)
-        desc_div = soup.find("div", {"class": "game_description_snippet"})
-        if desc_div:
-            data["description"] = desc_div.text.strip()
-
-        return data
-
-    except Exception as e:
-        print(f"Error scraping store data for {app_id}: {e}")
-        return {"tags":[], "description":None, "Error": f"Error scraping store data for {app_id}: {e}"}
 
 
 def fetch_review_summary(appid):
@@ -227,17 +194,26 @@ def init_db():
         conn.commit()
 
 
-
-
-
-def update(username):
+def fetch_game_details_worker(game):
     """
-    Updates or inserts inside the local database
+    Worker function to fetch external data for a SINGLE game.
+    Executed in parallel threads.
     """
-    print("--- OPENING THE VAULT ---")
+    appid = game['appid']
+    name = game['name']
 
-    # Initialize DB just in case
-    init_db()
+    # Defensive sleep to be polite to APIs inside threads
+    time.sleep(0.5)
+
+    print(f"Fetching intel for: {name} ({appid})")
+
+    # 1. Init Data
+    main_story = 0
+    completionist = 0
+    is_multiplayer = 0
+    tags_str = ""
+    description = ""
+    review_score = -1
 
     MP_TAGS = {
         "multiplayer", "co-op", "online co-op", "coop",
@@ -245,82 +221,140 @@ def update(username):
         "massively multiplayer", "cross-platform multiplayer"
     }
 
+    # 2. Fetch Store Data (Tags & Description)
+    try:
+        store_data = get_store_data(appid)
+        description = store_data.get('description', '')
+        tags_list = store_data.get('tags', [])
+        tags_str = ",".join(tags_list)
+
+        # Check Multiplayer Tags
+        current_tags = {t.strip().lower() for t in tags_list}
+        if not current_tags.isdisjoint(MP_TAGS):
+            is_multiplayer = 1
+
+    except Exception as e:
+        print(f"Store scrape failed for {name}: {e}")
+
+    # 3. Fetch Reviews
+    try:
+        review_score = fetch_review_summary(appid)
+    except Exception as e:
+        print(f"Review fetch failed for {name}: {e}")
+
+    # 4. Fetch HLTB
+    try:
+        hltb_results = get_hltb_search_scrape(name)
+        if hltb_results:
+            best_match = max(hltb_results, key=lambda x: x.similarity)
+            main_story = best_match.main_story
+            completionist = best_match.completionist
+    except Exception as e:
+        print(f"HLTB failed for {name}: {e}")
+
+    # Return a tuple formatted for the SQL INSERT
+    # (appid, name, playtime, last_played, tags, desc, main, comp, is_mp, last_updated, score)
+    return (
+        appid,
+        name,
+        game['playtime_forever'],
+        game.get('rtime_last_played', 0),
+        tags_str,
+        description,
+        main_story,
+        completionist,
+        is_multiplayer,
+        time.time(),
+        review_score
+    )
+
+def update(username):
+    """
+    Optimized Update:
+    1. Batch updates existing games (Playtime/LastPlayed).
+    2. Parallel fetches new games.
+    """
+    print("--- OPENING THE VAULT (OPTIMIZED) ---")
+    init_db()
+
     steam = Steam(config.STEAM_API_KEY)
     user_data = steam.users.search_user(username)
     steam_id = user_data['player']['steamid']
     owned_games = steam.users.get_owned_games(steam_id, True, False)['games']
 
-    print(f"Found {len(owned_games)} games. Checking for missing intel...")
+    print(f"Library Scan: Found {len(owned_games)} games.")
 
-    # Open connection for the duration of the update
+    # --- STEP 1: SEGREGATE GAMES ---
+    existing_games = []  # Tuple list for batch update
+    new_games = []  # List of dicts for parallel processing
+
     with get_connection() as conn:
         c = conn.cursor()
+        # Get all existing AppIDs in one fast query
+        c.execute("SELECT appid FROM games")
+        known_appids = {row['appid'] for row in c.fetchall()}
 
-        for i, game in enumerate(owned_games, start=1):
-            appid = game['appid']
-            name = game['name']
-            playtime = game['playtime_forever']
-            last_played = game.get('rtime_last_played', 0)
+    for game in owned_games:
+        appid = game['appid']
+        if appid in known_appids:
+            # Prepare data for FAST update
+            # SQL: UPDATE games SET playtime_forever=?, rtime_last_played=? WHERE appid=?
+            # Data must be (playtime, last_played, appid)
+            existing_games.append((
+                game['playtime_forever'],
+                game.get('rtime_last_played', 0),
+                appid
+            ))
+        else:
+            new_games.append(game)
 
-            main_story = 0
-            completionist = 0
-            is_multiplayer = 0
-
-
-            # Check cache
-            c.execute("SELECT last_updated FROM games WHERE appid=?", (appid,))
-            row = c.fetchone()
-
-            # Fast Path: Update playtime and move on
-            if row:
-                c.execute("UPDATE games SET playtime_forever=?, rtime_last_played=? WHERE appid=?", (playtime, last_played, appid))
-                conn.commit()
-                continue
-
-            # Slow Path: New Game
-            print(f"New recruit detected: {name} ({appid}) {i}/{len(owned_games)}")
-
-            # Fetch Review Score
-            review_score = fetch_review_summary(appid)
-
-            tags_str = ""
-            try:
-                # Use the LOCAL function, not the one from backend
-                store_data = get_store_data(appid)
-                description = store_data.get('description', '')
-                tags_list = store_data.get('tags', '')
-                tags_str = ",".join(tags_list)
-
-                time.sleep(0.25)
-            except Exception as e:
-                print(f"Error fetching reviews for appid: {appid}")
-                print(store_data)
-
-            if tags_str:
-                # Convert string "Action, Indie" -> set("action", "indie")
-                current_tags = {t.strip().lower() for t in tags_str.split(',')}
-
-                # Check for intersection
-                if not current_tags.isdisjoint(MP_TAGS):
-                    is_multiplayer = 1
-
-            try:
-                # HLTB is slow, maybe wrap this in a try/catch block for connection errors
-                hltb_results = HowLongToBeat().search(name)
-                if hltb_results:
-                    best_match = max(hltb_results, key=lambda x: x.similarity)
-                    main_story = best_match.main_story
-                    completionist = best_match.completionist
-            except Exception as e:
-                print(f"HLTB failed: {e}")
-
-            c.execute('''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
-                      (appid, name, playtime, last_played, tags_str, description, main_story, completionist, is_multiplayer, time.time(), review_score))
+    # --- STEP 2: FAST BATCH UPDATE (Existing Games) ---
+    if existing_games:
+        print(f"Syncing playtime for {len(existing_games)} known games...")
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.executemany(
+                "UPDATE games SET playtime_forever=?, rtime_last_played=? WHERE appid=?",
+                existing_games
+            )
             conn.commit()
+
+    # --- STEP 3: PARALLEL PROCESSING (New Games) ---
+    if not new_games:
+        print("No new recruits found.")
+    else:
+        print(f"Found {len(new_games)} NEW games. Deploying scrapers...")
+
+        new_game_data = []
+
+        # We use a ThreadPool to run multiple scrapers at once.
+
+        worker_count = 2 if len(new_games) > 10 else 4
+        with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+            # Submit all tasks
+            future_to_game = {executor.submit(fetch_game_details_worker, game): game for game in new_games}
+
+            for i, future in enumerate(concurrent.futures.as_completed(future_to_game)):
+                try:
+                    data = future.result()
+                    new_game_data.append(data)
+                    print(f"[{i + 1}/{len(new_games)}] Processed {data[1]}")
+                except Exception as exc:
+                    print(f"Worker generated an exception: {exc}")
+
+        # --- STEP 4: BATCH INSERT (New Games) ---
+        if new_game_data:
+            print(f"Saving {len(new_game_data)} new records to Vault...")
+            with get_connection() as conn:
+                c = conn.cursor()
+                c.executemany(
+                    '''INSERT OR REPLACE INTO games VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+                    new_game_data
+                )
+                conn.commit()
 
     global last_refreshed
     last_refreshed = time.time()
-
     print("Vault update complete.")
 
 def get_elapsed_since_update():
@@ -707,3 +741,12 @@ def get_library_stats():
         "top_played_genres": top_played_fmt,
         "top_owned_genres": top_owned_fmt
     }
+
+if __name__ == "__main__":
+    pass
+    #print(get_vault_statistics())
+    #hltb_test = get_hltb_search_scrape("Akane")
+    #print(hltb_test)
+    import vibe_engine
+    vibes = vibe_engine.VibeEngine()
+    print(vibes.search("gloomy"))

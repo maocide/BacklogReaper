@@ -24,6 +24,7 @@ from datetime import datetime
 from steam_web_api import Steam
 import config
 from safe_tool import safe_tool
+from web_tools import web_search, get_hltb_search_scrape
 
 max_tags = 10
 steam_id = None
@@ -391,7 +392,7 @@ def get_global_game_info(game_name, appid=None):
         "details": (get_steam_app_details, appid),
         "spy": (get_steamspy_game_info, appid),
         "reviews": (get_reviews_summary, appid),
-        "hltb": (HowLongToBeat().search, game_name),
+        "hltb": (get_hltb_search_scrape, game_name),
         "discount": (get_steam_app_discount, game_name),
         "deals": (get_game_deals, game_name, appid),
     }
@@ -435,12 +436,14 @@ def get_global_game_info(game_name, appid=None):
     achievements = results.get("achievements")
     #steam_community = results.get("forums", "No forum data.")
 
+
+
     if how_long_to_beat and len(how_long_to_beat) > 0:
+        best_match = max(how_long_to_beat, key=lambda x: x.similarity)
         how_long_to_beat_hours = {
-            "main_story" : how_long_to_beat[0].main_story,
-            "main_extra" : how_long_to_beat[0].main_extra,
-            "completionist" : how_long_to_beat[0].completionist,
-            "all_styles" : how_long_to_beat[0].all_styles
+            "main_story" : best_match.main_story,
+            "main_extra" : best_match.main_extra,
+            "completionist" : best_match.completionist
         }
         print(how_long_to_beat_hours)
     else:
@@ -1162,35 +1165,7 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
 
 
 
-@safe_tool
-def web_search(query, max_results=10):
-    """
-    Performs a lightweight web search using DuckDuckGo.
-    Returns a string summary of the top results.
-    """
-    print(f"--- WEB SEARCH: {query} ---")
-    result = {}
-    results = ddgs.DDGS().text(query, max_results=max_results)
 
-    if not results:
-        result['message'] = 'No results found.'
-
-    data = []
-    for i, res in enumerate(results, 1):
-        title = res.get('title', 'No Title')
-        body = res.get('body', '')
-        href = res.get('href', '')
-        data.append(
-            {
-                'title': title,
-                'body': body,
-                'href': href
-            }
-        )
-
-    result["search_results"] = data
-
-    return result
 
 
 @safe_tool
