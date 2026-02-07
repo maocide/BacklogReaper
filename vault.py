@@ -208,7 +208,7 @@ def fetch_game_details_worker(game):
     name = game['name']
 
     # Defensive sleep to be polite to APIs inside threads
-    time.sleep(0.5)
+    time.sleep(0.3)
 
     print(f"Fetching intel for: {name} ({appid})")
 

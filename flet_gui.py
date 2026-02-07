@@ -845,6 +845,11 @@ Consider all the data and the data in your training about the games to find the 
 
                 hltb_main = game.get('hltb_main', 0)
                 hltb_comp = game.get('hltb_completionist', 0)
+
+                # Convert Minutes to Hours for Display
+                hltb_main_hrs = round(hltb_main / 60.0, 1) if hltb_main > 0 else 0
+                hltb_comp_hrs = round(hltb_comp / 60.0, 1) if hltb_comp > 0 else 0
+
                 tags_str = game.get('tags', '')
 
                 # Truncate Tags
@@ -860,8 +865,8 @@ Consider all the data and the data in your training about the games to find the 
                     ft.DataCell(ft.Text(str(game['appid']))),
                     ft.DataCell(ft.Container(content=ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS), width=300)),
                     ft.DataCell(ft.Text(f"{playtime_hrs} h"), data=playtime_hrs),  # Store raw value in data for custom sort if needed
-                    ft.DataCell(ft.Text(str(hltb_main) if hltb_main > 0 else "-"), data=hltb_main),
-                    ft.DataCell(ft.Text(str(hltb_comp) if hltb_comp > 0 else "-"), data=hltb_comp),
+                    ft.DataCell(ft.Text(str(hltb_main_hrs) if hltb_main_hrs > 0 else "-"), data=hltb_main_hrs),
+                    ft.DataCell(ft.Text(str(hltb_comp_hrs) if hltb_comp_hrs > 0 else "-"), data=hltb_comp_hrs),
                     ft.DataCell(ft.Text(status, color=ui.get_status_color(status))),
                 ]
                 rows.append(ft.DataRow(cells=cells))
