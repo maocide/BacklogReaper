@@ -6,7 +6,8 @@ import flet as ft
 import flet_charts as ftc  # Import flet-charts
 from flet.controls.border_radius import vertical
 
-import reaper_backend as br
+import game_intelligence
+import community_sentiment
 import agent
 from ai_tools import aiCall
 import threading
@@ -361,7 +362,7 @@ def main(page: ft.Page):
             ra_status.current.value = f"Fetching reviews for {game_name}..."
             page.update()
 
-            reviews_payload = br.get_reviews_byname_formatted(game_name, review_count)
+            reviews_payload = game_intelligence.get_reviews_byname_formatted(game_name, review_count)
             reviews = reviews_payload.get("formatted_reviews", str(reviews_payload))
             #print(reviews) # Debug
 
@@ -371,7 +372,7 @@ def main(page: ft.Page):
                 return
 
             # Load DNA
-            dna_response = br.generate_contextual_dna(game_name)
+            dna_response = game_intelligence.generate_contextual_dna(game_name)
             user_dna_content = dna_response.get("dna_report", str(dna_response))
             print("User DNA computed.")
 
@@ -459,7 +460,7 @@ The review will follow as user message:"""
             sg_status.current.value = f"Fetching games similar to {game_name}..."
             page.update()
 
-            similar_games = br.get_similar_games(game_name)
+            similar_games = game_intelligence.get_similar_games(game_name)
             # similar_games is a list of dicts or {"error": ...}
 
             if isinstance(similar_games, dict) and "error" in similar_games:

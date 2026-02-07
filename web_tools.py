@@ -2,15 +2,148 @@ import difflib
 import re
 import time
 from time import sleep
+import csv
+import os
 
-import ddgs
 import requests
 from bs4 import BeautifulSoup
-from ddgs import DDGS
-from ddgs.exceptions import TimeoutException, DDGSException
+from duckduckgo_search import DDGS
+from duckduckgo_search.exceptions import DuckDuckGoSearchException, TimeoutException
 
 from safe_tool import safe_tool
 from types import SimpleNamespace
+import kagglehub
+
+class HLTBManager:
+    _instance = None
+    _data = {}
+    _is_loaded = False
+
+    @staticmethod
+    def get_instance():
+        if HLTBManager._instance is None:
+            HLTBManager._instance = HLTBManager()
+        return HLTBManager._instance
+
+    def ensure_dataset(self):
+        """
+        Downloads the HLTB dataset from Kaggle if not already present.
+        Returns the path to the CSV file.
+        """
+        try:
+            print("   [HLTB] Ensuring dataset availability...")
+            path = kagglehub.dataset_download("b4n4n4p0wer/how-long-to-beat-video-game-playtime-dataset")
+            # Look for the main csv
+            csv_path = os.path.join(path, "hltb_dataset.csv")
+            if os.path.exists(csv_path):
+                return csv_path
+            else:
+                # Fallback search
+                for root, dirs, files in os.walk(path):
+                    for file in files:
+                        if file == "hltb_dataset.csv":
+                            return os.path.join(root, file)
+            print("   [HLTB] Dataset downloaded but csv not found.")
+            return None
+        except Exception as e:
+            print(f"   [HLTB] Error downloading dataset: {e}")
+            return None
+
+    def load_data(self):
+        """
+        Loads the CSV into memory for O(1) lookup.
+        Structure: { "normalized_name": {data_dict} }
+        """
+        if self._is_loaded:
+            return
+
+        csv_path = self.ensure_dataset()
+        if not csv_path:
+            print("   [HLTB] Failed to load dataset path.")
+            return
+
+        print(f"   [HLTB] Loading dataset from {csv_path}...")
+        try:
+            with open(csv_path, mode='r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # Normalize name for key
+                    name = row.get('name', '')
+                    if not name: continue
+
+                    norm_name = self._normalize(name)
+
+                    # Store data - convert hours to float
+                    try:
+                        main = float(row.get('main_story', 0) or 0)
+                        extra = float(row.get('main_plus_sides', 0) or 0)
+                        comp = float(row.get('completionist', 0) or 0)
+
+                        self._data[norm_name] = {
+                            "name": name,
+                            "main_story": main,
+                            "main_extra": extra,
+                            "completionist": comp
+                        }
+                    except ValueError:
+                        continue # Skip malformed rows
+
+            self._is_loaded = True
+            print(f"   [HLTB] Loaded {len(self._data)} games into memory.")
+
+        except Exception as e:
+            print(f"   [HLTB] Error reading CSV: {e}")
+
+    def _normalize(self, text):
+        """
+        Simple normalization: lowercase, strip non-alphanumeric (keep spaces single).
+        """
+        if not text: return ""
+        # Lowercase
+        text = text.lower()
+        # Remove special chars (keep alphanumeric and spaces)
+        text = re.sub(r'[^a-z0-9\s]', '', text)
+        # Collapse spaces
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+
+    def get_game(self, game_name):
+        """
+        Returns data for a game if found locally.
+        """
+        if not self._is_loaded:
+            self.load_data()
+
+        norm_name = self._normalize(game_name)
+        return self._data.get(norm_name)
+
+
+@safe_tool
+def get_hltb_data(game_name):
+    """
+    Unified HLTB Data Fetcher.
+    1. Checks Local Pre-seeded Database (Kaggle).
+    2. Falls back to Web Search & Scrape if not found.
+    """
+    # 1. Try Local Lookup
+    manager = HLTBManager.get_instance()
+    local_data = manager.get_game(game_name)
+
+    if local_data:
+        # print(f"   [HLTB] Found '{game_name}' in local DB.")
+        # Return format matching scrape result for compatibility
+        return [SimpleNamespace(
+            game_name=local_data['name'],
+            similarity=1.0, # Exact match (normalized)
+            main_story=local_data['main_story'],
+            main_extra=local_data['main_extra'],
+            completionist=local_data['completionist']
+        )]
+
+    # 2. Fallback to Web Scrape
+    # print(f"   [HLTB] '{game_name}' not in local DB. Scraping...")
+    return get_hltb_search_scrape(game_name)
+
 
 @safe_tool
 def web_search(query, max_results=10):
@@ -31,7 +164,7 @@ def web_search(query, max_results=10):
         result['message'] = 'Search timed out.'
         return result
 
-    except DDGSException:
+    except DuckDuckGoSearchException:
         # 3. Handle "No results found" or other API logic errors
         # (This silences the "ddgs.exceptions.DDGSException" you saw earlier)
         # print(f"   [DDG] No results for: '{query}'")

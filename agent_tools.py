@@ -3,7 +3,9 @@ import sys
 import re
 from datetime import datetime
 
-import reaper_backend as br
+import game_intelligence
+import community_sentiment
+import web_tools
 import vault
 import config
 import settings
@@ -613,39 +615,39 @@ def execute_tool(tool_request):
             system_hint = "System Note: Use this data to roast the user or analyze their habits."
 
         elif tool_name == "find_similar_games":
-            output = br.generate_contextual_dna(clean_params.get('game_name'), result_limit)
+            output = game_intelligence.generate_contextual_dna(clean_params.get('game_name'), result_limit)
             tool_output_str = json.dumps(output)
             system_hint = f"System Note: These are {result_limit} games in the user's library that match the target."
 
         elif tool_name == "search_steam_store":
-            tool_output_str = json.dumps(br.search_steam_store(clean_params.get('search_term'), result_limit))
+            tool_output_str = json.dumps(game_intelligence.search_steam_store(clean_params.get('search_term'), result_limit))
             system_hint = f"System Note: These are {result_limit} from the steam store search."
 
         elif tool_name == "get_game_details":
-            tool_output_str = json.dumps(br.get_batch_game_details(clean_params.get('game_names')))
+            tool_output_str = json.dumps(game_intelligence.get_batch_game_details(clean_params.get('game_names')))
             system_hint = "System Note: Details retrieved."
 
         elif tool_name == "get_reviews":
-            tool_output_str = json.dumps(br.get_reviews_byname(clean_params.get('game_name'), reviews_limit))
+            tool_output_str = json.dumps(game_intelligence.get_reviews_byname(clean_params.get('game_name'), reviews_limit))
 
         elif tool_name == "get_community_sentiment":
-            tool_output_str = json.dumps(br.get_community_sentiment(clean_params.get('game_name')))
+            tool_output_str = json.dumps(community_sentiment.get_community_sentiment(clean_params.get('game_name')))
 
         elif tool_name == "get_achievements":
-            stats = br.get_achievement_stats(
+            stats = game_intelligence.get_achievement_stats(
                 game_name=clean_params.get('game_name'),
                 page=clean_params.get('page')
             )
             tool_output_str = json.dumps(stats)
 
         elif tool_name == "web_search":
-            tool_output_str = json.dumps(br.web_search(clean_params.get('search')))
+            tool_output_str = json.dumps(web_tools.web_search(clean_params.get('search')))
 
         elif tool_name == "get_webpage":
-            tool_output_str = json.dumps(br.get_webpage(clean_params.get('url')))
+            tool_output_str = json.dumps(community_sentiment.get_webpage(clean_params.get('url')))
 
         elif tool_name == "get_user_wishlist":
-            tool_output_str = json.dumps(br.get_user_wishlist(sort_by=clean_params.get('sort_by'), page=clean_params.get('page', 0)))
+            tool_output_str = json.dumps(game_intelligence.get_user_wishlist(sort_by=clean_params.get('sort_by'), page=clean_params.get('page', 0)))
 
         elif tool_name == "search_by_vibe":
             # Get the Engine

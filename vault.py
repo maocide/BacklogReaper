@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from steam_web_api import Steam
 import config
 from web_tools import get_store_data
-from web_tools import get_hltb_search_scrape
+from web_tools import get_hltb_data
 
 # Config
 DB_NAME = 'backlog_vault.db'
@@ -249,7 +249,7 @@ def fetch_game_details_worker(game):
 
     # 4. Fetch HLTB
     try:
-        hltb_results = get_hltb_search_scrape(name)
+        hltb_results = get_hltb_data(name)
         if hltb_results:
             best_match = max(hltb_results, key=lambda x: x.similarity)
             # Store as MINUTES (Integer)
