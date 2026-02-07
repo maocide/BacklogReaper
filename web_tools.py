@@ -167,7 +167,7 @@ def get_hltb_search_scrape(game_name):
             highest_score = score
             best_candidate = url
 
-    if not best_candidate or highest_score < 0.45:
+    if not best_candidate: # or highest_score < 0.15:
         print(f"   [HLTB] No close match found for '{game_name}' (Best: {highest_score:.2f}). Skipping.")
         return []
 

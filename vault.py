@@ -761,9 +761,9 @@ def get_library_stats():
 
 if __name__ == "__main__":
     pass
-    #print(get_vault_statistics())
-    #hltb_test = get_hltb_search_scrape("Akane")
-    #print(hltb_test)
-    import vibe_engine
-    vibes = vibe_engine.VibeEngine.get_instance()
-    print(vibes.search("gloomy"))
+    print(get_vault_statistics())
+    hltb_test = get_hltb_search_scrape("Lossless Scaling")
+    print(hltb_test)
+    # import vibe_engine
+    # vibes = vibe_engine.VibeEngine.get_instance()
+    # print(vibes.search("gloomy"))
