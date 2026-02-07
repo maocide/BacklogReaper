@@ -150,8 +150,16 @@ def get_hltb_search_scrape(game_name):
         if "howlongtobeat.com/game/" not in url:
             continue
 
+        # Turn "howlongtobeat.com/game/61746/reviews/latest/1" -> "howlongtobeat.com/game/61746"
+        # 1. Split by 'game/'
+        parts = url.split('/game/')
+        if len(parts) > 1:
+            # 2. Get the ID part (e.g. "61746/reviews/...")
+            id_part = parts[1].split('/')[0]  # Take only "61746"
+            # 3. Reconstruct
+            url = f"https://howlongtobeat.com/game/{id_part}"
+
         # Clean the title (Remove " - HowLongToBeat" and other noise)
-        # DDG Title usually: "God of War - HowLongToBeat"
         clean_title = title.split(" - HowLongToBeat")[0].lower().strip()
 
         # Calculate Similarity
@@ -220,12 +228,16 @@ def get_hltb_search_scrape(game_name):
 
             return 0
 
+        main_extra = extract_hours(r"Main \+ Extra")
+        if not main_extra or main_extra == 0:
+            main_extra = extract_hours(r"Main \+ Sides")
+
         # Create Dictionary of stats
         data = {
             "game_name": game_name,
             "similarity": highest_score,  # <--- The value you needed
             "main_story": extract_hours("Main Story"),
-            "main_extra": extract_hours(r"Main \+ Extra"),
+            "main_extra": main_extra,
             "completionist": extract_hours("Completionist")
         }
 

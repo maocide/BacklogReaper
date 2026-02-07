@@ -286,13 +286,13 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "find_similar_games",
-            "description": "Find games in the user's EXISTING library that are similar to a target game title. Uses Jaccard Index on tags.",
+            "description": "Finds games in the user's LOCAL library that match a target game. Uses a HYBRID ENGINE: matches Gameplay Mechanics (Tags) AND Atmosphere/Vibe (Vector Embeddings). Use this whenever the user says 'I like X, what else do I own like that?'",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "game_name": {
                         "type": "string",
-                        "description": "The name of the game to compare against."
+                        "description": "The name of the game to compare against (e.g., 'Hotline Miami')."
                     },
                     "action_description": {
                         "type": "string",
@@ -300,6 +300,28 @@ tools_schema = [
                     }
                 },
                 "required": ["game_name", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_by_vibe",
+            "description": "Semantic Vector Search. Use this for ABSTRACT concepts, FEELINGS, or PLOT themes (e.g., 'Games about depression', 'Power fantasy', 'Cozy rain', 'Drunk'). It matches the *meaning* of descriptions, not just keywords. Do NOT use for simple genre lookups like 'FPS' (use vault_search for that).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The abstract concept to search for."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "Flavor text for the UI."
+                    }
+                },
+                "required": ["query", "action_description"],
                 "additionalProperties": False
             }
         }
@@ -469,28 +491,6 @@ tools_schema = [
                     }
                 },
                 "required": ["game_name", "action_description"],
-                "additionalProperties": False
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_by_vibe",
-            "description": "Semantic Search. Use this when the user describes a FEELING, ATMOSPHERE, or PLOT CONCEPT rather than specific genres. Examples: 'Games that feel like a rainy Sunday', 'Stressful management games', 'Lovecraftian horror in the ocean'. Do NOT use for simple queries like 'Show me FPS games' (use vault_search for that).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "The abstract concept or atmosphere to search for."
-                    },
-                    "action_description": {
-                        "type": "string",
-                        "description": "Flavor text for the UI."
-                    }
-                },
-                "required": ["query", "action_description"],
                 "additionalProperties": False
             }
         }

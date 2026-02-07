@@ -154,3 +154,27 @@ class VibeEngine:
         except Exception as e:
             print(f"Vibe Search Error: {e}")
             return []
+
+    # Add this to VibeEngine class
+    def get_batch_scores(self, query_text, appids):
+        """
+        Returns a dictionary {appid: score} for a specific list of games vs the query.
+        Used for Hybrid sorting.
+        """
+        self._load_model()
+        if not self.model: return {}
+
+        query_vector = self.model.encode(query_text)
+        scores = {}
+
+        for appid in appids:
+            str_id = str(appid)
+            if str_id in self.cache:
+                vector = self.cache[str_id]
+                # Fast Cosine Similarity
+                score = np.dot(query_vector, vector) / (np.linalg.norm(query_vector) * np.linalg.norm(vector))
+                scores[appid] = float(score)
+            else:
+                scores[appid] = 0.0
+
+        return scores

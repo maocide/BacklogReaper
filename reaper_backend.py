@@ -15,6 +15,7 @@ import steamspypi
 from howlongtobeatpy import HowLongToBeat
 from bs4 import BeautifulSoup
 import vault, ai_tools
+import vibe_engine
 from ai_tools import aiCall, clean_json_for_ai
 from vault import get_store_data, calculate_status
 from basc_py4chan import Board
@@ -619,74 +620,84 @@ def get_batch_game_details(game_names: list[str]) -> dict:
 
     return results
 
+
 @safe_tool
 def generate_contextual_dna(game_name, limit=10):
     """
-    Generates a DNA report specific to the GENRE of the target game.
-    Ignores your 5000 hours in Dota if the target is a Racing game.
+    Hybrid Search: Combines Tag Intersection (Gameplay) + Vector Vibe (Atmosphere).
     """
+    # 1. Get Target Data
     target_payload = get_global_game_info(game_name)
+    if not target_payload or "error" in target_payload:
+        return {"error": f"Could not find data for {game_name}"}
 
-    # Extract tags from the payload
-    # (Your payload has 'tags': ['Action', 'Indie'...])
-    target_tags = target_payload.get('tags', [])
-    print(f"Target Tags: {target_tags}")
+    target_tags_list = target_payload.get('tags', [])
+    target_tags_set = {t.lower() for t in target_tags_list}
 
-    games = vault.get_all_games()
+    # 2. Prepare Vibe Query
+    # We repeat the tags to scream at the AI that the GENRE matters
+    tags_str = ", ".join(target_tags_list)
+    desc = target_payload.get('description', '')
+    vibe_query = f"{game_name}. {tags_str}. {tags_str}. {desc}"
 
-    # 1. Clean Target Tags
-    # Ensure list format and lowercase for matching
-    if not target_tags: return "NO DATA!"  # RETURN NOTHING!
+    # 3. Get All Games & Vibe Scores
+    library = vault.get_all_games()
+    library_ids = [g['appid'] for g in library]
 
-    target_set = {t.lower() for t in target_tags}
+    vibe = vibe_engine.VibeEngine.get_instance()
+    # Auto-ingest if needed
+    if not vibe.cache: vibe.ingest_library()
 
-    relevant_games = []
+    # Get all vibe scores in one go
+    vibe_map = vibe.get_batch_scores(vibe_query, library_ids)
 
-    for game in games:
-        if not game['tags']: continue
+    scored_games = []
 
-        # Calculate Relevance (Jaccard Index)
-        # How many tags does this library game share with the target?
-        lib_tags = {t.strip().lower() for t in game['tags'].split(',')}
+    for game in library:
+        if game['name'].lower() == game_name.lower(): continue
 
-        intersection = len(target_set.intersection(lib_tags))
+        # --- SCORE A: TAG MATCH (Gameplay) ---
+        game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',')}
+        if not game_tags:
+            tag_score = 0
+        else:
+            # Jaccard Index: Intersection / Union
+            intersection = len(target_tags_set.intersection(game_tags))
+            union = len(target_tags_set.union(game_tags))
+            tag_score = intersection / union if union > 0 else 0
 
-        # We only care if there is meaningful overlap (at least 2 shared tags)
-        if intersection >= 2:
-            # Score = Overlap * Playtime Weight (so we see favorites first)
-            # But we cap playtime weight so 1000h doesn't crush 20h
-            relevant_games.append({
-                "name": game['name'],
-                "playtime": game['playtime_forever'],
-                "shared_tags": intersection,
-                "status": calculate_status(game)  # Helper function for status
+        # --- SCORE B: VIBE MATCH (Atmosphere) ---
+        vibe_score = vibe_map.get(game['appid'], 0)
+
+        # --- FINAL SCORE (The Secret Sauce) ---
+        # 70% Mechanics, 30% Vibes
+        # This fixes "Akane" matching "Visual Novels" just because they are Anime.
+        final_score = (tag_score * 0.7) + (vibe_score * 0.3)
+
+        # Filter trash matches
+        if final_score > 0.25:
+            scored_games.append({
+                "game": game,
+                "score": final_score,
+                "tag_overlap": len(target_tags_set.intersection(game_tags))
             })
 
-    # Sort by Relevance (Shared Tags) then Playtime
-    relevant_games.sort(key=lambda x: (x['shared_tags'], x['playtime']), reverse=True)
+    # 4. Sort and Format
+    scored_games.sort(key=lambda x: x['score'], reverse=True)
 
-    # Construct the Report
-    top_relevant = relevant_games[:limit]
+    results = []
+    for item in scored_games[:limit]:
+        g = item['game']
+        results.append({
+            "name": g['name'],
+            "appid": g['appid'],
+            "match_score": f"{int(item['score'] * 100)}%",
+            "status": calculate_status(g),
+            "hours": round(g.get('playtime_forever', 0) / 60, 1),
+            "tags": g.get('tags', '').split(',')[:5]
+        })
 
-    if not top_relevant:
-        return "[GENRE WARNING] User has ZERO experience in this genre. They are a tourist."
-
-
-    report = f"""
-[RELEVANT GAMING HISTORY]
-The user is looking at a game with tags: {list(target_set)[:max_tags]}
-Here is their track record with SIMILAR games:
-"""
-
-    for g in top_relevant:
-        playtime_hr = int(g['playtime'] / 60)
-        # Add HLTB context: "111h (ADDICTED | Story: 15h)"
-        hltb_context = f" | Story: {g.get('hltb_main', '?')}h" if g.get('hltb_main') else ""
-
-        report += f"- {g['name']}: {playtime_hr}h ({g['status']}{hltb_context}) [Matches {g['shared_tags']} tags]\n"
-
-    # Standardize Return
-    return {"dna_report": report}
+    return results
 
 @safe_tool
 def get_reviews(appid, params={'json': 1}):
@@ -1603,5 +1614,6 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 
 
 if __name__ == "__main__":
-    print(get_batch_game_details(game_names=["Jackal"]))
+    #print(get_batch_game_details(game_names=["Jackal"]))
+    print(generate_contextual_dna("akane"))
     #print(get_webpage("https://www.reddit.com/r/Helldivers/comments/1n773qh/dragonroach_is_ridiculous_and_whoever_designed_it/"))
