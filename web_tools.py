@@ -7,7 +7,7 @@ import os
 
 import requests
 from bs4 import BeautifulSoup
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from duckduckgo_search.exceptions import DuckDuckGoSearchException, TimeoutException
 
 from safe_tool import safe_tool
@@ -380,3 +380,7 @@ def get_hltb_search_scrape(game_name):
     except Exception as e:
         print(f"HLTB Scrape Error: {e}")
         return []
+
+if __name__ == "__main__":
+    print(get_hltb_search_scrape("Akane"))
+    print(get_hltb_data("Akane"))
