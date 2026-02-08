@@ -1,6 +1,9 @@
 import flet as ft
 import webbrowser
 
+import vault
+
+
 def launch_game(appid):
     """Launches the game using the steam protocol."""
     try:
@@ -179,7 +182,7 @@ def create_game_card(game_data):
                 vertical_alignment=ft.CrossAxisAlignment.END
             )
         )
-    else: # Launch Button
+    elif not appid is None and vault.is_game_owned(appid): # Launch Button
         controls_list.append(
             ft.Row(
                 controls=[

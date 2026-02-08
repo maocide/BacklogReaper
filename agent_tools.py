@@ -438,6 +438,34 @@ tools_schema = [
     {
         "type": "function",
         "function": {
+            "name": "get_user_wishlist",
+            "description": "Use this to get user's wishlist. Get 10 results and can request further pages.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {"type": "string"},
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    },
+                    "sort_by": {
+                        "type": "string",
+                        "enum": ["priority", "cheapest", "recent", "cheapest", "discount", ],
+                        "description": "Sorting criteria. Default is 'shortest'."
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "Pagination index (default 0). Returns 10 results per page."
+                    },
+                },
+                "required": ["game_name", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "web_search",
             "description": "Use this for GENERAL KNOWLEDGE or LATEST NEWS or ANY OTHER INFO that is not in the database. \"Is Silk Song out yet?\", \"Did the dev of [Game] abandon it?\" You can also use \"site:\" operators to search specific communities. e.g., 'query': 'site:reddit.com \"Starfield\" boring'",
             "parameters": {

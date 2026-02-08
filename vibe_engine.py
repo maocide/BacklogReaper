@@ -155,7 +155,6 @@ class VibeEngine:
             print(f"Vibe Search Error: {e}")
             return []
 
-    # Add this to VibeEngine class
     def get_batch_scores(self, query_text, appids):
         """
         Returns a dictionary {appid: score} for a specific list of games vs the query.

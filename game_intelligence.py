@@ -549,7 +549,7 @@ def generate_contextual_dna(game_name, limit=10):
     """
     Hybrid Search: Combines Tag Intersection (Gameplay) + Vector Vibe (Atmosphere).
     """
-    # 1. Get Target Data
+    # Get Target Data
     target_payload = get_global_game_info(game_name)
     if not target_payload or "error" in target_payload:
         return {"error": f"Could not find data for {game_name}"}
@@ -557,13 +557,13 @@ def generate_contextual_dna(game_name, limit=10):
     target_tags_list = target_payload.get('tags', [])
     target_tags_set = {t.lower() for t in target_tags_list}
 
-    # 2. Prepare Vibe Query
+    # Prepare Vibe Query
     # We repeat the tags to scream at the AI that the GENRE matters
     tags_str = ", ".join(target_tags_list)
     desc = target_payload.get('description', '')
     vibe_query = f"{game_name}. {tags_str}. {tags_str}. {desc}"
 
-    # 3. Get All Games & Vibe Scores
+    # Get All Games & Vibe Scores
     library = vault.get_all_games()
     library_ids = [g['appid'] for g in library]
 
@@ -579,7 +579,7 @@ def generate_contextual_dna(game_name, limit=10):
     for game in library:
         if game['name'].lower() == game_name.lower(): continue
 
-        # --- SCORE A: TAG MATCH (Gameplay) ---
+        # SCORE A: TAG MATCH (Gameplay)
         game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',')}
         if not game_tags:
             tag_score = 0
@@ -589,12 +589,10 @@ def generate_contextual_dna(game_name, limit=10):
             union = len(target_tags_set.union(game_tags))
             tag_score = intersection / union if union > 0 else 0
 
-        # --- SCORE B: VIBE MATCH (Atmosphere) ---
+        # SCORE B: VIBE MATCH (Atmosphere)
         vibe_score = vibe_map.get(game['appid'], 0)
 
-        # --- FINAL SCORE (The Secret Sauce) ---
         # 70% Mechanics, 30% Vibes
-        # This fixes "Akane" matching "Visual Novels" just because they are Anime.
         final_score = (tag_score * 0.7) + (vibe_score * 0.3)
 
         # Filter trash matches
@@ -605,7 +603,7 @@ def generate_contextual_dna(game_name, limit=10):
                 "tag_overlap": len(target_tags_set.intersection(game_tags))
             })
 
-    # 4. Sort and Format
+    # Sort and Format
     scored_games.sort(key=lambda x: x['score'], reverse=True)
 
     results = []
@@ -783,7 +781,7 @@ def get_steam_app_info(game_name: str):
     # Threshold Check: If the best match is trash, trust Steam's sorting (index 0)
     # 0.6 is a decent cutoff for "vaguely similar"
     if highest_score < 0.4:
-        print(f" -> Best match score ({highest_score:.2f}) is pathetic. Defaulting to Steam's top pick.")
+        print(f" -> Best match score ({highest_score:.2f}) is bad. Defaulting to Steam's top pick.")
         return candidates[0]
 
     print(f" -> Winner: {best_match['name']} ({best_match['id']}) with score {highest_score:.2f}\n")
@@ -793,7 +791,6 @@ def get_steam_app_info(game_name: str):
 def get_steam_app_discount(game_name:str):
     steam = Steam(config.STEAM_API_KEY)
 
-    # arguments: app_id
     app = steam.apps.search_games(game_name, fetch_discounts = True)
     return app["apps"][0].get('discount')
 
