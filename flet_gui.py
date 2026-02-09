@@ -118,10 +118,9 @@ def main(page: ft.Page):
     page.bgcolor = styles.COLOR_BACKGROUND
     page.padding = 0
 
-    # Load the font from Google Fonts directly
-    # Using raw content link for TTF file as page.fonts requires a file URL
+    # Load the font
     page.fonts = {
-        "Cinzel": "https://github.com/google/fonts/raw/main/ofl/cinzel/static/Cinzel-Regular.ttf",
+        "Cinzel": "/assets/fonts/Cinzel-VariableFont_wght.ttf"
     }
 
     # Custom Scrollbar Theme
