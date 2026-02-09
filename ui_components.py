@@ -2,7 +2,7 @@ import flet as ft
 import webbrowser
 
 import vault
-
+import styles
 
 def launch_game(appid):
     """Launches the game using the steam protocol."""
@@ -233,11 +233,11 @@ def create_game_card(game_data):
     # Return Card with Stack
     game_card = ft.Card(
         elevation=5,  # Add slight shadow for depth
-        bgcolor=tint_color,
+        bgcolor=styles.COLOR_SURFACE,
         shape=ft.RoundedRectangleBorder(radius=25.0),
         content=ft.Container(
             width=card_width,
-            bgcolor=tint_color,
+            bgcolor=styles.COLOR_SURFACE,
             border_radius=25,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,  # Clips the image to the rounded corners
             content=card_content
@@ -281,9 +281,9 @@ def create_chat_row(avatar_name, content_control, is_user, reasoning_control=Non
 
     # THEME CONFIGURATION
     # Reaper Style
-    reaper_bg = "#050505"
-    reaper_name_color = ft.Colors.AMBER_700
-    reaper_border_color = "#9d8159"
+    reaper_bg = styles.COLOR_BACKGROUND
+    reaper_name_color = styles.COLOR_TEXT_GOLD
+    reaper_border_color = styles.COLOR_BORDER_BRONZE
     reaper_border = ft.border.all(width=1, color=reaper_border_color) # Muted Bronze
     reaper_shadow = ft.BoxShadow(
         spread_radius=0,
@@ -294,9 +294,9 @@ def create_chat_row(avatar_name, content_control, is_user, reasoning_control=Non
     )
 
     # User Style
-    user_bg = ft.Colors.GREY_900
-    user_name_color = ft.Colors.WHITE_70
-    user_border_color = ft.Colors.GREY_800
+    user_bg = styles.COLOR_BUBBLE_USER
+    user_name_color = styles.COLOR_TEXT_GOLD
+    user_border_color = styles.COLOR_BORDER_BRONZE
     user_border = ft.border.all(width=1, color=user_border_color)
     user_shadow = None
 
@@ -404,14 +404,14 @@ def create_chat_row(avatar_name, content_control, is_user, reasoning_control=Non
 
     if is_user:
         row_controls.append(ft.Container(expand=True))
-        row_controls.append(ft.Container(content=message_container, col={"sm": 10, "md": 8}))
+        row_controls.append(ft.Container(content=message_container, col={"sm": 12, "md": 11, "lg": 10}))
         row_controls.append(avatar_content)
     else:
         # Reaper Layout: Avatar | Message
         row_controls.append(avatar_content)
         # We let the message expand, but the Column constraints in main chat view
         # usually handle the total width.
-        row_controls.append(ft.Container(content=message_container, expand=True))
+        row_controls.append(ft.Container(content=message_container, col={"sm": 12, "md": 11, "lg": 10}, expand=True))
 
     return ft.Container(
         content=ft.Row(

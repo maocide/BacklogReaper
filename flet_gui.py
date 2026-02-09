@@ -21,6 +21,7 @@ from pathlib import Path
 import startup
 import ui_components as ui
 from vibe_engine import VibeEngine
+import styles
 
 
 def parse_and_render_message(text, is_user, reasoning_text=None, avatar_path=None):
@@ -111,6 +112,11 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.DARK
     page.window.width = 1200
     page.window.height = 800
+
+    # THEME APPLIED
+    page.bgcolor = styles.COLOR_BACKGROUND
+    page.padding = 0
+    page.theme = ft.Theme(font_family=styles.FONT_BODY)
 
     # Enable standard window controls
     page.window.minimizable = True
@@ -685,8 +691,8 @@ Consider all the data and the data in your training about the games to find the 
                     # Create a styled container for the action
                     action_display = ft.Container(
                         content=ft.Row([
-                            ft.Icon(ft.Icons.TERMINAL, size=14, color=ft.Colors.BLUE_GREY_400),
-                            ft.Text(f"> {content}", size=12, font_family="Consolas", color=ft.Colors.BLUE_GREY_400)
+                            ft.Icon(ft.Icons.TERMINAL, size=14, color=styles.COLOR_SYSTEM_LOG),
+                            ft.Text(f"> {content}", size=12, font_family=styles.STYLE_MONOSPACE, color=styles.COLOR_SYSTEM_LOG)
                         ], spacing=5, alignment=ft.MainAxisAlignment.CENTER),
                         padding=ft.Padding.symmetric(vertical=5),
                     )
@@ -749,16 +755,18 @@ Consider all the data and the data in your training about the games to find the 
 
                 if br_status.current:
                     br_status.current.value = "Ready"
+                    br_status.current.color = styles.COLOR_TEXT_SECONDARY
                     br_status.current.update()
 
                 page.pubsub.unsubscribe_all()
 
             elif msg_type == "error":
                 if br_chat_list.current:
-                    br_chat_list.current.controls.append(ft.Text(f"Error: {content}", color=ft.Colors.RED))
+                    br_chat_list.current.controls.append(ft.Text(f"Error: {content}", color=styles.COLOR_ERROR))
                     br_chat_list.current.update()
                 if br_status.current:
                     br_status.current.value = f"Error: {content}"
+                    br_status.current.color = styles.COLOR_ERROR
                     br_status.current.update()
 
             elif msg_type == "cleanup":
@@ -980,6 +988,7 @@ Consider all the data and the data in your training about the games to find the 
             if msg_type == "fetch_status":
                 if gf_status.current:
                     gf_status.current.value = content
+                    gf_status.current.color = styles.COLOR_TEXT_SECONDARY
                     gf_status.current.update()
 
             elif msg_type == "fetch_complete":
@@ -992,6 +1001,7 @@ Consider all the data and the data in your training about the games to find the 
                         gf_table.current.update()
                     if gf_status.current:
                         gf_status.current.value = f"Vault loaded. {count} games found."
+                        gf_status.current.color = styles.COLOR_TEXT_SECONDARY
                         gf_status.current.update()
 
                 # 2. Update Status (if error)
@@ -999,6 +1009,7 @@ Consider all the data and the data in your training about the games to find the 
                     error_msg = message.get("error")
                     if gf_status.current:
                         gf_status.current.value = error_msg
+                        gf_status.current.color = styles.COLOR_ERROR
                         gf_status.current.update()
 
                 # 3. Enable Buttons (ALWAYS)
@@ -1018,6 +1029,7 @@ Consider all the data and the data in your training about the games to find the 
     def stop_fetch(e):
         stop_event_gf.set()
         gf_status.current.value = "Stopping..."
+        gf_status.current.color = styles.COLOR_TEXT_SECONDARY
         page.update()
 
     # --- UI Components ---
@@ -1031,7 +1043,7 @@ Consider all the data and the data in your training about the games to find the 
                 ft.Text("Dashboard", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True),
                 ft.IconButton(icon=ft.Icons.REFRESH, on_click=refresh_stats, tooltip="Refresh Stats")
             ]),
-            ft.Text(ref=vs_status, value="Ready", color=ft.Colors.GREY),
+            ft.Text(ref=vs_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
             ft.Column(
                 ref=vs_dashboard_container,
                 visible=False,
@@ -1113,7 +1125,7 @@ Consider all the data and the data in your training about the games to find the 
                 ft.FilledButton(ref=ra_btn_analyze, content=ft.Text("Start Analysis"), icon=ft.Icons.ANALYTICS, on_click=start_analysis),
                 ft.FilledButton(ref=ra_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_analysis, disabled=True),
             ]),
-            ft.Text(ref=ra_status, value="Ready", color=ft.Colors.GREY),
+            ft.Text(ref=ra_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
             ft.Divider(),
             ft.Row([
                 ft.Text("Analysis Output", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
@@ -1151,7 +1163,7 @@ Consider all the data and the data in your training about the games to find the 
                 ft.FilledButton(ref=sg_btn_suggest, content=ft.Text("Suggest"), icon=ft.Icons.LIGHTBULB, on_click=start_suggest),
                 ft.FilledButton(ref=sg_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_suggest, disabled=True),
             ]),
-            ft.Text(ref=sg_status, value="Ready", color=ft.Colors.GREY),
+            ft.Text(ref=sg_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
             ft.Divider(),
             ft.Row([
                 ft.Text("Suggestion Output", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
@@ -1193,16 +1205,11 @@ Consider all the data and the data in your training about the games to find the 
                     auto_scroll=True,
                 ),
                 expand=True,
-                border=ft.Border(
-                    top=ft.BorderSide(1, ft.Colors.OUTLINE),
-                    right=ft.BorderSide(1, ft.Colors.OUTLINE),
-                    bottom=ft.BorderSide(1, ft.Colors.OUTLINE),
-                    left=ft.BorderSide(1, ft.Colors.OUTLINE)
-                ),
-                border_radius=5,
-                bgcolor=ft.Colors.BLACK12
+                # Transparent for new theme
+                # border=ft.Border(...), # Removed
+                # bgcolor=ft.Colors.BLACK12 # Removed
             ),
-            ft.Text(ref=br_status, value="Ready", color=ft.Colors.GREY, size=12),
+            ft.Text(ref=br_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
             ft.Row([
                 ft.TextField(
                     ref=br_input,
@@ -1210,9 +1217,16 @@ Consider all the data and the data in your training about the games to find the 
                     expand=True,
                     multiline=True,
                     shift_enter=True,
-                    on_submit=send_message
+                    on_submit=send_message,
+                    # THEMED INPUT
+                    bgcolor=styles.COLOR_SURFACE,
+                    color=styles.COLOR_TEXT_PRIMARY,
+                    cursor_color=styles.COLOR_TEXT_GOLD,
+                    border_color=styles.COLOR_BORDER_BRONZE,
+                    focused_border_color=styles.COLOR_TEXT_GOLD,
+                    label_style=ft.TextStyle(italic=True, color=styles.COLOR_ACCENT_DIM)
                 ),
-                ft.IconButton(ref=br_btn_send, icon=ft.Icons.SEND, icon_color=ft.Colors.BLUE_400, on_click=send_message)
+                ft.IconButton(ref=br_btn_send, icon=ft.Icons.SEND, icon_color=styles.COLOR_TEXT_GOLD, on_click=send_message)
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
         ]
     )
@@ -1229,7 +1243,7 @@ Consider all the data and the data in your training about the games to find the 
                 ft.FilledButton(ref=gf_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
                 # ft.Checkbox(ref=gf_chk_force, label="Force Update", tooltip="Force Update"), # Removed
             ]),
-            ft.Text(ref=gf_status, value="Ready", color=ft.Colors.GREY),
+            ft.Text(ref=gf_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
             ft.Divider(),
             ft.Container(
                 content=ft.Column([
@@ -1351,6 +1365,10 @@ Consider all the data and the data in your training about the games to find the 
         min_extended_width=400,
         # leading=ft.FloatingActionButton(icon=ft.Icons.CREATE, text="New"), # Removed as per user request
         group_alignment=-0.9,
+        # THEMED NAV RAIL
+        bgcolor=styles.COLOR_SURFACE,
+        selected_icon_color=styles.COLOR_TEXT_GOLD,
+        unselected_icon_color=styles.COLOR_ACCENT_DIM,
         destinations=[
              ft.NavigationRailDestination(
                 icon=ft.Icons.PIE_CHART_OUTLINE,
@@ -1390,7 +1408,7 @@ Consider all the data and the data in your training about the games to find the 
         ft.Row(
             [
                 rail,
-                ft.VerticalDivider(width=1),
+                ft.VerticalDivider(width=1, color=styles.COLOR_BORDER_BRONZE), # THEMED DIVIDER
                 view_stats,
                 # view_ra,
                 # view_sg,
