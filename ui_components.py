@@ -413,7 +413,7 @@ def create_chat_row(avatar_name, content_control, is_user, reasoning_control=Non
                 content=message_container,
                 col={"sm": 12, "md": 11, "lg": 10},
                 expand=True,
-                alignment=ft.alignment.top_right
+                alignment=ft.Alignment.TOP_RIGHT
             )
         )
         row_controls.append(avatar_content)
