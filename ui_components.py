@@ -408,8 +408,14 @@ def create_chat_row(avatar_name, content_control, is_user, reasoning_control=Non
     row_controls = []
 
     if is_user:
-        row_controls.append(ft.Container(expand=True))
-        row_controls.append(ft.Container(content=message_container, col={"sm": 12, "md": 11, "lg": 10}))
+        row_controls.append(
+            ft.Container(
+                content=message_container,
+                col={"sm": 12, "md": 11, "lg": 10},
+                expand=True,
+                alignment=ft.alignment.top_right
+            )
+        )
         row_controls.append(avatar_content)
     else:
         # Reaper Layout: Avatar | Message
