@@ -260,9 +260,10 @@ def create_metric_card(title, ref_value, icon, color=ft.Colors.WHITE):
         )
      )
 
-def create_chat_row(avatar_name, content_control, is_user, reasoning_control=None, reasoning_title="Reasoning", reasoning_ref=None, reasoning_visible=True):
+def create_chat_row(avatar_name, content_control, is_user, reasoning_control=None, reasoning_title="Reasoning",
+                    reasoning_ref=None, reasoning_visible=True, avatar_src=None):
     """
-    Creates a standardized chat row with avatar, message bubble, and optional reasoning block.
+    Creates a stylized chat row with RPG-style portraits and themed bubbles.
 
     Args:
         avatar_name (str): Name to display above the message.
@@ -272,94 +273,153 @@ def create_chat_row(avatar_name, content_control, is_user, reasoning_control=Non
         reasoning_title (str): Title for the reasoning expansion tile.
         reasoning_ref (ft.Ref, optional): Ref to assign to the reasoning container for dynamic updates.
         reasoning_visible (bool, optional): Initial visibility of the reasoning container.
+        avatar_src (ft.Source, optional): Portrait image to use.
 
     Returns:
         ft.Container: The container wrapping the entire chat row.
     """
 
-    # 1. Layout Configuration
-    content_col_width = 11
-    spacer_col_width = 1
-
-    # Colors and Alignment
-    bubble_color = ft.Colors.BLUE_GREY_900 if is_user else ft.Colors.BLACK38
-    avatar_alignment = ft.MainAxisAlignment.START if is_user else ft.MainAxisAlignment.END
-
-    # The actual message bubble container
-    message_container = ft.Container(
-        content=content_control,
-        bgcolor=bubble_color,
-        col=content_col_width,
-        border_radius=10,
-        padding=15,
+    # THEME CONFIGURATION
+    # Reaper Style
+    reaper_bg = "#050505"
+    reaper_name_color = ft.Colors.AMBER_700
+    reaper_border_color = "#9d8159"
+    reaper_border = ft.border.all(width=1, color=reaper_border_color) # Muted Bronze
+    reaper_shadow = ft.BoxShadow(
+        spread_radius=0,
+        blur_radius=10,
+        color=ft.Colors.with_opacity(0.1, reaper_name_color),
+        offset=ft.Offset(0, 0),
+        blur_style=ft.BlurStyle.OUTER,
     )
 
-    # Spacer to push bubble to side
-    spacer = ft.Container(
-        content=None,
-        col=spacer_col_width,
-        padding=0,
-    )
+    # User Style
+    user_bg = ft.Colors.GREY_900
+    user_name_color = ft.Colors.WHITE_70
+    user_border_color = ft.Colors.GREY_800
+    user_border = ft.border.all(width=1, color=user_border_color)
+    user_shadow = None
 
-    # Row composition based on sender
-    if is_user:
-        row_controls = [message_container, spacer]
-    else:
-        row_controls = [spacer, message_container]
+    # Select styles based on sender
+    bubble_color = user_bg if is_user else reaper_bg
+    bubble_border = user_border if is_user else reaper_border
+    bubble_shadow = user_shadow if is_user else reaper_shadow
 
-    bubble_row = ft.ResponsiveRow(
-        controls=row_controls,
-        vertical_alignment=ft.CrossAxisAlignment.START
-    )
+    # AVATAR CONSTRUCTION
+    # We use a Container to frame the image nicely
+    avatar_content = None
+    if not is_user:
+        if avatar_src:
+            avatar_content = ft.Container(
+                content=ft.Image(src=avatar_src, fit=ft.BoxFit.COVER, border_radius=6),
+                # DOUBLED SIZE:
+                width=120,
+                height=180,
+                #border=ft.border.all(2, reaper_border_color),  # Darker rim
+                border_radius=8,
+                padding=0,
+                shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK),
+                margin=ft.margin.only(right=15),
+            )
+        else:
+            # Fallback placeholder
+            # Fallback if image is missing: A simple colored initial or Icon
+            avatar_content = ft.Container(
+                content=ft.Icon(ft.Icons.ANDROID, color=reaper_name_color),
+                width=60, height=90,
+                bgcolor=ft.Colors.BLACK,
+                border=ft.border.all(1, reaper_border_color),
+                border_radius=5,
+                alignment=ft.Alignment.CENTER
+            )
 
-    # Wrap in SelectionArea for text selection
-    bubble_selectable = ft.SelectionArea(content=bubble_row)
-
-    # Main Column Controls
-    main_column_controls = [
-        ft.Row(
-            [ft.Text(avatar_name, size=12, color=ft.Colors.GREY, weight=ft.FontWeight.BOLD)],
-            alignment=avatar_alignment
+    elif is_user:
+        # Keep user small
+        avatar_content = ft.Container(
+            content=ft.Icon(ft.Icons.PERSON, color=ft.Colors.WHITE_24),
+            width=40, height=40,
+            bgcolor=ft.Colors.BLACK,
+            border_radius=20,
+            margin=ft.margin.only(left=10),
+            alignment=ft.Alignment.CENTER
         )
-    ]
 
-    # Reasoning Block (Only for Assistant)
+
+    # REASONING BLOCK
+    reasoning_section = None
     if reasoning_control and not is_user:
-        # Create the ExpansionTile structure
-        reasoning_row = ft.ResponsiveRow(
+        reasoning_section = ft.Container(
             ref=reasoning_ref,
-            controls=[
-                ft.Container(col=1),
-                ft.Container(
-                    col=11,
-                    content=ft.SelectionArea(
-                        content=ft.ExpansionTile(
-                            title=ft.Text(reasoning_title),
-                            tile_padding=0,
-                            controls=[
-                                ft.Container(
-                                    content=reasoning_control,
-                                    padding=ft.Padding.only(left=10, bottom=10)
-                                )
-                            ],
-                            # initially_expanded=False, # Deprecated in some versions?
-                            # expanded=False # Not available in 0.80.5
-                        )
-                    ),
-                ),
-            ],
-            visible=reasoning_visible
+            content=ft.ExpansionTile(
+                title=ft.Text(reasoning_title, size=12, italic=True, color=reaper_name_color),
+                tile_padding=ft.padding.symmetric(horizontal=10),
+                controls=[
+                    ft.Container(
+                        content=reasoning_control,
+                        padding=10,
+                        bgcolor=ft.Colors.BLACK,  # Darker inner background for thought process
+                        border=ft.border.only(left=ft.border.BorderSide(2, reaper_border_color))
+                    )
+                ],
+                collapsed_icon_color=reaper_name_color,
+                icon_color=reaper_border_color,
+            ),
+            visible=reasoning_visible,
+            border=ft.border.all(1, ft.Colors.GREY_900),
+            border_radius=5,
+            margin=ft.margin.only(bottom=10)
         )
-        main_column_controls.append(reasoning_row)
 
-    main_column_controls.append(bubble_selectable)
+    # BUBBLE ASSEMBLY
+    # Combine reasoning (if any) and main content
+    bubble_interior = []
+
+    if not is_user:
+        bubble_interior.append(ft.Text(avatar_name, size=12, color=reaper_name_color, weight=ft.FontWeight.BOLD))
+    else:
+        bubble_interior.append(ft.Text(avatar_name, size=12, color=user_name_color, weight=ft.FontWeight.BOLD))
+
+    if reasoning_section:
+        bubble_interior.append(reasoning_section)
+
+    bubble_interior.append(ft.SelectionArea(content=content_control))
+
+    # The main message bubble
+    message_container = ft.Container(
+        content=ft.Column(bubble_interior, spacing=5, tight=True),
+        bgcolor=bubble_color,
+        border=bubble_border,
+        border_radius=ft.border_radius.only(
+            top_left=0 if not is_user else 12,
+            top_right=12 if not is_user else 0,
+            bottom_left=12,
+            bottom_right=12
+        ),
+        padding=20,  # More padding for "book page" feel
+        shadow=bubble_shadow,
+    )
+
+    # ROW COMPOSITION
+    row_controls = []
+
+    if is_user:
+        row_controls.append(ft.Container(expand=True))
+        row_controls.append(ft.Container(content=message_container, col={"sm": 10, "md": 8}))
+        row_controls.append(avatar_content)
+    else:
+        # Reaper Layout: Avatar | Message
+        row_controls.append(avatar_content)
+        # We let the message expand, but the Column constraints in main chat view
+        # usually handle the total width.
+        row_controls.append(ft.Container(content=message_container, expand=True))
 
     return ft.Container(
-        content=ft.Column(
-            controls=main_column_controls,
-            spacing=2,
+        content=ft.Row(
+            controls=row_controls,
+            vertical_alignment=ft.CrossAxisAlignment.START,
         ),
-        margin=ft.Margin(left=0, top=0, right=0, bottom=15),
-        padding=ft.Padding(left=10, top=0, right=10, bottom=0),
+        # Increase bottom margin for better separation between turns
+        margin=ft.Margin(left=0, top=10, right=0, bottom=30),
+        padding=ft.Padding(left=10, right=10),
         data="user_message" if is_user else "assistant_message"
     )

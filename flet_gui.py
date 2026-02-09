@@ -23,7 +23,7 @@ import ui_components as ui
 from vibe_engine import VibeEngine
 
 
-def parse_and_render_message(text, is_user, reasoning_text=None):
+def parse_and_render_message(text, is_user, reasoning_text=None, avatar_path=None):
     """
     Analyzes the text. Finds ALL JSON blocks of games and renders them as Cards.
     Handles mixed content: Text -> JSON -> Text -> JSON -> Text.
@@ -102,7 +102,8 @@ def parse_and_render_message(text, is_user, reasoning_text=None):
         content_control=bubble_content,
         is_user=is_user,
         reasoning_control=reasoning_control,
-        reasoning_title="Reasoning"
+        reasoning_title="Dark Whispers...",  # Flavor text
+        avatar_src=avatar_path if not is_user else None  # <--- CRITICAL FIX
     )
 
 def main(page: ft.Page):
@@ -586,6 +587,28 @@ Consider all the data and the data in your training about the games to find the 
                 br_chat_list.current.controls.pop()
                 br_chat_list.current.update()
 
+
+    def get_current_char_name_path():
+        # Get Real Name for Avatar
+        current_char_file = "Reaper"
+        try:
+            current_settings = settings.load_settings()
+            print(current_settings)
+            current_char_file = current_settings.get("CHARACTER", "Reaper")
+            current_char_file = character_manager.get_character_file_name(current_char_file)
+        except:
+            pass
+
+        real_char_name = character_manager.get_character_real_name(current_char_file)
+
+        # Get image for avatar
+        if current_char_file.lower().endswith(".png"):
+            avatar_path = current_char_file
+        else:
+            avatar_path = None
+
+        return real_char_name, avatar_path
+
     def start_chat_thread(user_message):
         # Define UI handlers for PubSub
         # This state needs to be accessible to the on_message handler
@@ -609,13 +632,7 @@ Consider all the data and the data in your training about the games to find the 
                 state["reasoning_buffer"] = ""
 
                 # Get Real Name for Avatar
-                current_char_file = "Reaper"
-                try:
-                    current_settings = settings.load_settings()
-                    current_char_file = current_settings.get("CHARACTER", "Reaper")
-                except:
-                    pass
-                real_char_name = character_manager.get_character_real_name(current_char_file)
+                real_char_name, avatar_path = get_current_char_name_path()
 
                 bubble_content = ft.Column([state["status_text"], state["agent_markdown"]], tight=True, spacing=5)
 
@@ -623,13 +640,14 @@ Consider all the data and the data in your training about the games to find the 
                 state["reasoning_container_ref"] = reasoning_ref
 
                 full_message_block = ui.create_chat_row(
-                    avatar_name=real_char_name,
+                    avatar_name=real_char_name,  # e.g. "The Reaper"
                     content_control=bubble_content,
                     is_user=False,
                     reasoning_control=state["reasoning_view"],
-                    reasoning_title="Thinking...",
+                    reasoning_title="Consulting the Void...",
                     reasoning_ref=reasoning_ref,
-                    reasoning_visible=False
+                    reasoning_visible=False,
+                    avatar_src=avatar_path  # <--- Pass the image here
                 )
 
                 if br_chat_list.current:
@@ -651,8 +669,12 @@ Consider all the data and the data in your training about the games to find the 
             elif msg_type == "status":
                 if state["status_text"]:
                     state["status_text"].value = content
-                    if state["status_text"].page:
+                    try:
                         state["status_text"].update()
+                    except RuntimeError:
+                        # Control isn't mounted yet
+                        pass
+
                 if br_status.current:
                     br_status.current.value = content
                     if br_status.current.page:
@@ -660,13 +682,26 @@ Consider all the data and the data in your training about the games to find the 
 
             elif msg_type == "action":
                 if br_chat_list.current:
+                    # Create a styled container for the action
+                    action_display = ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.TERMINAL, size=14, color=ft.Colors.BLUE_GREY_400),
+                            ft.Text(f"> {content}", size=12, font_family="Consolas", color=ft.Colors.BLUE_GREY_400)
+                        ], spacing=5, alignment=ft.MainAxisAlignment.CENTER),
+                        padding=ft.Padding.symmetric(vertical=5),
+                    )
+
                     position = len(br_chat_list.current.controls) - 1
                     br_chat_list.current.controls.insert(
                         position,
-                        ft.Text(content, size=14, italic=True, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_500, text_align=ft.TextAlign.CENTER)
+                        action_display
                     )
-                    if br_chat_list.current.page:
-                        br_chat_list.current.update()
+
+                try:
+                    br_chat_list.current.update()
+                except RuntimeError:
+                    pass
+
                 state["previous_was_tool"] = True
 
             elif msg_type == "text":
@@ -690,8 +725,10 @@ Consider all the data and the data in your training about the games to find the 
                 final_reasoning = state["reasoning_buffer"]
 
                 if br_chat_list.current:
+                    real_char_name, avatar_path = get_current_char_name_path()
+
                     br_chat_list.current.controls.pop()
-                    br_chat_list.current.controls.append(parse_and_render_message(final_text, is_user=False, reasoning_text=final_reasoning))
+                    br_chat_list.current.controls.append(parse_and_render_message(final_text, is_user=False, reasoning_text=final_reasoning, avatar_path=avatar_path))
 
                     # Add Regenerate Button (Aligned Right)
                     regen_btn = ft.Row(

@@ -29,6 +29,19 @@ def get_character_real_name(filename):
         return data["name"]
     return filename
 
+def get_character_file_name(name):
+    """Gets the character data file name."""
+
+    json_path = os.path.join(CHARACTERS_DIR, f"{name}.json")
+    if os.path.exists(json_path):
+        return json_path
+
+    png_path = os.path.join(CHARACTERS_DIR, f"{name}.png")
+    if os.path.exists(png_path):
+        return png_path
+
+    return None
+
 def load_character(name):
     """
     Loads character data by name.
