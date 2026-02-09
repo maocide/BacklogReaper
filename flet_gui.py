@@ -120,7 +120,7 @@ def main(page: ft.Page):
 
     # Load the font
     page.fonts = {
-        "Cinzel": "/assets/fonts/Cinzel-VariableFont_wght.ttf"
+        "Cinzel": "fonts/Cinzel-VariableFont_wght.ttf"
     }
 
     # Custom Scrollbar Theme
@@ -1461,4 +1461,4 @@ Consider all the data and the data in your training about the games to find the 
     page.run_thread(load_stats_thread)
 
 if __name__ == "__main__":
-    ft.run(main)
+    ft.run(main,  assets_dir="assets")
