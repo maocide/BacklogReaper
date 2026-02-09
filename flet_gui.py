@@ -116,7 +116,25 @@ def main(page: ft.Page):
     # THEME APPLIED
     page.bgcolor = styles.COLOR_BACKGROUND
     page.padding = 0
-    page.theme = ft.Theme(font_family=styles.FONT_BODY)
+
+    # Load the font from Google Fonts directly
+    page.fonts = {
+        "Cinzel": "https://github.com/google/fonts/raw/main/ofl/cinzel/Cinzel-VariableFont_wght.ttf",
+    }
+
+    # Custom Scrollbar Theme
+    page.theme = ft.Theme(
+        font_family=styles.FONT_BODY,
+        scrollbar_theme=ft.ScrollbarTheme(
+            thumb_color={
+                ft.MaterialState.HOVERED: styles.COLOR_TEXT_GOLD,
+                ft.MaterialState.DEFAULT: styles.COLOR_ACCENT_DIM,
+            },
+            track_color=styles.COLOR_SURFACE,
+            thickness=5,
+            radius=10,
+        )
+    )
 
     # Enable standard window controls
     page.window.minimizable = True
@@ -1040,7 +1058,7 @@ Consider all the data and the data in your training about the games to find the 
         expand=True,
         controls=[
             ft.Row([
-                ft.Text("Dashboard", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True),
+                ft.Text("Dashboard", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
                 ft.IconButton(icon=ft.Icons.REFRESH, on_click=refresh_stats, tooltip="Refresh Stats")
             ]),
             ft.Text(ref=vs_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
@@ -1109,7 +1127,7 @@ Consider all the data and the data in your training about the games to find the 
         visible=False,
         expand=True,
         controls=[
-            ft.Text("Review Analyzer", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Text("Review Analyzer", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
             ft.Row([
                 ft.TextField(ref=ra_game_name, label="Game Name", expand=True),
                 ft.Column([
@@ -1155,7 +1173,7 @@ Consider all the data and the data in your training about the games to find the 
         visible=False,
         expand=True,
         controls=[
-            ft.Text("Suggest Similar Games", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Text("Suggest Similar Games", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
             ft.Row([
                 ft.TextField(ref=sg_game_name, label="Game Name", expand=True),
             ]),
@@ -1193,7 +1211,7 @@ Consider all the data and the data in your training about the games to find the 
         expand=True,
         controls=[
             ft.Row([
-                ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True),
+                ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=lambda e: copy_chat_history(br_chat_history))
             ]),
             ft.Container(
@@ -1220,8 +1238,8 @@ Consider all the data and the data in your training about the games to find the 
                     on_submit=send_message,
                     # THEMED INPUT
                     bgcolor=styles.COLOR_SURFACE,
-                    color=styles.COLOR_TEXT_PRIMARY,
-                    cursor_color=styles.COLOR_TEXT_GOLD,
+                    color=styles.COLOR_INPUT_TEXT, # Updated
+                    cursor_color=styles.COLOR_INPUT_CURSOR, # Updated
                     border_color=styles.COLOR_BORDER_BRONZE,
                     focused_border_color=styles.COLOR_TEXT_GOLD,
                     label_style=ft.TextStyle(italic=True, color=styles.COLOR_ACCENT_DIM)
@@ -1236,7 +1254,7 @@ Consider all the data and the data in your training about the games to find the 
         visible=False,
         expand=True,
         controls=[
-            ft.Text("Game List Fetcher", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Text("Game List Fetcher", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
             ft.Row([
                 # ft.TextField(ref=gf_username, label="Steam Username", expand=True), # Removed
                 ft.FilledButton(ref=gf_btn_fetch, content=ft.Text("Fetch Games"), icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
@@ -1318,7 +1336,7 @@ Consider all the data and the data in your training about the games to find the 
         expand=True,
         scroll=ft.ScrollMode.AUTO,
         controls=[
-            ft.Text("Settings", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+            ft.Text("Settings", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
             ft.Divider(),
             ft.Text("Persona", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
             ft.Dropdown(
@@ -1367,8 +1385,9 @@ Consider all the data and the data in your training about the games to find the 
         group_alignment=-0.9,
         # THEMED NAV RAIL
         bgcolor=styles.COLOR_SURFACE,
-        selected_icon_color=styles.COLOR_TEXT_GOLD,
-        unselected_icon_color=styles.COLOR_ACCENT_DIM,
+        indicator_color=styles.COLOR_TEXT_GOLD,
+        # selected_icon_color=styles.COLOR_TEXT_GOLD,
+        # unselected_icon_color=styles.COLOR_ACCENT_DIM,
         destinations=[
              ft.NavigationRailDestination(
                 icon=ft.Icons.PIE_CHART_OUTLINE,

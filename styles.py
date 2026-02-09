@@ -6,8 +6,12 @@ COLOR_BUBBLE_USER= "#212121"  # User Chat Bubbles
 
 # Accents (The "Reaper" Theme)
 COLOR_BORDER_BRONZE = "#9d8159"  # Structural Borders (Muted Bronze)
-COLOR_TEXT_GOLD     = "#FFA000"  # Names & Titles (Bright Amber/Gold)
+COLOR_TEXT_GOLD     = "#D4AF37"  # Names & Titles (Metallic Gold)
 COLOR_ACCENT_DIM    = "#5e4b35"  # Dividers & Inactive Elements (Dark Rust)
+
+# Input Field Specifics
+COLOR_INPUT_TEXT   = "#e0e0e0" # Bone white for typing
+COLOR_INPUT_CURSOR = "#D4AF37" # Gold cursor
 
 # Text Colors
 COLOR_TEXT_PRIMARY   = "#e0e0e0" # Main Readable Text (Bone White)
