@@ -22,6 +22,7 @@ import startup
 import ui_components as ui
 from vibe_engine import VibeEngine
 import styles
+import os
 
 
 def parse_and_render_message(text, is_user, reasoning_text=None, avatar_path=None):
@@ -118,8 +119,9 @@ def main(page: ft.Page):
     page.padding = 0
 
     # Load the font from Google Fonts directly
+    # Using raw content link for TTF file as page.fonts requires a file URL
     page.fonts = {
-        "Cinzel": "https://github.com/google/fonts/raw/main/ofl/cinzel/Cinzel-VariableFont_wght.ttf",
+        "Cinzel": "https://github.com/google/fonts/raw/main/ofl/cinzel/static/Cinzel-Regular.ttf",
     }
 
     # Custom Scrollbar Theme
@@ -127,8 +129,8 @@ def main(page: ft.Page):
         font_family=styles.FONT_BODY,
         scrollbar_theme=ft.ScrollbarTheme(
             thumb_color={
-                ft.MaterialState.HOVERED: styles.COLOR_TEXT_GOLD,
-                ft.MaterialState.DEFAULT: styles.COLOR_ACCENT_DIM,
+                ft.ControlState.HOVERED: styles.COLOR_TEXT_GOLD,
+                ft.ControlState.DEFAULT: styles.COLOR_ACCENT_DIM,
             },
             track_color=styles.COLOR_SURFACE,
             thickness=5,
@@ -623,10 +625,28 @@ Consider all the data and the data in your training about the games to find the 
         except:
             pass
 
-        real_char_name = character_manager.get_character_real_name(current_char_file)
+        # FIX: The original logic here was ambiguous.
+        # character_manager.get_character_real_name() loads the JSON or PNG and gets the 'name' field.
+        # If it returns the *filename* or a full path by mistake, we fix it here.
+
+        # If current_char_file is a path (e.g. "characters/Reaper.json"), get_character_real_name should load it.
+        # However, if 'current_char_file' is just "Reaper", we need to resolve it.
+
+        # Let's ensure we are passing the filename (without extension if possible) or let get_character_real_name handle it.
+        # character_manager.get_character_real_name() takes 'filename'.
+
+        # If we passed a full path like "characters/Reaper.json", let's extract the name.
+        if current_char_file and os.path.exists(current_char_file):
+             # It's a full path
+             base_name = os.path.splitext(os.path.basename(current_char_file))[0]
+             real_char_name = character_manager.get_character_real_name(base_name)
+        else:
+             # Fallback
+             real_char_name = character_manager.get_character_real_name(current_char_file)
+
 
         # Get image for avatar
-        if current_char_file.lower().endswith(".png"):
+        if current_char_file and str(current_char_file).lower().endswith(".png"):
             avatar_path = current_char_file
         else:
             avatar_path = None
