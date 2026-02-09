@@ -619,7 +619,6 @@ Consider all the data and the data in your training about the games to find the 
         current_char_file = "Reaper"
         try:
             current_settings = settings.load_settings()
-            print(current_settings)
             current_char_file = current_settings.get("CHARACTER", "Reaper")
             current_char_file = character_manager.get_character_file_name(current_char_file)
         except:
