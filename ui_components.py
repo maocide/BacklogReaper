@@ -249,14 +249,19 @@ def create_game_card(game_data):
 def create_metric_card(title, ref_value, icon, color=ft.Colors.WHITE):
      """Creates a standard dashboard metric card."""
      return ft.Card(
+        elevation=5,
+        bgcolor=styles.COLOR_SURFACE,
+        shape=ft.RoundedRectangleBorder(radius=10),
         content=ft.Container(
             content=ft.Column([
-                ft.Row([ft.Icon(icon), ft.Text(title, weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Row([ft.Icon(icon, color=styles.COLOR_TEXT_GOLD), ft.Text(title, weight=ft.FontWeight.BOLD, color=styles.COLOR_TEXT_SECONDARY)], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Text("0", ref=ref_value, size=30, weight=ft.FontWeight.BOLD, color=color, text_align=ft.TextAlign.CENTER)
             ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             padding=20,
             width=200,
-            height=120
+            height=120,
+            border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
+            border_radius=10
         )
      )
 

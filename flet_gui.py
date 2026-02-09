@@ -220,6 +220,25 @@ def main(page: ft.Page):
     stop_event_gf = threading.Event()
 
     # --- Shared Logic ---
+    INPUT_STYLE = {
+        "bgcolor": styles.COLOR_SURFACE,
+        "color": styles.COLOR_INPUT_TEXT,
+        "cursor_color": styles.COLOR_INPUT_CURSOR,
+        "border_color": styles.COLOR_BORDER_BRONZE,
+        "focused_border_color": styles.COLOR_TEXT_GOLD,
+        "label_style": ft.TextStyle(color=styles.COLOR_ACCENT_DIM)
+    }
+
+    DROPDOWN_STYLE = INPUT_STYLE.copy()
+    DROPDOWN_STYLE.pop("cursor_color", None)
+
+    BUTTON_STYLE = ft.ButtonStyle(
+        color=styles.COLOR_TEXT_GOLD,
+        bgcolor=styles.COLOR_SURFACE,
+        shape=ft.RoundedRectangleBorder(radius=5),
+        side=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE)
+    )
+
     def copy_to_clipboard(ref):
         if ref.current and ref.current.value:
             page.run_task(ft.Clipboard().set, ref.current.value)
@@ -1275,8 +1294,8 @@ Consider all the data and the data in your training about the games to find the 
             ft.Text("Game List Fetcher", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
             ft.Row([
                 # ft.TextField(ref=gf_username, label="Steam Username", expand=True), # Removed
-                ft.FilledButton(ref=gf_btn_fetch, content=ft.Text("Fetch Games"), icon=ft.Icons.DOWNLOAD, on_click=start_fetch),
-                ft.FilledButton(ref=gf_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True),
+                ft.FilledButton(ref=gf_btn_fetch, content=ft.Text("Fetch Games"), icon=ft.Icons.DOWNLOAD, on_click=start_fetch, style=BUTTON_STYLE),
+                ft.FilledButton(ref=gf_btn_stop, content=ft.Text("Stop"), icon=ft.Icons.STOP, on_click=stop_fetch, disabled=True, style=BUTTON_STYLE),
                 # ft.Checkbox(ref=gf_chk_force, label="Force Update", tooltip="Force Update"), # Removed
             ]),
             ft.Text(ref=gf_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
@@ -1288,25 +1307,24 @@ Consider all the data and the data in your training about the games to find the 
                         sort_column_index=2, # Default sort by Playtime
                         sort_ascending=False,
                         columns=[
-                            ft.DataColumn(ft.Text("AppID"), numeric=True, on_sort=sort_table),
-                            ft.DataColumn(ft.Text("Name"), on_sort=sort_table),
-                            ft.DataColumn(ft.Text("Playtime (h)"), numeric=True, on_sort=sort_table),
-                            ft.DataColumn(ft.Text("Main Story (h)"), numeric=True, on_sort=sort_table),
-                            ft.DataColumn(ft.Text("Completionist (h)"), numeric=True, on_sort=sort_table),
-                            ft.DataColumn(ft.Text("Status"), on_sort=sort_table),
+                            ft.DataColumn(ft.Text("AppID", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Name", color=styles.COLOR_TEXT_PRIMARY), on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Playtime (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Main Story (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Completionist (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=sort_table),
+                            ft.DataColumn(ft.Text("Status", color=styles.COLOR_TEXT_PRIMARY), on_sort=sort_table),
                         ],
                         rows=[],
-                        vertical_lines=ft.BorderSide(1, ft.Colors.GREY_400),
-                        horizontal_lines=ft.BorderSide(1, ft.Colors.GREY_400),
+                        vertical_lines=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE),
+                        horizontal_lines=ft.BorderSide(1, styles.COLOR_ACCENT_DIM),
+                        heading_row_color=styles.COLOR_ACCENT_DIM,
+                        data_row_color=styles.COLOR_SURFACE,
+                        data_text_style=ft.TextStyle(color=styles.COLOR_TEXT_PRIMARY),
                     )
                 ], scroll=ft.ScrollMode.AUTO), # Scrollable container for the table
                 expand=True,
-                border=ft.Border(
-                    top=ft.BorderSide(1, ft.Colors.OUTLINE),
-                    right=ft.BorderSide(1, ft.Colors.OUTLINE),
-                    bottom=ft.BorderSide(1, ft.Colors.OUTLINE),
-                    left=ft.BorderSide(1, ft.Colors.OUTLINE)
-                ),
+                bgcolor=styles.COLOR_SURFACE,
+                border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
                 border_radius=5,
                 padding=10
             )
@@ -1361,19 +1379,20 @@ Consider all the data and the data in your training about the games to find the 
                 ref=set_character_dd,
                 label="Active Character",
                 options=char_options,
-                value=init_character
+                value=init_character,
+                **DROPDOWN_STYLE
             ),
             ft.Divider(),
             ft.Text("Steam API", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
-            ft.TextField(ref=set_steam_api, label="Steam API Key", password=True, can_reveal_password=True, value=init_steam_key),
-            ft.TextField(ref=set_steam_user, label="Steam Username", value=init_steam_user),
+            ft.TextField(ref=set_steam_api, label="Steam API Key", password=True, can_reveal_password=True, value=init_steam_key, **INPUT_STYLE),
+            ft.TextField(ref=set_steam_user, label="Steam Username", value=init_steam_user, **INPUT_STYLE),
             ft.Divider(),
             ft.Text("OpenAI API (or Compatible)", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
-            ft.TextField(ref=set_openai_api, label="OpenAI API Key", password=True, can_reveal_password=True, value=init_openai_key),
-            ft.TextField(ref=set_openai_base, label="Base URL", hint_text="https://api.openai.com/v1", value=init_openai_base),
-            ft.TextField(ref=set_openai_model, label="Model Name", hint_text="gpt-4", value=init_openai_model),
+            ft.TextField(ref=set_openai_api, label="OpenAI API Key", password=True, can_reveal_password=True, value=init_openai_key, **INPUT_STYLE),
+            ft.TextField(ref=set_openai_base, label="Base URL", hint_text="https://api.openai.com/v1", value=init_openai_base, **INPUT_STYLE),
+            ft.TextField(ref=set_openai_model, label="Model Name", hint_text="gpt-4", value=init_openai_model, **INPUT_STYLE),
             ft.Divider(),
-            ft.FilledButton(content=ft.Text("Save Settings"), icon=ft.Icons.SAVE, on_click=save_settings_click),
+            ft.FilledButton(content=ft.Text("Save Settings"), icon=ft.Icons.SAVE, on_click=save_settings_click, style=BUTTON_STYLE),
             ft.Text(ref=set_status, value="")
         ]
     )
