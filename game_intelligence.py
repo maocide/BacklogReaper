@@ -19,7 +19,7 @@ from vault import get_store_data, calculate_status
 import concurrent.futures
 from datetime import datetime
 from steam_web_api import Steam
-import config
+import settings
 from safe_tool import safe_tool
 from web_tools import get_hltb_data, get_store_data
 
@@ -37,7 +37,7 @@ def resolve_steam_id(username_or_id):
     if steam_id:
         return steam_id
 
-    steam = Steam(config.STEAM_API_KEY)
+    steam = Steam(settings.STEAM_API_KEY)
 
     # Check if it's already a numeric ID
     if username_or_id.isdigit() and len(username_or_id) == 17:
@@ -58,6 +58,49 @@ def resolve_steam_id(username_or_id):
 
     except Exception as e:
         print(f"Error resolving Steam ID: {e}")
+
+    return None
+
+def get_steam_avatar(username_or_id):
+    """
+    Fetches the URL of the user's full-size Steam avatar.
+    Handles both SteamIDs (digits) and Vanity URLs (names).
+    """
+    global steam_id
+
+    if not steam_id:
+        steam_id = resolve_steam_id(settings.STEAM_USER)
+
+    # Resolve Vanity URL if input is not digits (e.g., "maocide")
+    if steam_id:
+        resolve_url = "https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/"
+        params = {'key': settings.STEAM_API_KEY, 'vanityurl': username_or_id}
+        try:
+            r = requests.get(resolve_url, params=params)
+            data = r.json()
+            if data['response']['success'] == 1:
+                steam_id = data['response']['steamid']
+            else:
+                print(f"Error resolving vanity URL: {data}")
+                return None  # Or return a default asset path
+        except Exception as e:
+            print(f"API Error: {e}")
+            return None
+
+    # Get Player Summary (contains the avatar)
+    summary_url = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
+    params = {'key': settings.STEAM_API_KEY, 'steamids': steam_id}
+
+    try:
+        r = requests.get(summary_url, params=params)
+        data = r.json()
+        players = data['response']['players']
+
+        if players:
+            # Returns the URL for the 184x184px image
+            return players[0]['avatarfull']
+    except Exception as e:
+        print(f"API Error: {e}")
 
     return None
 
@@ -326,11 +369,12 @@ def get_global_game_info(game_name, appid=None):
     results = {}
 
     is_owned = vault.is_game_owned(appid)
-    if is_owned:
-        tasks["achievements"] = (get_achievement_stats, appid)
-    else:
-        # Just return a placeholder so the Agent knows why it's missing
-        results["achievements"] = "Game not owned."
+    # Achievements not here
+    # if is_owned:
+    #     tasks["achievements"] = (get_achievement_stats, appid)
+    # else:
+    #     # Just return a placeholder so the Agent knows why it's missing
+    #     results["achievements"] = "Game not owned."
 
     # Launch threads
     # max_workers=8 is usually plenty for network requests
@@ -357,7 +401,7 @@ def get_global_game_info(game_name, appid=None):
     how_long_to_beat = results.get("hltb")
     discount = results.get("discount")
     best_deal = results.get("deals")
-    achievements = results.get("achievements")
+    #achievements = results.get("achievements")
     #steam_community = results.get("forums", "No forum data.")
 
 
@@ -500,7 +544,7 @@ def get_global_game_info(game_name, appid=None):
         "how_long_to_beat_hours" : how_long_to_beat_hours, # Various values taken from how long to beat
         "ccu" : str(ccu) if ccu != 0 else "N/A",
         "tags": top_tags,  # The top tags sorted
-        "achievements": achievements,
+        #"achievements": achievements,
         #"steam_community": steam_community
     }
 
@@ -737,7 +781,7 @@ def get_steam_app_info(game_name: str):
     """
     print(f"Hunting appid for '{game_name}'...")
 
-    steam = Steam(config.STEAM_API_KEY)
+    steam = Steam(settings.STEAM_API_KEY)
 
     # Fetch list of candidates (Steam usually returns 5-20 results)
     results = steam.apps.search_games(game_name)
@@ -789,7 +833,7 @@ def get_steam_app_info(game_name: str):
 
 @safe_tool
 def get_steam_app_discount(game_name:str):
-    steam = Steam(config.STEAM_API_KEY)
+    steam = Steam(settings.STEAM_API_KEY)
 
     app = steam.apps.search_games(game_name, fetch_discounts = True)
     return app["apps"][0].get('discount')
@@ -805,7 +849,7 @@ def get_steam_app_details(appid: int) -> Any:
     Returns:
         A dictionary containing the app id and price.
     """
-    steam = Steam(config.STEAM_API_KEY)
+    steam = Steam(settings.STEAM_API_KEY)
 
     # arguments: app_id
     app = steam.apps.get_app_details(appid)
@@ -832,8 +876,9 @@ def get_steam_reviews(appid, count):
     count_negative = len(negative)
 
     summary = get_reviews_summary(appid)
+    summary["num_reviews"] = None # Not needed
 
-    return {'reviews': reviews, 'summary': summary, 'count_positive': count_positive, 'count_negative': count_negative}
+    return {'reviews': reviews, 'summary': summary, 'fetch_positive': count_positive, 'fetch_negative': count_negative}
 
 @safe_tool
 def get_steamspy_game_info(appid):
@@ -887,11 +932,14 @@ def get_reviews_byname(game_name, count=5):
 
     appid = app['id'][0]
 
+
     steam_reviews = get_steam_reviews(appid, count)
 
-    steam_reviews = clean_json_for_ai(steam_reviews,
+    steam_reviews["reviews"] = clean_json_for_ai(steam_reviews['reviews'],
                                       transformations=review_schema["transformations"],
                                       keep_keys=review_schema["keep_keys"])
+
+
 
     return steam_reviews
 
@@ -913,7 +961,7 @@ def get_reviews_byname_formatted(game_name, count=5):
     price = app['price']
 
     steam_reviews = get_steam_reviews(appid, count)
-    sleep(1) # Must be preserved to keep the api from chocking.
+    sleep(0.25) # Must be preserved to keep the api from chocking.
     #gameinfo = get_steamspy_game_info(appid)
 
     global_gameinfo = get_global_game_info(game_name, appid=appid)
@@ -987,19 +1035,19 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
     If 'page' is set (int), returns a list of locked achievements for browsing.
     """
     # 1. Resolve ID (Keep your existing logic)
-    steam = Steam(config.STEAM_API_KEY)
+    steam = Steam(settings.STEAM_API_KEY)
     if appid == -1 and game_name:
         app_info = get_steam_app_info(game_name)
         if not app_info: return {"error": f"Game not found: {game_name}"}
         appid = app_info['id'][0]
 
-    steam_id = resolve_steam_id(config.STEAM_USER)
+    steam_id = resolve_steam_id(settings.STEAM_USER)
     if not steam_id: return {"error": "Could not resolve Steam ID."}
 
     try:
         # 2. Fetch Data (Parallelize if possible, but sequential is fine for now)
         # Fetch Schema for Descriptions (Crucial for AI context)
-        schema_url = f"http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={config.STEAM_API_KEY}&appid={appid}"
+        schema_url = f"http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={settings.STEAM_API_KEY}&appid={appid}"
         schema_resp = requests.get(schema_url, timeout=5).json()
 
         # Build Map: API Name -> {Display Name, Description}
@@ -1101,15 +1149,18 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
     and then fetching details only for the requested items.
     """
 
-    # 1. Resolve ID
-    steam_id = resolve_steam_id(config.STEAM_USER)
+    global steam_id
+
+    if not steam_id:
+        steam_id = resolve_steam_id(settings.STEAM_USER)
+
     if not steam_id:
         return {"error": "Could not resolve Steam ID."}
 
     print(f"FETCHING WISHLIST FOR ID: {steam_id} (Page {page})")
 
     try:
-        steam = Steam(config.STEAM_API_KEY)
+        steam = Steam(settings.STEAM_API_KEY)
 
         # 2. Get Raw List of AppIDs (Fast & Reliable)
         # Returns: [{'appid': 123, 'priority': 1, 'date_added': 12345}, ...]
@@ -1224,3 +1275,8 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
     except Exception as e:
         print(f"Wishlist Logic Error: {e}")
         return {"error": f"Error: {e}"}
+
+
+if __name__ == "__main__":
+    # Here for tests
+    print(get_global_game_info(game_name="Akane"))

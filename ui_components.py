@@ -339,10 +339,14 @@ def create_chat_row(avatar_name, content_control, is_user, reasoning_control=Non
             )
 
     elif is_user:
+        src = ft.Icon(ft.Icons.PERSON, color=ft.Colors.WHITE_24)
+        if avatar_src:
+            src = ft.Image(src=avatar_src, fit=ft.BoxFit.COVER)
+
         # Keep user small
         avatar_content = ft.Container(
-            content=ft.Icon(ft.Icons.PERSON, color=ft.Colors.WHITE_24),
-            width=40, height=40,
+            content=src,
+            width=80, height=80,
             bgcolor=ft.Colors.BLACK,
             border_radius=20,
             margin=ft.margin.only(left=10),

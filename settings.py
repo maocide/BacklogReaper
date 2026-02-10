@@ -37,3 +37,31 @@ def save_settings(settings):
     except Exception as e:
         print(f"Error saving settings: {e}")
         return False
+
+
+
+
+def get_config(key):
+    # Priority: 1. settings.json, 2. Environment Variables
+    val = _file_settings.get(key)
+    if val: return val
+    return os.getenv(key)
+
+_file_settings = load_settings()
+
+STEAM_API_KEY = get_config("STEAM_API_KEY")
+OPENAI_API_KEY = get_config("OPENAI_API_KEY")
+OPENAI_BASE_URL = get_config("OPENAI_BASE_URL")
+OPENAI_MODEL = get_config("OPENAI_MODEL")
+STEAM_USER = get_config("STEAM_USER")
+STEAM_PROFILE_PIC = None
+
+def reload():
+    """Refreshes the config variables from the settings file."""
+    global STEAM_API_KEY, OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, STEAM_USER, _file_settings
+    _file_settings = load_settings()
+    STEAM_API_KEY = get_config("STEAM_API_KEY")
+    OPENAI_API_KEY = get_config("OPENAI_API_KEY")
+    OPENAI_BASE_URL = get_config("OPENAI_BASE_URL")
+    OPENAI_MODEL = get_config("OPENAI_MODEL")
+    STEAM_USER = get_config("STEAM_USER")

@@ -1,13 +1,11 @@
 import concurrent
-import re
 import sqlite3
 import random
 import difflib
 
 import requests
-from bs4 import BeautifulSoup
 from steam_web_api import Steam
-import config
+import settings
 from web_tools import get_store_data
 from web_tools import get_hltb_data
 
@@ -283,7 +281,7 @@ def update(username):
     print("--- OPENING THE VAULT (OPTIMIZED) ---")
     init_db()
 
-    steam = Steam(config.STEAM_API_KEY)
+    steam = Steam(settings.STEAM_API_KEY)
     user_data = steam.users.search_user(username)
     steam_id = user_data['player']['steamid']
     owned_games = steam.users.get_owned_games(steam_id, True, False)['games']
@@ -762,8 +760,8 @@ def get_library_stats():
 if __name__ == "__main__":
     pass
     print(get_vault_statistics())
-    hltb_test = get_hltb_search_scrape("Lossless Scaling")
-    print(hltb_test)
+    #hltb_test = get_hltb_search_scrape("Lossless Scaling")
+    #print(hltb_test)
     # import vibe_engine
     # vibes = vibe_engine.VibeEngine.get_instance()
     # print(vibes.search("gloomy"))

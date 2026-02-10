@@ -1,5 +1,5 @@
 from openai import OpenAI
-import config
+import settings
 import datetime
 
 def aiCall(data, system):
@@ -14,10 +14,10 @@ def aiCall(data, system):
         The content of the AI's response.
     """
 
-    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=240.0)
+    client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=240.0)
 
     response = client.chat.completions.create(
-        model=config.OPENAI_MODEL,
+        model=settings.OPENAI_MODEL,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": data},
@@ -31,10 +31,10 @@ def aiCall_chat(chat_history=None):
 
     if chat_history is None:
         chat_history = []
-    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=240.0)
+    client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=240.0)
 
     response = client.chat.completions.create(
-        model=config.OPENAI_MODEL,
+        model=settings.OPENAI_MODEL,
         messages=chat_history,
         stream=False
     )
@@ -42,16 +42,16 @@ def aiCall_chat(chat_history=None):
     return(response.choices[0].message.content)
 
 def ai_chat_stream(chat_history=None):
-    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
+    client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
     stream = client.chat.completions.create(
-        model=config.OPENAI_MODEL,
+        model=settings.OPENAI_MODEL,
         messages=chat_history,
         stream=True
     )
     return stream
 
 def get_ai_client():
-    client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=240.0)
+    client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=240.0)
     return(client)
 
 

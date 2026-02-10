@@ -1,7 +1,6 @@
 import difflib
 import re
 import time
-from time import sleep
 import csv
 import os
 

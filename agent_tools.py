@@ -7,7 +7,6 @@ import game_intelligence
 import community_sentiment
 import web_tools
 import vault
-import config
 import settings
 import character_manager
 import vibe_engine
@@ -124,7 +123,7 @@ def get_system_prompt(character_name=None):
             "mes_example": ""
         }
 
-    user_avatar_name = config.STEAM_USER if config.STEAM_USER and len(config.STEAM_USER) else "User"
+    user_avatar_name = settings.STEAM_USER if settings.STEAM_USER and len(settings.STEAM_USER) else "User"
     char_real_name = char_data.get('name', 'Reaper')
 
     # Macro Replacement
@@ -334,7 +333,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_game_details",
-            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores, player achievements unlock summary). Use when the user asks about a specific game or a for a list of games.",
+            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores). Use when the user asks about a specific game or a for a list of games.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -420,11 +419,15 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_achievements",
-            "description": "Use this to get user's steam achievements summary of progress (%), last unlocked.",
+            "description": "Use this to get user's steam achievements progress and unlocks.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "game_name": {"type": "string"},
+                    "page": {
+                        "type": "integer",
+                        "description": "Pagination index (default 0). Returns 10 results per page."
+                    },
                     "action_description": {
                         "type": "string",
                         "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."

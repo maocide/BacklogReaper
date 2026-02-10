@@ -42,6 +42,13 @@ def get_character_file_name(name):
 
     return None
 
+def get_character_image(name):
+    filename = get_character_file_name(name)
+    if filename and filename.lower().endswith(".png"):
+        return filename
+    else:
+        return None
+
 def load_character(name):
     """
     Loads character data by name.

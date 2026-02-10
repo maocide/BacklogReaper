@@ -1,8 +1,7 @@
 import json
 import copy
-import sys
 from ai_tools import aiCall, get_ai_client
-import config
+import settings
 import agent_tools
 
 def clean_history(history, max_user_turns=10):
@@ -138,7 +137,7 @@ def agent_chat_loop_stream(user_input, chat_history):
         # Start the Stream
         client = get_ai_client()
         stream = client.chat.completions.create(
-            model=config.OPENAI_MODEL,
+            model=settings.OPENAI_MODEL,
             messages=chat_history,
             tools=agent_tools.tools_schema,
             stream=True

@@ -1,4 +1,4 @@
-import config
+import settings
 import vault
 from web_tools import HLTBManager
 
@@ -8,9 +8,9 @@ def check_api_keys():
     Returns: (bool, message)
     """
     missing = []
-    if not config.STEAM_API_KEY:
+    if not settings.STEAM_API_KEY:
         missing.append("STEAM_API_KEY")
-    if not config.OPENAI_API_KEY:
+    if not settings.OPENAI_API_KEY:
         missing.append("OPENAI_API_KEY")
 
     if missing:

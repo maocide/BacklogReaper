@@ -1,23 +1,15 @@
 import json
-import random
-import webbrowser
-from flet import FontWeight, RoundedRectangleBorder
 import flet as ft
-import flet_charts as ftc  # Import flet-charts
-from flet.controls.border_radius import vertical
-
+import flet_charts as ftc
 import game_intelligence
-import community_sentiment
 import agent
 from ai_tools import aiCall
 import threading
 import time
 import traceback
 import vault
-import config
 import settings
 import character_manager
-from pathlib import Path
 import startup
 import ui_components as ui
 from vibe_engine import VibeEngine
@@ -31,12 +23,10 @@ def parse_and_render_message(text, is_user, reasoning_text=None, avatar_path=Non
     Handles mixed content: Text -> JSON -> Text -> JSON -> Text.
     """
     controls = []
-    is_user_message = False
 
     # If it's a user message or no JSON, just render markdown
     if "```json" not in text or is_user:
         controls.append(ft.Markdown(text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
-        is_user_message = True
     else:
         # Split by the start tag.
         # This gives us a list where:
@@ -83,7 +73,7 @@ def parse_and_render_message(text, is_user, reasoning_text=None, avatar_path=Non
     bubble_content = ft.Column(controls, tight=True, spacing=5)
 
     # Avatar Logic
-    user_avatar_name = config.STEAM_USER if config.STEAM_USER else "USER"
+    user_avatar_name = settings.STEAM_USER if settings.STEAM_USER else "USER"
 
     # Get Current Character Name for Avatar
     current_char = "Reaper"
@@ -91,7 +81,7 @@ def parse_and_render_message(text, is_user, reasoning_text=None, avatar_path=Non
         current_settings = settings.load_settings()
         current_char = current_settings.get("CHARACTER", "Reaper")
     except:
-        pass
+        print("Error loading settings for character.")
 
     avatar_name = user_avatar_name if is_user else current_char
 
@@ -104,8 +94,8 @@ def parse_and_render_message(text, is_user, reasoning_text=None, avatar_path=Non
         content_control=bubble_content,
         is_user=is_user,
         reasoning_control=reasoning_control,
-        reasoning_title="Dark Whispers...",  # Flavor text
-        avatar_src=avatar_path if not is_user else None  # <--- CRITICAL FIX
+        reasoning_title="Dark Machinations...",  # Flavor text
+        avatar_src=avatar_path
     )
 
 def main(page: ft.Page):
@@ -161,6 +151,8 @@ def main(page: ft.Page):
         page.snack_bar.open = True
 
     # --- State Variables & Refs ---
+
+    user_portrait_url = None
 
     # Dashboard Refs
     vs_status = ft.Ref[ft.Text]()
@@ -263,9 +255,10 @@ def main(page: ft.Page):
         page.update()
 
     def update_data_sources():
-        vault.update(config.STEAM_USER)
+        vault.update(settings.STEAM_USER)
         vibes = VibeEngine.get_instance()
         vibes.ingest_library()
+
 
     # --- Dashboard Logic ---
     def load_stats_thread():
@@ -588,6 +581,7 @@ Consider all the data and the data in your training about the games to find the 
     # --- Backlog Reaping Logic ---
 
 
+
     def run_backlog_reaping_thread(user_message):
         try:
             if stop_event_br.is_set(): return
@@ -599,15 +593,15 @@ Consider all the data and the data in your training about the games to find the 
             # Signal initialization
             page.pubsub.send_all({"type": "init"})
 
-            # 3. CONSUME THE STREAM
+            # CONSUME THE STREAM
             stream = agent.agent_chat_loop_stream(user_message, br_chat_history)
 
             for event_type, content in stream:
                 if stop_event_br.is_set(): break
-                time.sleep(0.02) # Small yield might still be useful, but pubsub handles context... ACTUALLY MANDATORY, flet would mess streaming order otherwise, this keeps it intact
+                time.sleep(0.02) # Small yield pubsub handles context. MANDATORY, flet would mess streaming order otherwise, this keeps it intact
                 page.pubsub.send_all({"type": event_type, "content": content})
 
-            # 4. Final Cleanup
+            # Final Cleanup
             if not stop_event_br.is_set():
                 page.pubsub.send_all({"type": "finish"})
 
@@ -631,45 +625,6 @@ Consider all the data and the data in your training about the games to find the 
                 br_chat_list.current.controls.pop()
                 br_chat_list.current.update()
 
-
-    def get_current_char_name_path():
-        # Get Real Name for Avatar
-        current_char_file = "Reaper"
-        try:
-            current_settings = settings.load_settings()
-            current_char_file = current_settings.get("CHARACTER", "Reaper")
-            current_char_file = character_manager.get_character_file_name(current_char_file)
-        except:
-            pass
-
-        # FIX: The original logic here was ambiguous.
-        # character_manager.get_character_real_name() loads the JSON or PNG and gets the 'name' field.
-        # If it returns the *filename* or a full path by mistake, we fix it here.
-
-        # If current_char_file is a path (e.g. "characters/Reaper.json"), get_character_real_name should load it.
-        # However, if 'current_char_file' is just "Reaper", we need to resolve it.
-
-        # Let's ensure we are passing the filename (without extension if possible) or let get_character_real_name handle it.
-        # character_manager.get_character_real_name() takes 'filename'.
-
-        # If we passed a full path like "characters/Reaper.json", let's extract the name.
-        if current_char_file and os.path.exists(current_char_file):
-             # It's a full path
-             base_name = os.path.splitext(os.path.basename(current_char_file))[0]
-             real_char_name = character_manager.get_character_real_name(base_name)
-        else:
-             # Fallback
-             real_char_name = character_manager.get_character_real_name(current_char_file)
-
-
-        # Get image for avatar
-        if current_char_file and str(current_char_file).lower().endswith(".png"):
-            avatar_path = current_char_file
-        else:
-            avatar_path = None
-
-        return real_char_name, avatar_path
-
     def start_chat_thread(user_message):
         # Define UI handlers for PubSub
         # This state needs to be accessible to the on_message handler
@@ -692,8 +647,11 @@ Consider all the data and the data in your training about the games to find the 
                 state["reasoning_view"] = ft.Markdown("", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, visible=False, selectable=True)
                 state["reasoning_buffer"] = ""
 
-                # Get Real Name for Avatar
-                real_char_name, avatar_path = get_current_char_name_path()
+                # Get Real Name and Avatar
+                current_settings = settings.load_settings()
+                current_char = current_settings.get("CHARACTER", "Reaper")
+                real_char_name = character_manager.get_character_real_name(current_char)
+                avatar_path = character_manager.get_character_image(current_char)
 
                 bubble_content = ft.Column([state["status_text"], state["agent_markdown"]], tight=True, spacing=5)
 
@@ -701,14 +659,14 @@ Consider all the data and the data in your training about the games to find the 
                 state["reasoning_container_ref"] = reasoning_ref
 
                 full_message_block = ui.create_chat_row(
-                    avatar_name=real_char_name,  # e.g. "The Reaper"
+                    avatar_name=real_char_name,  # "The Reaper"
                     content_control=bubble_content,
                     is_user=False,
                     reasoning_control=state["reasoning_view"],
                     reasoning_title="Consulting the Void...",
                     reasoning_ref=reasoning_ref,
                     reasoning_visible=False,
-                    avatar_src=avatar_path  # <--- Pass the image here
+                    avatar_src=avatar_path
                 )
 
                 if br_chat_list.current:
@@ -786,7 +744,10 @@ Consider all the data and the data in your training about the games to find the 
                 final_reasoning = state["reasoning_buffer"]
 
                 if br_chat_list.current:
-                    real_char_name, avatar_path = get_current_char_name_path()
+                    # Get Real Name and Avatar
+                    current_settings = settings.load_settings()
+                    current_char = current_settings.get("CHARACTER", "Reaper")
+                    avatar_path = character_manager.get_character_image(current_char)
 
                     br_chat_list.current.controls.pop()
                     br_chat_list.current.controls.append(parse_and_render_message(final_text, is_user=False, reasoning_text=final_reasoning, avatar_path=avatar_path))
@@ -875,17 +836,28 @@ Consider all the data and the data in your training about the games to find the 
                  stop_event_br.clear()
                  start_chat_thread(user_message)
 
+    def get_user_portrait_url():
+        nonlocal user_portrait_url
+        if user_portrait_url:
+            return user_portrait_url
+        else:
+            user_portrait_url = game_intelligence.get_steam_avatar(settings.STEAM_USER)
+
+        return user_portrait_url
 
     def send_message(e):
         user_message = br_input.current.value
         if not user_message:
             return
 
+        # Try to fetch a portrait
+        user_portrait_url = get_user_portrait_url()
+
         remove_regen_button()
 
-        # 1. Show User Message Immediately
+        # Show User Message Immediately
         if br_chat_list.current:
-            br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True))
+            br_chat_list.current.controls.append(parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
             br_chat_list.current.update()
 
         br_input.current.value = ""
@@ -1013,7 +985,7 @@ Consider all the data and the data in your training about the games to find the 
 
     def start_fetch(e):
         # username = gf_username.current.value # Removed
-        username = config.STEAM_USER
+        username = settings.STEAM_USER
 
         if not username:
             gf_status.current.value = "Please configure Steam Username in Settings."
@@ -1022,7 +994,7 @@ Consider all the data and the data in your training about the games to find the 
             page.update()
             return
 
-        if not config.STEAM_API_KEY:
+        if not settings.STEAM_API_KEY:
              gf_status.current.value = "Please configure Steam API Key in Settings."
              page.snack_bar = ft.SnackBar(ft.Text("Please configure Steam API Key in Settings!"))
              page.snack_bar.open = True
@@ -1344,7 +1316,7 @@ Consider all the data and the data in your training about the games to find the 
         }
 
         if settings.save_settings(new_settings):
-            config.reload() # Refresh live config
+            settings.reload() # Refresh live config
             set_status.current.value = "Settings Saved!"
             set_status.current.color = ft.Colors.GREEN
         else:
@@ -1356,11 +1328,11 @@ Consider all the data and the data in your training about the games to find the 
     # Load initial values
     current_settings = settings.load_settings()
     # Use config values as default to show env vars if json is empty
-    init_steam_key = current_settings.get("STEAM_API_KEY") or config.STEAM_API_KEY or ""
-    init_openai_key = current_settings.get("OPENAI_API_KEY") or config.OPENAI_API_KEY or ""
-    init_openai_base = current_settings.get("OPENAI_BASE_URL") or config.OPENAI_BASE_URL or ""
-    init_openai_model = current_settings.get("OPENAI_MODEL") or config.OPENAI_MODEL or ""
-    init_steam_user = current_settings.get("STEAM_USER") or config.STEAM_USER or ""
+    init_steam_key = current_settings.get("STEAM_API_KEY") or settings.STEAM_API_KEY or ""
+    init_openai_key = current_settings.get("OPENAI_API_KEY") or settings.OPENAI_API_KEY or ""
+    init_openai_base = current_settings.get("OPENAI_BASE_URL") or settings.OPENAI_BASE_URL or ""
+    init_openai_model = current_settings.get("OPENAI_MODEL") or settings.OPENAI_MODEL or ""
+    init_steam_user = current_settings.get("STEAM_USER") or settings.STEAM_USER or ""
     init_character = current_settings.get("CHARACTER", "Reaper")
 
     # Load Characters
