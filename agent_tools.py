@@ -418,29 +418,6 @@ tools_schema = [
     {
         "type": "function",
         "function": {
-            "name": "get_achievements",
-            "description": "Use this to get user's steam achievements progress and unlocks.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "game_name": {"type": "string"},
-                    "page": {
-                        "type": "integer",
-                        "description": "Pagination index (default 0). Returns 10 results per page."
-                    },
-                    "action_description": {
-                        "type": "string",
-                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
-                    }
-                },
-                "required": ["game_name", "action_description"],
-                "additionalProperties": False
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "get_user_wishlist",
             "description": "Use this to get user's wishlist. Get 10 results and can request further pages.",
             "parameters": {
