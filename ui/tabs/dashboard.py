@@ -7,9 +7,11 @@ import styles
 from ui.utils import get_status_color
 from ui.widgets.metric_card import MetricCard
 
-class DashboardView(ft.BaseControl):
+class DashboardView(ft.Column):
     def __init__(self):
         super().__init__()
+        self.expand = True
+
         # Refs
         self.vs_status = ft.Ref[ft.Text]()
         self.vs_metric_games = ft.Ref[ft.Text]()
@@ -20,74 +22,70 @@ class DashboardView(ft.BaseControl):
         self.vs_hours_chart = ft.Ref[ftc.BarChart]()
         self.vs_dashboard_container = ft.Ref[ft.Column]()
 
-    def build(self):
-        return ft.Column(
-            expand=True,
-            controls=[
-                ft.Row([
-                    ft.Text("Dashboard", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
-                    ft.IconButton(icon=ft.Icons.REFRESH, on_click=self._refresh_stats_click, tooltip="Refresh Stats")
-                ]),
-                ft.Text(ref=self.vs_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
-                ft.Column(
-                    ref=self.vs_dashboard_container,
-                    visible=False,
-                    controls=[
-                         # Metrics
-                         ft.Row([
-                             MetricCard("Total Games", self.vs_metric_games, ft.Icons.GAMES),
-                             MetricCard("Lifetime Hours", self.vs_metric_hours, ft.Icons.ACCESS_TIME),
-                             MetricCard("Backlog Debt", self.vs_metric_backlog, ft.Icons.MONEY_OFF, ft.Colors.RED)
-                         ], alignment=ft.MainAxisAlignment.CENTER, spacing=20),
+        self.controls = [
+            ft.Row([
+                ft.Text("Dashboard", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
+                ft.IconButton(icon=ft.Icons.REFRESH, on_click=self._refresh_stats_click, tooltip="Refresh Stats")
+            ]),
+            ft.Text(ref=self.vs_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
+            ft.Column(
+                ref=self.vs_dashboard_container,
+                visible=False,
+                controls=[
+                     # Metrics
+                     ft.Row([
+                         MetricCard("Total Games", self.vs_metric_games, ft.Icons.GAMES),
+                         MetricCard("Lifetime Hours", self.vs_metric_hours, ft.Icons.ACCESS_TIME),
+                         MetricCard("Backlog Debt", self.vs_metric_backlog, ft.Icons.MONEY_OFF, ft.Colors.RED)
+                     ], alignment=ft.MainAxisAlignment.CENTER, spacing=20),
 
-                         ft.Divider(height=30),
+                     ft.Divider(height=30),
 
-                         # Charts
-                         ft.ResponsiveRow([
-                             ft.Column([
-                                 ft.Text("Library Status", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
-                                 ftc.PieChart(
-                                     ref=self.vs_pie_chart,
-                                     sections=[],
-                                     sections_space=0,
-                                     center_space_radius=40,
-                                     expand=True
-                                 )
-                             ], col=4),
-                             ft.Column([
-                                 ft.Text("Top Genres (Games Owned)", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
-                                 ftc.BarChart(
-                                     ref=self.vs_bar_chart,
-                                     groups=[],
-                                     border=ft.Border.all(1, ft.Colors.GREY_800),
-                                     left_axis=ftc.ChartAxis(label_size=40, title=ft.Text("Games"), title_size=40),
-                                     bottom_axis=ftc.ChartAxis(label_size=40),
-                                     horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
-                                     tooltip=ftc.BarChartTooltip(bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900)),
-                                     interactive=True,
-                                     expand=True,
-                                 ),
-                                 ft.Divider(height=20),
-                                 ft.Text("Top Genres (Hours Played)", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
-                                 ftc.BarChart(
-                                     ref=self.vs_hours_chart,
-                                     groups=[],
-                                     border=ft.Border.all(1, ft.Colors.GREY_800),
-                                     left_axis=ftc.ChartAxis(label_size=40, title=ft.Text("Hours"), title_size=40),
-                                     bottom_axis=ftc.ChartAxis(label_size=40),
-                                     horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
-                                     tooltip=ftc.BarChartTooltip(bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900)),
-                                     interactive=True,
-                                     expand=True,
-                                 )
-                             ], col=8)
-                         ])
-                    ],
-                    scroll=ft.ScrollMode.AUTO,
-                    expand=True
-                )
-            ]
-        )
+                     # Charts
+                     ft.ResponsiveRow([
+                         ft.Column([
+                             ft.Text("Library Status", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                             ftc.PieChart(
+                                 ref=self.vs_pie_chart,
+                                 sections=[],
+                                 sections_space=0,
+                                 center_space_radius=40,
+                                 expand=True
+                             )
+                         ], col=4),
+                         ft.Column([
+                             ft.Text("Top Genres (Games Owned)", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                             ftc.BarChart(
+                                 ref=self.vs_bar_chart,
+                                 groups=[],
+                                 border=ft.Border.all(1, ft.Colors.GREY_800),
+                                 left_axis=ftc.ChartAxis(label_size=40, title=ft.Text("Games"), title_size=40),
+                                 bottom_axis=ftc.ChartAxis(label_size=40),
+                                 horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
+                                 tooltip=ftc.BarChartTooltip(bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900)),
+                                 interactive=True,
+                                 expand=True,
+                             ),
+                             ft.Divider(height=20),
+                             ft.Text("Top Genres (Hours Played)", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                             ftc.BarChart(
+                                 ref=self.vs_hours_chart,
+                                 groups=[],
+                                 border=ft.Border.all(1, ft.Colors.GREY_800),
+                                 left_axis=ftc.ChartAxis(label_size=40, title=ft.Text("Hours"), title_size=40),
+                                 bottom_axis=ftc.ChartAxis(label_size=40),
+                                 horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
+                                 tooltip=ftc.BarChartTooltip(bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900)),
+                                 interactive=True,
+                                 expand=True,
+                             )
+                         ], col=8)
+                     ])
+                ],
+                scroll=ft.ScrollMode.AUTO,
+                expand=True
+            )
+        ]
 
     def did_mount(self):
         # Auto-load on mount

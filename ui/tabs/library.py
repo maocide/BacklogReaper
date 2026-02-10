@@ -9,16 +9,17 @@ from ui.utils import get_status_color
 from vibe_engine import VibeEngine
 from ui.widgets.styled_inputs import GrimoireButton
 
-class LibraryView(ft.BaseControl):
+class LibraryView(ft.Column):
     def __init__(self):
         super().__init__()
+        self.expand = True
+
         self.gf_table = ft.Ref[ft.DataTable]()
         self.gf_status = ft.Ref[ft.Text]()
         self.gf_btn_fetch = ft.Ref[ft.FilledButton]()
         self.gf_btn_stop = ft.Ref[ft.FilledButton]()
         self.stop_event_gf = threading.Event()
 
-    def build(self):
         BUTTON_STYLE = ft.ButtonStyle(
             color=styles.COLOR_TEXT_GOLD,
             bgcolor=styles.COLOR_SURFACE,
@@ -26,46 +27,43 @@ class LibraryView(ft.BaseControl):
             side=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE)
         )
 
-        return ft.Column(
-            expand=True,
-            controls=[
-                ft.Text("Game List Fetcher", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
-                ft.Row([
-                    GrimoireButton(ref=self.gf_btn_fetch, text="Fetch Games", icon=ft.Icons.DOWNLOAD, on_click=self.start_fetch),
-                    GrimoireButton(ref=self.gf_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=self.stop_fetch, disabled=True),
-                ]),
-                ft.Text(ref=self.gf_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
-                ft.Divider(),
-                ft.Container(
-                    content=ft.Column([
-                        ft.DataTable(
-                            ref=self.gf_table,
-                            sort_column_index=2, # Default sort by Playtime
-                            sort_ascending=False,
-                            columns=[
-                                ft.DataColumn(ft.Text("AppID", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
-                                ft.DataColumn(ft.Text("Name", color=styles.COLOR_TEXT_PRIMARY), on_sort=self.sort_table),
-                                ft.DataColumn(ft.Text("Playtime (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
-                                ft.DataColumn(ft.Text("Main Story (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
-                                ft.DataColumn(ft.Text("Completionist (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
-                                ft.DataColumn(ft.Text("Status", color=styles.COLOR_TEXT_PRIMARY), on_sort=self.sort_table),
-                            ],
-                            rows=[],
-                            vertical_lines=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE),
-                            horizontal_lines=ft.BorderSide(1, styles.COLOR_ACCENT_DIM),
-                            heading_row_color=styles.COLOR_ACCENT_DIM,
-                            data_row_color=styles.COLOR_SURFACE,
-                            data_text_style=ft.TextStyle(color=styles.COLOR_TEXT_PRIMARY),
-                        )
-                    ], scroll=ft.ScrollMode.AUTO), # Scrollable container for the table
-                    expand=True,
-                    bgcolor=styles.COLOR_SURFACE,
-                    border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
-                    border_radius=5,
-                    padding=10
-                )
-            ]
-        )
+        self.controls = [
+            ft.Text("Game List Fetcher", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
+            ft.Row([
+                GrimoireButton(ref=self.gf_btn_fetch, text="Fetch Games", icon=ft.Icons.DOWNLOAD, on_click=self.start_fetch),
+                GrimoireButton(ref=self.gf_btn_stop, text="Stop", icon=ft.Icons.STOP, on_click=self.stop_fetch, disabled=True),
+            ]),
+            ft.Text(ref=self.gf_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
+            ft.Divider(),
+            ft.Container(
+                content=ft.Column([
+                    ft.DataTable(
+                        ref=self.gf_table,
+                        sort_column_index=2, # Default sort by Playtime
+                        sort_ascending=False,
+                        columns=[
+                            ft.DataColumn(ft.Text("AppID", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
+                            ft.DataColumn(ft.Text("Name", color=styles.COLOR_TEXT_PRIMARY), on_sort=self.sort_table),
+                            ft.DataColumn(ft.Text("Playtime (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
+                            ft.DataColumn(ft.Text("Main Story (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
+                            ft.DataColumn(ft.Text("Completionist (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
+                            ft.DataColumn(ft.Text("Status", color=styles.COLOR_TEXT_PRIMARY), on_sort=self.sort_table),
+                        ],
+                        rows=[],
+                        vertical_lines=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE),
+                        horizontal_lines=ft.BorderSide(1, styles.COLOR_ACCENT_DIM),
+                        heading_row_color=styles.COLOR_ACCENT_DIM,
+                        data_row_color=styles.COLOR_SURFACE,
+                        data_text_style=ft.TextStyle(color=styles.COLOR_TEXT_PRIMARY),
+                    )
+                ], scroll=ft.ScrollMode.AUTO), # Scrollable container for the table
+                expand=True,
+                bgcolor=styles.COLOR_SURFACE,
+                border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
+                border_radius=5,
+                padding=10
+            )
+        ]
 
     def did_mount(self):
         # We need to subscribe to fetch status updates

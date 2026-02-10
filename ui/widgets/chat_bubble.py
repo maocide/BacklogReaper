@@ -1,7 +1,7 @@
 import flet as ft
 import styles
 
-class ReaperChatBubble(ft.BaseControl):
+class ReaperChatBubble(ft.Container):
     def __init__(self, avatar_name, content_control, is_user, reasoning_control=None, reasoning_title="Reasoning",
                  reasoning_ref=None, reasoning_visible=True, avatar_src=None):
         super().__init__()
@@ -17,7 +17,6 @@ class ReaperChatBubble(ft.BaseControl):
         # Tag for identifying message type in the list
         self.data = "user_message" if is_user else "assistant_message"
 
-    def build(self):
         # THEME CONFIGURATION
         # Reaper Style
         reaper_bg = styles.COLOR_BACKGROUND
@@ -162,12 +161,12 @@ class ReaperChatBubble(ft.BaseControl):
             # usually handle the total width.
             row_controls.append(ft.Container(content=message_container, col={"sm": 12, "md": 11, "lg": 10}, expand=True))
 
-        return ft.Container(
-            content=ft.Row(
-                controls=row_controls,
-                vertical_alignment=ft.CrossAxisAlignment.START,
-            ),
-            # Increase bottom margin for better separation between turns
-            margin=ft.Margin(left=0, top=10, right=0, bottom=30),
-            padding=ft.Padding(left=10, right=10)
+        # Assign content to self (Container)
+        self.content = ft.Row(
+            controls=row_controls,
+            vertical_alignment=ft.CrossAxisAlignment.START,
         )
+
+        # Increase bottom margin for better separation between turns
+        self.margin = ft.Margin(left=0, top=10, right=0, bottom=30)
+        self.padding = ft.Padding(left=10, right=10)

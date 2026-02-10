@@ -16,9 +16,11 @@ from ui.widgets.chat_bubble import ReaperChatBubble
 from ui.widgets.game_card import GameCard
 from ui.widgets.styled_inputs import GrimoireTextField
 
-class ReaperChatView(ft.BaseControl):
+class ReaperChatView(ft.Column):
     def __init__(self):
         super().__init__()
+        self.expand = True
+
         self.br_chat_history = []
         self.br_chat_list = ft.Ref[ft.ListView]()
         self.br_input = ft.Ref[ft.TextField]()
@@ -39,39 +41,35 @@ class ReaperChatView(ft.BaseControl):
             "reasoning_container_ref": None
         }
 
-    def build(self):
-        return ft.Column(
-            expand=True,
-            controls=[
-                ft.Row([
-                    ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
-                    ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=self.copy_chat_history)
-                ]),
-                ft.Container(
-                    content=ft.ListView(
-                        ref=self.br_chat_list,
-                        expand=True,
-                        spacing=10,
-                        padding=10,
-                        auto_scroll=True,
-                    ),
+        self.controls = [
+            ft.Row([
+                ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
+                ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=self.copy_chat_history)
+            ]),
+            ft.Container(
+                content=ft.ListView(
+                    ref=self.br_chat_list,
                     expand=True,
+                    spacing=10,
+                    padding=10,
+                    auto_scroll=True,
                 ),
-                ft.Text(ref=self.br_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
-                ft.Row([
-                    GrimoireTextField(
-                        ref=self.br_input,
-                        hint_text="Ask the Reaper...",
-                        expand=True,
-                        multiline=True,
-                        shift_enter=True,
-                        on_submit=self.send_message,
-                        label_style=ft.TextStyle(italic=True, color=styles.COLOR_ACCENT_DIM)
-                    ),
-                    ft.IconButton(ref=self.br_btn_send, icon=ft.Icons.SEND, icon_color=styles.COLOR_TEXT_GOLD, on_click=self.send_message)
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            ]
-        )
+                expand=True,
+            ),
+            ft.Text(ref=self.br_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
+            ft.Row([
+                GrimoireTextField(
+                    ref=self.br_input,
+                    hint_text="Ask the Reaper...",
+                    expand=True,
+                    multiline=True,
+                    shift_enter=True,
+                    on_submit=self.send_message,
+                    label_style=ft.TextStyle(italic=True, color=styles.COLOR_ACCENT_DIM)
+                ),
+                ft.IconButton(ref=self.br_btn_send, icon=ft.Icons.SEND, icon_color=styles.COLOR_TEXT_GOLD, on_click=self.send_message)
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+        ]
 
     def did_mount(self):
         # We subscribe when the view is mounted
