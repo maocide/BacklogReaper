@@ -197,11 +197,21 @@ class ReaperChatView(ft.Column):
         finally:
             self.page.pubsub.send_all({"type": "cleanup"})
 
-    def scroll_chat_to_bottom(self, duration=300):
+    async def _scroll_task(self, duration, delay_ms):
+        if delay_ms > 0:
+            import asyncio
+            await asyncio.sleep(delay_ms / 1000)
+        if self.br_chat_list.current:
+            try:
+                await self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
+            except Exception:
+                pass
+
+    def scroll_chat_to_bottom(self, duration=300, delay_ms=0):
         if self.br_chat_list.current and self.page:
             try:
                 # Use page.run_task to schedule the coroutine/async method correctly
-                self.page.run_task(self.br_chat_list.current.scroll_to, offset=-1, duration=duration)
+                self.page.run_task(self._scroll_task, duration, delay_ms)
             except Exception:
                 pass
 
@@ -353,7 +363,7 @@ class ReaperChatView(ft.Column):
                 self.br_chat_list.current.controls.append(regen_btn)
 
                 self.br_chat_list.current.update()
-                self.scroll_chat_to_bottom()
+                self.scroll_chat_to_bottom(delay_ms=200)
 
             if self.br_status.current:
                 self.br_status.current.value = "Ready"
