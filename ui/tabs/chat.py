@@ -22,7 +22,7 @@ class ReaperChatView(ft.Column):
         self.expand = True
 
         self.br_chat_history = []
-        self.br_chat_list = ft.Ref[ft.ListView]()
+        self.br_chat_list = ft.Ref[ft.Column]()
         self.br_input = ft.Ref[ft.TextField]()
         self.br_status = ft.Ref[ft.Text]()
         self.br_btn_send = ft.Ref[ft.IconButton]()
@@ -47,13 +47,13 @@ class ReaperChatView(ft.Column):
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=self.copy_chat_history)
             ]),
             ft.Container(
-                content=ft.ListView(
+                content=ft.Column(
                     ref=self.br_chat_list,
                     expand=True,
                     spacing=10,
-                    padding=10,
-                    auto_scroll=True,
+                    scroll=ft.ScrollMode.AUTO,
                 ),
+                padding=10,
                 expand=True,
             ),
             ft.Text(ref=self.br_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
@@ -197,6 +197,13 @@ class ReaperChatView(ft.Column):
         finally:
             self.page.pubsub.send_all({"type": "cleanup"})
 
+    def scroll_chat_to_bottom(self, duration=300):
+        if self.br_chat_list.current:
+            try:
+                self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
+            except Exception:
+                pass
+
     def start_chat_thread(self, user_message):
         # Reset state
         self.stream_state = {
@@ -251,6 +258,7 @@ class ReaperChatView(ft.Column):
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(full_message_block)
                 self.br_chat_list.current.update()
+                self.scroll_chat_to_bottom()
 
         elif msg_type == "reasoning":
             state["reasoning_buffer"] += content
@@ -263,6 +271,7 @@ class ReaperChatView(ft.Column):
                     state["reasoning_container_ref"].current.visible = True
                     if state["reasoning_container_ref"].current.page:
                         state["reasoning_container_ref"].current.update()
+            self.scroll_chat_to_bottom(duration=50)
 
         elif msg_type == "status":
             if state["status_text"]:
@@ -292,6 +301,7 @@ class ReaperChatView(ft.Column):
 
             try:
                 self.br_chat_list.current.update()
+                self.scroll_chat_to_bottom()
             except RuntimeError:
                 pass
 
@@ -309,6 +319,7 @@ class ReaperChatView(ft.Column):
             state["agent_markdown"].value += content
             if state["agent_markdown"].page:
                 state["agent_markdown"].update()
+                self.scroll_chat_to_bottom(duration=50)
 
             state["previous_was_tool"] = False
             state["first_text"] = False
@@ -341,6 +352,7 @@ class ReaperChatView(ft.Column):
                 self.br_chat_list.current.controls.append(regen_btn)
 
                 self.br_chat_list.current.update()
+                self.scroll_chat_to_bottom()
 
             if self.br_status.current:
                 self.br_status.current.value = "Ready"
@@ -351,6 +363,7 @@ class ReaperChatView(ft.Column):
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(ft.Text(f"Error: {content}", color=styles.COLOR_ERROR))
                 self.br_chat_list.current.update()
+                self.scroll_chat_to_bottom()
             if self.br_status.current:
                 self.br_status.current.value = f"Error: {content}"
                 self.br_status.current.color = styles.COLOR_ERROR
@@ -419,6 +432,7 @@ class ReaperChatView(ft.Column):
         if self.br_chat_list.current:
             self.br_chat_list.current.controls.append(self.parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
             self.br_chat_list.current.update()
+            self.scroll_chat_to_bottom()
 
         self.br_input.current.value = ""
         self.br_input.current.disabled = True
