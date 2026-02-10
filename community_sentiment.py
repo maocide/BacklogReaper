@@ -109,7 +109,7 @@ def get_webpage(url):
             downloaded,
             include_comments=False,
             include_tables=False,
-            include_links=False,
+            include_links=True,
             output_format="markdown"
         )
 
@@ -380,3 +380,7 @@ def get_community_sentiment(game_name: str) :
     }
 
     return result
+
+if __name__ == "__main__":
+    #print(get_hltb_search_scrape("Akane"))
+    print(get_webpage('https://boards.4chan.org/v/catalog'))
