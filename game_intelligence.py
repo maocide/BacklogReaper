@@ -920,7 +920,9 @@ def get_reviews_byname(game_name, count=5):
         # ALLOWLIST: Only keep these fields
         "keep_keys": [
             "review",
-            "voted_up",
+            "author",
+            "playtime_at_review",
+            "votes_funny",
             "votes_up",
             "timestamp_created",
             "playtime_at_review",
@@ -1279,4 +1281,4 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 
 if __name__ == "__main__":
     # Here for tests
-    print(get_global_game_info(game_name="Akane"))
+    print(get_reviews_byname(game_name="Akane"))

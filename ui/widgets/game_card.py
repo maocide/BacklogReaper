@@ -57,6 +57,7 @@ class GameCard(ft.Card):
                 controls=[
                     ft.Text(
                         name_value,
+                        font_family="Cinzel",
                         weight=ft.FontWeight.BOLD,
                         size=15,
                         no_wrap=True,

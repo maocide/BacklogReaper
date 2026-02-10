@@ -207,7 +207,7 @@ class ReaperChatView(ft.Column):
             except Exception:
                 pass
 
-    def scroll_chat_to_bottom(self, duration=300, delay_ms=0):
+    def scroll_chat_to_bottom(self, duration=700, delay_ms=0):
         if self.br_chat_list.current and self.page:
             try:
                 # Use page.run_task to schedule the coroutine/async method correctly
@@ -282,7 +282,7 @@ class ReaperChatView(ft.Column):
                     state["reasoning_container_ref"].current.visible = True
                     if state["reasoning_container_ref"].current.page:
                         state["reasoning_container_ref"].current.update()
-            self.scroll_chat_to_bottom(duration=50)
+            #self.scroll_chat_to_bottom(duration=50)
 
         elif msg_type == "status":
             if state["status_text"]:
@@ -312,7 +312,7 @@ class ReaperChatView(ft.Column):
 
             try:
                 self.br_chat_list.current.update()
-                self.scroll_chat_to_bottom()
+                #self.scroll_chat_to_bottom()
             except RuntimeError:
                 pass
 
@@ -330,7 +330,7 @@ class ReaperChatView(ft.Column):
             state["agent_markdown"].value += content
             if state["agent_markdown"].page:
                 state["agent_markdown"].update()
-                self.scroll_chat_to_bottom(duration=50)
+                #self.scroll_chat_to_bottom(duration=50)
 
             state["previous_was_tool"] = False
             state["first_text"] = False
@@ -443,7 +443,7 @@ class ReaperChatView(ft.Column):
         if self.br_chat_list.current:
             self.br_chat_list.current.controls.append(self.parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
             self.br_chat_list.current.update()
-            self.scroll_chat_to_bottom()
+            self.scroll_chat_to_bottom(delay_ms=200)
 
         self.br_input.current.value = ""
         self.br_input.current.disabled = True
