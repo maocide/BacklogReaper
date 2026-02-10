@@ -7,7 +7,7 @@ import styles
 from ui.utils import get_status_color
 from ui.widgets.metric_card import MetricCard
 
-class DashboardView(ft.UserControl):
+class DashboardView(ft.BaseControl):
     def __init__(self):
         super().__init__()
         # Refs

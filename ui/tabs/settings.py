@@ -4,7 +4,7 @@ import character_manager
 import styles
 from ui.widgets.styled_inputs import GrimoireTextField, GrimoireDropdown, GrimoireButton
 
-class SettingsView(ft.UserControl):
+class SettingsView(ft.BaseControl):
     def __init__(self):
         super().__init__()
         self.set_steam_api = ft.Ref[ft.TextField]()

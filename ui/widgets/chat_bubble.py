@@ -1,7 +1,7 @@
 import flet as ft
 import styles
 
-class ReaperChatBubble(ft.UserControl):
+class ReaperChatBubble(ft.BaseControl):
     def __init__(self, avatar_name, content_control, is_user, reasoning_control=None, reasoning_title="Reasoning",
                  reasoning_ref=None, reasoning_visible=True, avatar_src=None):
         super().__init__()

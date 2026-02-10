@@ -9,7 +9,7 @@ from ui.utils import get_status_color
 from vibe_engine import VibeEngine
 from ui.widgets.styled_inputs import GrimoireButton
 
-class LibraryView(ft.UserControl):
+class LibraryView(ft.BaseControl):
     def __init__(self):
         super().__init__()
         self.gf_table = ft.Ref[ft.DataTable]()

@@ -16,7 +16,7 @@ from ui.widgets.chat_bubble import ReaperChatBubble
 from ui.widgets.game_card import GameCard
 from ui.widgets.styled_inputs import GrimoireTextField
 
-class ReaperChatView(ft.UserControl):
+class ReaperChatView(ft.BaseControl):
     def __init__(self):
         super().__init__()
         self.br_chat_history = []
