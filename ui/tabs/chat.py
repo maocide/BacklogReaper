@@ -198,9 +198,10 @@ class ReaperChatView(ft.Column):
             self.page.pubsub.send_all({"type": "cleanup"})
 
     def scroll_chat_to_bottom(self, duration=300):
-        if self.br_chat_list.current:
+        if self.br_chat_list.current and self.page:
             try:
-                self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
+                # Use page.run_task to schedule the coroutine/async method correctly
+                self.page.run_task(self.br_chat_list.current.scroll_to, offset=-1, duration=duration)
             except Exception:
                 pass
 
