@@ -379,7 +379,7 @@ class ReaperChatView(ft.Column):
                 self.br_chat_list.current.controls.append(regen_btn)
 
                 self.br_chat_list.current.update()
-                self.scroll_chat_to_bottom(delay_ms=200)
+                self.scroll_chat_to_bottom(delay_ms=50)
 
             if self.br_status.current:
                 self.br_status.current.value = "Ready"
@@ -447,6 +447,11 @@ class ReaperChatView(ft.Column):
                 self.br_chat_list.current.controls.pop()
 
             self.br_chat_list.current.update()
+
+            # Reset Scroll State to ensure auto-scroll works on next token
+            self.current_scroll_offset = 0
+            self.max_scroll_extent = 0
+            self.scroll_chat_to_bottom(forced=True, duration=0)
 
         # Disable Inputs
         self.br_input.current.disabled = True
