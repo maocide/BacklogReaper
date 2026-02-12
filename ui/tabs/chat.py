@@ -30,6 +30,11 @@ class ReaperChatView(ft.Column):
         self.stop_event_br = threading.Event()
         self.user_portrait_url = None
 
+        self.current_scroll_offset = 0
+        self.max_scroll_extent = 0
+        self.scroll_buffer = 35
+
+
         # State for streaming
         self.stream_state = {
             "status_text": None,
@@ -49,6 +54,7 @@ class ReaperChatView(ft.Column):
             ft.Container(
                 content=ft.Column(
                     ref=self.br_chat_list,
+                    on_scroll=self.handle_scroll,
                     expand=True,
                     spacing=10,
                     scroll=ft.ScrollMode.AUTO,
@@ -103,6 +109,10 @@ class ReaperChatView(ft.Column):
         self.page.snack_bar = ft.SnackBar(ft.Text("Chat history copied to clipboard!"))
         self.page.snack_bar.open = True
         self.page.update()
+
+    def handle_scroll(self, e: ft.OnScrollEvent):
+        self.current_scroll_offset = e.pixels
+        self.max_scroll_extent = e.max_scroll_extent
 
     def get_user_portrait_url(self):
         if self.user_portrait_url:
@@ -207,13 +217,18 @@ class ReaperChatView(ft.Column):
             except Exception:
                 pass
 
-    def scroll_chat_to_bottom(self, duration=700, delay_ms=0):
-        if self.br_chat_list.current and self.page:
-            try:
-                # Use page.run_task to schedule the coroutine/async method correctly
-                self.page.run_task(self._scroll_task, duration, delay_ms)
-            except Exception:
-                pass
+    def scroll_chat_to_bottom(self, duration=700, delay_ms=0, forced=False):
+        # Distance for scroll
+        distance_from_bottom = self.max_scroll_extent - self.current_scroll_offset
+        safe_scroll = distance_from_bottom <= self.scroll_buffer
+
+        if safe_scroll or forced:
+            if self.br_chat_list.current and self.page:
+                try:
+                    # Use page.run_task to schedule the coroutine/async method correctly
+                    self.page.run_task(self._scroll_task, duration, delay_ms)
+                except Exception:
+                    pass
 
     def start_chat_thread(self, user_message):
         # Reset state
@@ -269,7 +284,7 @@ class ReaperChatView(ft.Column):
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(full_message_block)
                 self.br_chat_list.current.update()
-                self.scroll_chat_to_bottom()
+                self.scroll_chat_to_bottom(forced=True)
 
         elif msg_type == "reasoning":
             state["reasoning_buffer"] += content
@@ -282,7 +297,7 @@ class ReaperChatView(ft.Column):
                     state["reasoning_container_ref"].current.visible = True
                     if state["reasoning_container_ref"].current.page:
                         state["reasoning_container_ref"].current.update()
-            #self.scroll_chat_to_bottom(duration=50)
+            self.scroll_chat_to_bottom(duration=50)
 
         elif msg_type == "status":
             if state["status_text"]:
@@ -312,7 +327,7 @@ class ReaperChatView(ft.Column):
 
             try:
                 self.br_chat_list.current.update()
-                #self.scroll_chat_to_bottom()
+                self.scroll_chat_to_bottom(duration=50)
             except RuntimeError:
                 pass
 
@@ -330,7 +345,7 @@ class ReaperChatView(ft.Column):
             state["agent_markdown"].value += content
             if state["agent_markdown"].page:
                 state["agent_markdown"].update()
-                #self.scroll_chat_to_bottom(duration=50)
+                self.scroll_chat_to_bottom(duration=50)  # scrolls to end without interrupting
 
             state["previous_was_tool"] = False
             state["first_text"] = False
@@ -374,7 +389,7 @@ class ReaperChatView(ft.Column):
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(ft.Text(f"Error: {content}", color=styles.COLOR_ERROR))
                 self.br_chat_list.current.update()
-                self.scroll_chat_to_bottom()
+                self.scroll_chat_to_bottom(forced=True)
             if self.br_status.current:
                 self.br_status.current.value = f"Error: {content}"
                 self.br_status.current.color = styles.COLOR_ERROR

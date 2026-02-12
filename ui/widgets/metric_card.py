@@ -22,7 +22,7 @@ class MetricCard(ft.Card):
                 ft.Text("0", ref=self.value_ref, size=30, weight=ft.FontWeight.BOLD, color=self.color, text_align=ft.TextAlign.CENTER)
             ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             padding=20,
-            width=200,
+            #width=200,
             height=120,
             border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
             border_radius=10

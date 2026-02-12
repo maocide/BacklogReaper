@@ -95,29 +95,61 @@ class GameCard(ft.Card):
                 else:
                     formatted_label = title.replace("_", " ").title()
 
-                text = ft.Text(
-                    spans=[
-                        ft.TextSpan(
-                            f"{formatted_label}: ", # Note the trailing space
-                            style=ft.TextStyle(
+                if is_roast: # roast card
+                    new_line = ft.Text(
+                        spans=[
+                            ft.TextSpan(
+                                f"{formatted_label}: ", # Note the trailing space
+                                style=ft.TextStyle(
+                                    font_family=styles.FONT_MONO,
+                                    color=styles.COLOR_TEXT_SECONDARY,
+                                    weight=ft.FontWeight.BOLD
+                                )
+                            ),
+                            ft.TextSpan(
+                                str(content),
+                                style=ft.TextStyle(
+                                    font_family=styles.FONT_MONO,
+                                    color=styles.COLOR_TEXT_PRIMARY,
+                                    weight=ft.FontWeight.NORMAL
+                                )
+                            ),
+                        ],
+                        size=13,
+                        no_wrap=False, # Allows wrapping if the line is too long
+                    )
+                else: # game card
+                    new_line = ft.Row(
+                        controls=[
+                            # Label (Fixed width based on text)
+                            ft.Text(
+                                f"{formatted_label}:",
                                 font_family=styles.FONT_MONO,
                                 color=styles.COLOR_TEXT_SECONDARY,
-                                weight=ft.FontWeight.BOLD
-                            )
-                        ),
-                        ft.TextSpan(
-                            str(content),
-                            style=ft.TextStyle(
-                                font_family=styles.FONT_MONO,
-                                color=styles.COLOR_TEXT_PRIMARY,
-                                weight=ft.FontWeight.NORMAL
-                            )
-                        ),
-                    ],
-                    size=13,
-                    no_wrap=False, # Allows wrapping if the line is too long
-                )
-                controls_list.append(text)
+                                weight=ft.FontWeight.BOLD,
+                                size=13
+                            ),
+                            # Value (Flexible width)
+                            ft.Container(
+                                content=ft.Text(
+                                    str(content),
+                                    font_family=styles.FONT_MONO,
+                                    color=styles.COLOR_TEXT_PRIMARY,
+                                    size=13,
+                                    text_align=ft.TextAlign.RIGHT,  # Align text to the right
+                                    weight=ft.FontWeight.BOLD,
+                                    selectable=True
+                                ),
+                                expand=True, # forces the container to fill space
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.START,  # Align to top if it wraps
+                        margin=ft.Margin(0, 2, 0, 2),
+                    )
+
+
+                controls_list.append(new_line)
 
         controls_list.append(ft.Container(height=10))
 
