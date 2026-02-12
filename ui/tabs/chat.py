@@ -404,24 +404,26 @@ class ReaperChatView(ft.Column):
                 self.br_input.current.disabled = False
                 self.br_input.current.update()
 
-    def remove_regen_button(self):
+    def remove_regen_button(self, perform_update=True):
         if self.br_chat_list.current and self.br_chat_list.current.controls:
             last_ctrl = self.br_chat_list.current.controls[-1]
 
             # Robust Check via Data Tag
             if getattr(last_ctrl, "data", "") == "regenerate_button":
                 self.br_chat_list.current.controls.pop()
-                self.br_chat_list.current.update()
+                if perform_update:
+                    self.br_chat_list.current.update()
                 return
 
             # Legacy Structural Check (fallback)
             if isinstance(last_ctrl, ft.Row) and last_ctrl.controls and isinstance(last_ctrl.controls[0], ft.IconButton):
                  if last_ctrl.controls[0].icon == ft.Icons.REFRESH:
                     self.br_chat_list.current.controls.pop()
-                    self.br_chat_list.current.update()
+                    if perform_update:
+                        self.br_chat_list.current.update()
 
     def regenerate_click(self, e):
-        self.remove_regen_button()
+        self.remove_regen_button(perform_update=False)
 
         # Prune History
         while self.br_chat_history and self.br_chat_history[-1]["role"] not in ("user", "system"):
@@ -475,7 +477,7 @@ class ReaperChatView(ft.Column):
 
         user_portrait_url = self.get_user_portrait_url()
 
-        self.remove_regen_button()
+        self.remove_regen_button(perform_update=False)
 
         if self.br_chat_list.current:
             self.br_chat_list.current.controls.append(self.parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
