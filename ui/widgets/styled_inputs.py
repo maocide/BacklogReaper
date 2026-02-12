@@ -32,6 +32,13 @@ class GrimoireButton(ft.FilledButton):
                 shape=ft.RoundedRectangleBorder(radius=5),
                 side=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE)
             )
+        elif style == styles.CARD_STYLE:
+            style = ft.ButtonStyle(
+                color=styles.COLOR_TEXT_GOLD,
+                bgcolor=styles.COLOR_TRANSLUCENT,
+                shape=ft.RoundedRectangleBorder(radius=5),
+                side=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE))
+
 
         # FilledButton in older versions might not support 'text' param directly if using 'content'
         # But 'text' usually maps to setting content=ft.Text(text)

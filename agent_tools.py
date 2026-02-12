@@ -60,7 +60,7 @@ If the user asks to "roast my library", "judge me" or your current PERSONA would
       CASUAL (a casual chilling)
       BROKE (a broke gamer),
       HARDCORE (games pile, monitor on top with pixelated skull)
-      ABANDONED (Tombstone and NES pad)
+      ROASTED (GAME-OVER Tombstone and NES pad)
       DEFAULT (dark card background)
    - `name`: A creative title (e.g., "The Pile of Shame", "Financial Ruin").
    - `comment`: A brutal, short roast of their spending habits.
@@ -507,6 +507,22 @@ tools_schema = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_game_news",
+            "description": "Get the latest official news, patch notes, and events for a game from Steam. Use this when the user asks 'What's new in X?' or 'Is there an event?'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {"type": "string"},
+                    "action_description": {"type": "string"}
+                },
+                "required": ["game_name", "action_description"],
+                "additionalProperties": False
+            }
+        }
+    },
 ]
 
 def get_friendly_status(func_name):
@@ -531,6 +547,8 @@ def get_friendly_status(func_name):
         "get_community_sentiment": "🔥 Scouring the internet for drama...",
         "web_search": "🌐 Searching the web...",
         "get_webpage": "📄 Reading webpage content...",
+        "get_game_news": "📰 Getting news...",
+
     }
 
     return mapping.get(func_name, f"⚙️ Executing {func_name}...")
@@ -683,6 +701,9 @@ def execute_tool(tool_request):
 
             tool_output_str = json.dumps(lean_results)
             system_hint = f"System Note: Found {len(lean_results)} games matching that vibe via vector search."
+        elif tool_name == "get_game_news":
+            tool_output_str = json.dumps(community_sentiment.get_game_news(clean_params.get('game_name')))
+            system_hint = "System Note: Official news retrieved."
 
     except Exception as e:
         print(sys.exc_info())

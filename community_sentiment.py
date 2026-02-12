@@ -3,6 +3,7 @@ import concurrent
 import concurrent.futures
 import difflib
 import json
+import re
 from datetime import datetime
 
 import requests
@@ -381,6 +382,59 @@ def get_community_sentiment(game_name: str) :
 
     return result
 
+
+@safe_tool
+def get_game_news(game_name: str, limit: int = 5):
+    """
+    Fetches the latest News and Events for a game directly from the Steam API.
+    Bypasses Age Gates and Login walls. Perfect for "What's happening in [Game]?"
+    """
+    # 1. Get AppID
+    app = game_intelligence.get_steam_app_info(game_name)
+    if not app:
+        return {"error": f"Game '{game_name}' not found."}
+
+    appid = app['id'][0]
+    print(f"Fetching News for {game_name} ({appid})...")
+
+    # 2. Call Steam News API
+    # params: count=5, maxlength=0 (get full text), feed='steam_community_announcements' (official posts only)
+    url = f"http://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid={appid}&count={limit}&maxlength=0&format=json"
+
+    try:
+        resp = requests.get(url, timeout=10)
+        data = resp.json()
+
+        news_items = data.get('appnews', {}).get('newsitems', [])
+
+        if not news_items:
+            return {"content": "No recent news found for this game."}
+
+        # 3. Format for Agent
+        formatted_news = []
+        for item in news_items:
+            # Clean up Steam's BBCode (simple strip)
+            # The API returns 'contents' with [b], [url], etc.
+            raw_text = item.get('contents', '')
+
+            # Basic cleanup (optional, but helps token usage)
+            # Remove [img] tags to save space
+            clean_text = re.sub(r'\[img\].*?\[/img\]', '', raw_text)
+
+            formatted_news.append({
+                "title": item.get('title'),
+                "date": datetime.fromtimestamp(item.get('date', 0)).strftime('%Y-%m-%d'),
+                "author": item.get('author'),
+                "url": item.get('url'),
+                "content": clean_text[:1500] + "..." if len(clean_text) > 1500 else clean_text
+            })
+
+        return {"news": formatted_news}
+
+    except Exception as e:
+        print(f"News API Error: {e}")
+        return {"error": str(e)}
+
 if __name__ == "__main__":
     #print(get_hltb_search_scrape("Akane"))
-    print(get_webpage('https://boards.4chan.org/v/catalog'))
+    print(get_game_news('akane'))

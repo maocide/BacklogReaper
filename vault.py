@@ -500,6 +500,8 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     if hltb_max == 0: hltb_max = None
     if min_review_score == 0: min_review_score = None
 
+
+
     # Fetch ALL games (It's 2000 rows, Python eats this for breakfast)
     # We fetch all because Python string processing is more robust than SQLite 'LIKE'
     all_games = get_all_games()
@@ -544,14 +546,15 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
 
         # PLAYTIME FILTER (in Minutes)
         pt = game['playtime_forever']
-        if min_playtime is not None and pt < min_playtime: continue
-        if max_playtime is not None and pt > max_playtime: continue
+        if min_playtime is not None and pt < min_playtime * 60: continue
+        if max_playtime is not None and pt > max_playtime * 60: continue
 
         # HLTB FILTER (Input is Hours, DB is Minutes)
         main_story = game['hltb_main'] or 0
         if hltb_max is not None:
-            if main_story == 0: continue  # Skip games with no data if searching by length
-            if main_story > hltb_max * 60: continue
+            # Skip 0 because 0 usually means "unknown," not "0 minutes long"
+            if main_story == 0 or main_story > hltb_max * 60:
+                continue
 
         # REVIEW SCORE FILTER
         if min_review_score is not None:
@@ -570,7 +573,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
 
     # Final Sorting
     if sort_by == 'shortest':
-        results.sort(key=lambda x: x['hltb_main'] if x['hltb_main'] > 0 else 999)
+        results.sort(key=lambda x: x['hltb_main'] if x['hltb_main'] > 0 else float('inf')) # Makes the unknown 0 data go at the bottom with Infinity
     elif sort_by == 'longest':
         results.sort(key=lambda x: x['hltb_main'], reverse=True)
     elif sort_by == 'name':
