@@ -42,12 +42,12 @@ class LibraryView(ft.Column):
                         sort_column_index=2, # Default sort by Playtime
                         sort_ascending=False,
                         columns=[
-                            ft.DataColumn(ft.Text("AppID", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
-                            ft.DataColumn(ft.Text("Name", color=styles.COLOR_TEXT_PRIMARY), on_sort=self.sort_table),
-                            ft.DataColumn(ft.Text("Playtime (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
-                            ft.DataColumn(ft.Text("Main Story (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
-                            ft.DataColumn(ft.Text("Completionist (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
-                            ft.DataColumn(ft.Text("Status", color=styles.COLOR_TEXT_PRIMARY), on_sort=self.sort_table),
+                            ft.DataColumn(label=ft.Text("AppID", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
+                            ft.DataColumn(label=ft.Text("Name", color=styles.COLOR_TEXT_PRIMARY), on_sort=self.sort_table, ),
+                            ft.DataColumn(label=ft.Text("Playtime (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
+                            ft.DataColumn(label=ft.Text("Main Story (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
+                            ft.DataColumn(label=ft.Text("Completionist (h)", color=styles.COLOR_TEXT_PRIMARY), numeric=True, on_sort=self.sort_table),
+                            ft.DataColumn(label=ft.Text("Status", color=styles.COLOR_TEXT_PRIMARY), on_sort=self.sort_table),
                         ],
                         rows=[],
                         vertical_lines=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE),
@@ -118,11 +118,11 @@ class LibraryView(ft.Column):
                 hltb_comp_hrs = round(hltb_comp / 60.0, 1) if hltb_comp > 0 else 0
 
                 cells = [
-                    ft.DataCell(ft.Text(str(game['appid']))),
-                    ft.DataCell(ft.Container(content=ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS), width=300), data=game['name']),
-                    ft.DataCell(ft.Text(f"{playtime_hrs} h"), data=playtime_hrs),
-                    ft.DataCell(ft.Text(str(hltb_main_hrs) if hltb_main_hrs > 0 else "-"), data=hltb_main_hrs),
-                    ft.DataCell(ft.Text(str(hltb_comp_hrs) if hltb_comp_hrs > 0 else "-"), data=hltb_comp_hrs),
+                    ft.DataCell(ft.Text(str(game['appid']), data=game['appid'])),
+                    ft.DataCell(ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS, width=300, data=game['name'])),
+                    ft.DataCell(ft.Text(f"{playtime_hrs} h", data=playtime_hrs)),
+                    ft.DataCell(ft.Text(str(hltb_main_hrs) if hltb_main_hrs > 0 else "-", data=hltb_main_hrs)),
+                    ft.DataCell(ft.Text(str(hltb_comp_hrs) if hltb_comp_hrs > 0 else "-", data=hltb_comp_hrs)),
                     ft.DataCell(ft.Text(status, color=get_status_color(status))),
                 ]
                 rows.append(ft.DataRow(cells=cells))
@@ -220,22 +220,19 @@ class LibraryView(ft.Column):
 
             rows = self.gf_table.current.rows
 
-            def get_cell_value(row, index):
-                content = row.cells[index].content
+            def get_cell_value(row):
+                # Get the control inside the cell
+                content = row.cells[col_index].content
+
+                # Return the 'data' property if it exists, otherwise fallback to text value
                 if hasattr(content, "data") and content.data is not None:
                     return content.data
-                if isinstance(content, ft.Text):
-                    val = content.value
-                    if index == 2:
-                        return float(val.replace(" h", "").replace(",", "")) if val.replace(" h", "").replace(",", "").replace(".", "").isdigit() else 0
-                    if index in [3, 4]:
-                        return float(val) if val != "-" and val.replace(".", "").isdigit() else -1
-                    return val.lower()
-                return ""
 
-            rows.sort(key=lambda x: get_cell_value(x, col_index), reverse=not ascending)
+                return getattr(content, "value", "").lower()
+
+            # Sort the rows using the extracted value
+            rows.sort(key=get_cell_value, reverse=not ascending)
 
             self.gf_table.current.update()
         except Exception as ex:
-             print(f"Sort Error: {ex}")
-             traceback.print_exc()
+            print(f"Sort Error: {ex}")
