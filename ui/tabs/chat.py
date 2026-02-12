@@ -373,7 +373,8 @@ class ReaperChatView(ft.Column):
                             icon_size=20,
                         )
                     ],
-                    alignment=ft.MainAxisAlignment.END
+                    alignment=ft.MainAxisAlignment.END,
+                    data="regenerate_button"
                 )
                 self.br_chat_list.current.controls.append(regen_btn)
 
@@ -406,6 +407,14 @@ class ReaperChatView(ft.Column):
     def remove_regen_button(self):
         if self.br_chat_list.current and self.br_chat_list.current.controls:
             last_ctrl = self.br_chat_list.current.controls[-1]
+
+            # Robust Check via Data Tag
+            if getattr(last_ctrl, "data", "") == "regenerate_button":
+                self.br_chat_list.current.controls.pop()
+                self.br_chat_list.current.update()
+                return
+
+            # Legacy Structural Check (fallback)
             if isinstance(last_ctrl, ft.Row) and last_ctrl.controls and isinstance(last_ctrl.controls[0], ft.IconButton):
                  if last_ctrl.controls[0].icon == ft.Icons.REFRESH:
                     self.br_chat_list.current.controls.pop()
@@ -422,10 +431,17 @@ class ReaperChatView(ft.Column):
         if self.br_chat_list.current:
             while self.br_chat_list.current.controls:
                 last_ctrl = self.br_chat_list.current.controls[-1]
-                # Check if it's a User Message (tagged via data property of ReaperChatBubble)
-                # ReaperChatBubble uses self.data
-                if getattr(last_ctrl, "data", None) == "user_message":
+
+                # Robust Check for User Message
+                is_user_message = False
+                if isinstance(last_ctrl, ReaperChatBubble) and getattr(last_ctrl, "is_user", False):
+                    is_user_message = True
+                elif getattr(last_ctrl, "data", None) == "user_message":
+                    is_user_message = True
+
+                if is_user_message:
                     break
+
                 self.br_chat_list.current.controls.pop()
 
             self.br_chat_list.current.update()
