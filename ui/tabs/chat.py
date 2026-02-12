@@ -213,7 +213,7 @@ class ReaperChatView(ft.Column):
             await asyncio.sleep(delay_ms / 1000)
         if self.br_chat_list.current:
             try:
-                await self.br_chat_list.current.scroll_to(offset=float('inf'), duration=duration)
+                await self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
             except Exception:
                 pass
 
