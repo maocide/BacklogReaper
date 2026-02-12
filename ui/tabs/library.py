@@ -119,7 +119,7 @@ class LibraryView(ft.Column):
 
                 cells = [
                     ft.DataCell(ft.Text(str(game['appid']))),
-                    ft.DataCell(ft.Container(content=ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS), width=300)),
+                    ft.DataCell(ft.Container(content=ft.Text(game['name'], overflow=ft.TextOverflow.ELLIPSIS), width=300), data=game['name']),
                     ft.DataCell(ft.Text(f"{playtime_hrs} h"), data=playtime_hrs),
                     ft.DataCell(ft.Text(str(hltb_main_hrs) if hltb_main_hrs > 0 else "-"), data=hltb_main_hrs),
                     ft.DataCell(ft.Text(str(hltb_comp_hrs) if hltb_comp_hrs > 0 else "-"), data=hltb_comp_hrs),

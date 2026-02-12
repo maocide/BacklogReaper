@@ -337,7 +337,7 @@ def scrape_4chan_thread_with_ai(search: str) -> dict:
 def get_community_sentiment(game_name: str) :
     app = game_intelligence.get_steam_app_info(game_name)
 
-    appid = app['id'][0]
+    appid = app['id'][0] if app and 'id' in app else None
 
     tasks = {
         "4chan": (scrape_4chan_thread_with_ai, game_name),

@@ -176,6 +176,9 @@ def get_similar_games(game_name):
     """
     # get app info from api
     app = get_steam_app_info(game_name)
+    if not app:
+        return []
+
     target_appid = app["id"][0]
 
     # cookies to not get blocked by age gate
@@ -836,6 +839,8 @@ def get_steam_app_discount(game_name:str):
     steam = Steam(settings.STEAM_API_KEY)
 
     app = steam.apps.search_games(game_name, fetch_discounts = True)
+    if not app or not app.get("apps"):
+        return 0
     return app["apps"][0].get('discount')
 
 @safe_tool
