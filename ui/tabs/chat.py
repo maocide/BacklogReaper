@@ -213,7 +213,7 @@ class ReaperChatView(ft.Column):
             await asyncio.sleep(delay_ms / 1000)
         if self.br_chat_list.current:
             try:
-                await self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
+                await self.br_chat_list.current.scroll_to(offset=float('inf'), duration=duration)
             except Exception:
                 pass
 
@@ -451,7 +451,7 @@ class ReaperChatView(ft.Column):
             # Reset Scroll State to ensure auto-scroll works on next token
             self.current_scroll_offset = 0
             self.max_scroll_extent = 0
-            self.scroll_chat_to_bottom(forced=True, duration=0)
+            self.scroll_chat_to_bottom(forced=True, duration=0, delay_ms=50)
 
         # Disable Inputs
         self.br_input.current.disabled = True
