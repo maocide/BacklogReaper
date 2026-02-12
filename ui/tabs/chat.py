@@ -436,6 +436,12 @@ class ReaperChatView(ft.Column):
         if not user_message:
             return
 
+        self.br_input.current.value = ""
+        self.br_input.current.disabled = True
+        self.br_btn_send.current.disabled = True
+        self.br_input.current.update()
+        self.br_btn_send.current.update()
+
         user_portrait_url = self.get_user_portrait_url()
 
         self.remove_regen_button()
@@ -444,13 +450,6 @@ class ReaperChatView(ft.Column):
             self.br_chat_list.current.controls.append(self.parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
             self.br_chat_list.current.update()
             self.scroll_chat_to_bottom(delay_ms=200)
-
-        self.br_input.current.value = ""
-        self.br_input.current.disabled = True
-        self.br_btn_send.current.disabled = True
-
-        self.br_input.current.update()
-        self.br_btn_send.current.update()
 
         self.stop_event_br.clear()
 

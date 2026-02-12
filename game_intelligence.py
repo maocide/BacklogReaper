@@ -177,7 +177,7 @@ def get_similar_games(game_name):
     # get app info from api
     app = get_steam_app_info(game_name)
     if not app:
-        return []
+        return {"error": f"Game '{game_name}' not found on Steam."}
 
     target_appid = app["id"][0]
 
@@ -840,7 +840,7 @@ def get_steam_app_discount(game_name:str):
 
     app = steam.apps.search_games(game_name, fetch_discounts = True)
     if not app or not app.get("apps"):
-        return 0
+        return {"error": f"Game '{game_name}' not found on Steam."}
     return app["apps"][0].get('discount')
 
 @safe_tool
