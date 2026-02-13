@@ -1,7 +1,7 @@
 # --- THE NECROMANCER PALETTE ---
 # Backgrounds
 COLOR_BACKGROUND = "#050505"  # Main App Background (The Void)
-COLOR_TRANSLUCENT = "#11111111" # Gold cursor
+COLOR_TRANSLUCENT = "#11111111" # Translucent BG, for transparent buttons/controls
 COLOR_SURFACE    = "#111111"  # Sidebar, Cards, Input Fields (Dark Stone)
 COLOR_BUBBLE_USER= "#212121"  # User Chat Bubbles
 

@@ -32,7 +32,7 @@ class ReaperChatView(ft.Column):
 
         self.current_scroll_offset = 0
         self.max_scroll_extent = 0
-        self.scroll_buffer = 35
+        self.scroll_buffer = 50
 
 
         # State for streaming
@@ -228,6 +228,7 @@ class ReaperChatView(ft.Column):
                     # Use page.run_task to schedule the coroutine/async method correctly
                     self.page.run_task(self._scroll_task, duration, delay_ms)
                 except Exception:
+                    print("Error scrolling chat to bottom.")
                     pass
 
     def start_chat_thread(self, user_message):
@@ -329,6 +330,7 @@ class ReaperChatView(ft.Column):
                 self.br_chat_list.current.update()
                 self.scroll_chat_to_bottom(duration=50)
             except RuntimeError:
+                print("ERROR in action")
                 pass
 
             state["previous_was_tool"] = True

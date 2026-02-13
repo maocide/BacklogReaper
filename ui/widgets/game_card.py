@@ -22,10 +22,8 @@ class GameCard(ft.Card):
         appid = game_data.get("appid")
 
         is_roast = (appid == "ROAST" or not appid)
-        bg_image = None
-        bg_opacity = 0.30
         card_width = 240
-        card_height = 340 if not is_roast else None
+        card_height = 340
         tint_color = ft.Colors.TRANSPARENT
 
         # DYNAMIC BACKGROUND LOGIC
@@ -81,10 +79,11 @@ class GameCard(ft.Card):
             elif title == "comment":
                 row = ft.Row(
                     controls=[
-                        ft.Text(str(content), italic=True, size=12, font_family=styles.FONT_MONO, color=styles.COLOR_BORDER_BRONZE),
+                        ft.Text(str(content), italic=True, size=12, text_align=ft.TextAlign.CENTER, font_family=styles.FONT_MONO, color=styles.COLOR_BORDER_BRONZE),
                     ],
                     margin=ft.Margin(5, 0, 5, 0),
                     wrap=True  # Allow comments to wrap to next line if long
+
                 )
                 controls_list.append(row)
 
@@ -162,6 +161,7 @@ class GameCard(ft.Card):
                             "Save it",
                             icon=ft.Icons.SAVE,
                             height=30,
+                            style=styles.CARD_STYLE,
                             # Capture appid safely in lambda
                             on_click=lambda e, a=appid: launch_game(a)
                         )
@@ -192,27 +192,25 @@ class GameCard(ft.Card):
         stack_controls = []
 
         # LAYER A: Background Image (Positioned to Fill)
-        if bg_image:
-            stack_controls.append(
-                ft.Container(
-                    content=ft.Image(
-                        src=bg_image,
-                        fit=ft.BoxFit.COVER,
-                        repeat=ft.ImageRepeat.NO_REPEAT,
-                    ),
-                    # Absolute positioning forces this layer to stretch to match the Stack's size
-                    left=0, right=0, top=0, bottom=0,
-                )
+        stack_controls.append(
+            ft.Container(
+                content=ft.Image(
+                    src=bg_image,
+                    fit=ft.BoxFit.COVER,
+                    repeat=ft.ImageRepeat.NO_REPEAT,
+                ),
+                # Absolute positioning forces this layer to stretch to match the Stack's size
+                left=0, right=0, top=0, bottom=0,
             )
+        )
 
-        gradient_layer = None
         if not is_roast:
             gradient_layer = ft.Container(
                 gradient=ft.LinearGradient(
-                    begin=ft.Alignment.TOP_CENTER,
-                    end=ft.Alignment.BOTTOM_CENTER,
-                    colors=[ft.Colors.TRANSPARENT, styles.COLOR_SURFACE],
-                    stops=[0.2, 0.9]
+                    begin=ft.Alignment.CENTER_LEFT,
+                    end=ft.Alignment.CENTER_RIGHT,
+                    colors=[ft.Colors.TRANSPARENT, "#00000066", "#00000066", ft.Colors.TRANSPARENT],
+                    stops=[0.1, 0.3, 0.7, 0.9]
                 ),
             )
         else:
@@ -221,39 +219,72 @@ class GameCard(ft.Card):
                 gradient=ft.RadialGradient(
                     center=ft.Alignment(0, 0),
                     radius=1.2,  # Slightly larger radius for variable height
-                    colors=[styles.COLOR_SURFACE, ft.Colors.with_opacity(0.4, styles.COLOR_ERROR)],
+                    colors=[styles.COLOR_SURFACE, ft.Colors.with_opacity(0.4, styles.COLOR_SURFACE)],
                 ),
             )
 
-        if gradient_layer:
-            # Add positioning to force stretch
-            gradient_layer.left = 0
-            gradient_layer.right = 0
-            gradient_layer.top = 0
-            gradient_layer.bottom = 0
-            stack_controls.append(gradient_layer)
+        # Add positioning to force stretch
+        gradient_layer.left = 0
+        gradient_layer.right = 0
+        gradient_layer.top = 0
+        gradient_layer.bottom = 0
+        stack_controls.append(gradient_layer)
 
-        # LAYER C: Content (The Driver)
-        # This is the ONLY non-positioned element. The Stack will resize to fit THIS.
+        
+        # CONTENT
         stack_controls.append(
             ft.Container(
                 padding=15,
                 content=ft.Column(controls_list, spacing=4),
-                # If fixed height (Game Card), force it here.
-                # If dynamic (Roast), let it be.
-                height=card_height if not is_roast else None
             )
         )
+        
+        # Enforce minimum size, invisible control
+        stack_controls.append(
+            ft.Container(
+                width=card_width,
+                height=card_height,
+            )
+        )
+
+        # Shadow
+        shadow = ft.BoxShadow(
+                spread_radius=1,
+                blur_radius=12,
+                color=ft.Colors.with_opacity(0.5, styles.COLOR_SYSTEM_LOG),  # My shadow
+                offset=ft.Offset(2, 5),
+            )
+        # if is_roast:
+        #     # "Burning Shame" Glow
+        #     shadow = ft.BoxShadow(
+        #         spread_radius=0,
+        #         blur_radius=15,
+        #         color=ft.Colors.with_opacity(0.15, styles.COLOR_ERROR),  # Subtle Red/Orange glow
+        #         offset=ft.Offset(0, 0),
+        #         blur_style=ft.BoxShadow.blur_style.OUTER
+        #     )
+        # else:
+        #     # "Levitating Object" Shadow
+        #     shadow = ft.BoxShadow(
+        #         spread_radius=-5,  # Negative spread makes it look like it's floating
+        #         blur_radius=20,
+        #         color=ft.Colors.BLACK,
+        #         offset=ft.Offset(0, 10)
+        #     )
+
+
 
         return ft.Container(
             width=card_width,
             height=card_height,  # Enforce outer constraint for Game Cards
-            bgcolor=styles.COLOR_SURFACE,
+            bgcolor=tint_color,
             border_radius=12,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
             content=ft.Stack(
                 controls=stack_controls,
                 # For Roast cards, ensure the stack expands to fill the container width
                 width=card_width
-            )
+            ),
+            #border = ft.border.all(1, ft.Colors.with_opacity(0.5, styles.COLOR_BORDER_BRONZE)),  # Subtle rim light
+            shadow = shadow,
         )

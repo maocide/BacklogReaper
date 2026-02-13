@@ -20,6 +20,12 @@ class ReaperChatBubble(ft.Container):
         # THEME CONFIGURATION
         # Reaper Style
         reaper_bg = styles.COLOR_BACKGROUND
+        reaper_gradient = ft.LinearGradient(
+                    begin=ft.Alignment.TOP_CENTER,
+                    end=ft.Alignment.BOTTOM_CENTER,
+                    colors=[ft.Colors.with_opacity(0.22, styles.COLOR_SYSTEM_LOG), ft.Colors.with_opacity(0.08, styles.COLOR_SYSTEM_LOG)],
+                    stops=[0.2, 1]
+                )
         reaper_name_color = styles.COLOR_TEXT_GOLD
         reaper_border_color = styles.COLOR_BORDER_BRONZE
         reaper_border = ft.border.all(width=1, color=reaper_border_color) # Muted Bronze
@@ -40,6 +46,7 @@ class ReaperChatBubble(ft.Container):
 
         # Select styles based on sender
         bubble_color = user_bg if self.is_user else reaper_bg
+        bubble_gradient = reaper_gradient if not self.is_user else None
         bubble_border = user_border if self.is_user else reaper_border
         bubble_shadow = user_shadow if self.is_user else reaper_shadow
 
@@ -130,6 +137,7 @@ class ReaperChatBubble(ft.Container):
         message_container = ft.Container(
             content=ft.Column(bubble_interior, spacing=5, tight=True),
             bgcolor=bubble_color,
+            gradient=bubble_gradient,
             border=bubble_border,
             border_radius=ft.border_radius.only(
                 top_left=0 if not self.is_user else 12,
