@@ -79,7 +79,7 @@ class GameCard(ft.Card):
             elif title == "comment":
                 row = ft.Row(
                     controls=[
-                        ft.Text(str(content), italic=True, size=12, text_align=ft.TextAlign.CENTER, font_family=styles.FONT_MONO, color=styles.COLOR_BORDER_BRONZE),
+                        ft.Text(str(content), italic=True, size=12, text_align=ft.TextAlign.LEFT, font_family=styles.FONT_MONO, weight=ft.FontWeight.BOLD, color=styles.COLOR_BORDER_BRONZE),
                     ],
                     margin=ft.Margin(5, 0, 5, 0),
                     wrap=True  # Allow comments to wrap to next line if long
@@ -120,15 +120,14 @@ class GameCard(ft.Card):
                 else: # game card
                     new_line = ft.Row(
                         controls=[
-                            # Label (Fixed width based on text)
                             ft.Text(
                                 f"{formatted_label}:",
                                 font_family=styles.FONT_MONO,
                                 color=styles.COLOR_TEXT_SECONDARY,
                                 weight=ft.FontWeight.BOLD,
-                                size=13
+                                size=13,
+                                no_wrap=False
                             ),
-                            # Value (Flexible width)
                             ft.Container(
                                 content=ft.Text(
                                     str(content),
@@ -137,7 +136,8 @@ class GameCard(ft.Card):
                                     size=13,
                                     text_align=ft.TextAlign.RIGHT,  # Align text to the right
                                     weight=ft.FontWeight.BOLD,
-                                    selectable=True
+                                    selectable=True,
+                                    no_wrap = False
                                 ),
                                 expand=True, # forces the container to fill space
                             ),
@@ -196,6 +196,7 @@ class GameCard(ft.Card):
             ft.Container(
                 content=ft.Image(
                     src=bg_image,
+                    error_content=ft.Image(src=get_roast_asset("DEFAULT"),fit=ft.BoxFit.COVER,repeat=ft.ImageRepeat.NO_REPEAT), # FALLBACK
                     fit=ft.BoxFit.COVER,
                     repeat=ft.ImageRepeat.NO_REPEAT,
                 ),
@@ -207,10 +208,15 @@ class GameCard(ft.Card):
         if not is_roast:
             gradient_layer = ft.Container(
                 gradient=ft.LinearGradient(
-                    begin=ft.Alignment.CENTER_LEFT,
-                    end=ft.Alignment.CENTER_RIGHT,
-                    colors=[ft.Colors.TRANSPARENT, "#00000066", "#00000066", ft.Colors.TRANSPARENT],
-                    stops=[0.1, 0.3, 0.7, 0.9]
+                    begin=ft.Alignment.TOP_CENTER,
+                    end=ft.Alignment.BOTTOM_CENTER,
+                    colors=[
+                        ft.Colors.TRANSPARENT,
+                        ft.Colors.with_opacity(0.7, styles.COLOR_SURFACE),
+                        ft.Colors.with_opacity(0.7, styles.COLOR_SURFACE),
+                        styles.COLOR_SURFACE  # Solid Dark at very bottom
+                    ],
+                    stops=[0, 0.20, 0.8, 1.0]  # Starts fading halfway down
                 ),
             )
         else:
@@ -249,11 +255,11 @@ class GameCard(ft.Card):
 
         # Shadow
         shadow = ft.BoxShadow(
-                spread_radius=1,
-                blur_radius=12,
-                color=ft.Colors.with_opacity(0.5, styles.COLOR_SYSTEM_LOG),  # My shadow
-                offset=ft.Offset(2, 5),
-            )
+            blur_radius=10,
+            spread_radius=1,
+            color=ft.Colors.with_opacity(0.80, styles.COLOR_SURFACE),
+            offset=ft.Offset(0, 0)
+        )
         # if is_roast:
         #     # "Burning Shame" Glow
         #     shadow = ft.BoxShadow(

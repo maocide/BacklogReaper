@@ -3,6 +3,8 @@ import json
 import threading
 import traceback
 import uuid
+from time import sleep
+
 import flet as ft
 
 import agent
@@ -394,21 +396,25 @@ class ReaperChatView(ft.Column):
                 avatar_path = character_manager.get_character_image(current_char)
 
                 # Robust Removal Logic
-                removed = False
                 was_reasoning_expanded = False
 
+                attempt = 0
                 if self.current_streaming_bubble:
                     try:
+                        self.br_chat_list.current.update() # Force an update for consistence
+
                         # Capture state before removal
                         was_reasoning_expanded = getattr(self.current_streaming_bubble, "reasoning_expanded", False)
 
-                        # Find the index of the streaming bubble
-                        index = self.br_chat_list.current.controls.index(self.current_streaming_bubble)
-                        self.br_chat_list.current.controls.pop(index)
-                        removed = True
+                        while attempt < 2: #Ugly but a double message persists
+                            sleep(0.08)
+                            attempt += 1
+                            # Find the index of the streaming bubble
+                            index = self.br_chat_list.current.controls.index(self.current_streaming_bubble)
+                            self.br_chat_list.current.controls.pop(index)
                     except ValueError:
                         # Not found in list (weird, maybe cleared?)
-                        print("Streaming bubble not found in controls list.")
+                        print(f"Streaming bubble not found in controls list. Attempt {attempt}")
                         pass
 
                 # Create Final Message with Preserved State
@@ -438,7 +444,7 @@ class ReaperChatView(ft.Column):
                 self.br_chat_list.current.controls.append(regen_btn)
 
                 self.br_chat_list.current.update()
-                self.scroll_chat_to_bottom(delay_ms=50)
+                self.scroll_chat_to_bottom(delay_ms=100)
 
             # Clear reference
             self.current_streaming_bubble = None

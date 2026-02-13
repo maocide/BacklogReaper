@@ -381,5 +381,5 @@ def get_hltb_search_scrape(game_name):
         return []
 
 if __name__ == "__main__":
-    print(get_hltb_search_scrape("Akane"))
-    print(get_hltb_data("Akane"))
+    print(get_hltb_search_scrape("KILL KNIGHT"))
+    print(get_hltb_data("KILL KNIGHT"))

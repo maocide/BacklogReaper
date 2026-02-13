@@ -14,8 +14,8 @@ import steamspypi
 from bs4 import BeautifulSoup
 import vault
 import vibe_engine
-from ai_tools import aiCall, clean_json_for_ai
-from vault import get_store_data, calculate_status
+from ai_tools import clean_json_for_ai
+from vault import calculate_status
 import concurrent.futures
 from datetime import datetime
 from steam_web_api import Steam
@@ -1285,5 +1285,6 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 
 
 if __name__ == "__main__":
-    # Here for tests
-    print(get_reviews_byname(game_name="Akane"))
+    print(get_batch_game_details(game_names=["KILL KNIGHT"]))
+    #print(get_reviews_byname(game_name="Akane"))
+

@@ -21,12 +21,21 @@ class ReaperChatBubble(ft.Container):
         # THEME CONFIGURATION
         # Reaper Style
         reaper_bg = styles.COLOR_BACKGROUND
-        reaper_gradient = ft.LinearGradient(
-                    begin=ft.Alignment.TOP_CENTER,
-                    end=ft.Alignment.BOTTOM_CENTER,
-                    colors=[ft.Colors.with_opacity(0.22, styles.COLOR_SYSTEM_LOG), ft.Colors.with_opacity(0.08, styles.COLOR_SYSTEM_LOG)],
-                    stops=[0.2, 1]
-                )
+        # reaper_gradient = ft.LinearGradient(
+        #             begin=ft.Alignment.CENTER_LEFT,
+        #             end=ft.Alignment.CENTER_RIGHT,
+        #             colors=[ft.Colors.with_opacity(0.22, styles.COLOR_SYSTEM_LOG), ft.Colors.with_opacity(0.08, styles.COLOR_SYSTEM_LOG)],
+        #             stops=[0.2, 1]
+        #         )
+        reaper_gradient = ft.RadialGradient(
+            center=ft.Alignment(-1.0, -1.0), # Top Left Corner
+            radius=2, # Large radius to cover long text
+            colors=[
+                ft.Colors.with_opacity(0.25, styles.COLOR_SYSTEM_LOG),
+                ft.Colors.with_opacity(0.08, styles.COLOR_SYSTEM_LOG),
+            ],
+            stops=[0.2, 1.0]
+        )
         reaper_name_color = styles.COLOR_TEXT_GOLD
         reaper_border_color = styles.COLOR_BORDER_BRONZE
         reaper_border = ft.border.all(width=1, color=reaper_border_color) # Muted Bronze
