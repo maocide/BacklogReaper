@@ -3,7 +3,6 @@ import json
 import threading
 import traceback
 import uuid
-from time import sleep
 
 import flet as ft
 
@@ -281,6 +280,15 @@ class ReaperChatView(ft.Column):
         state = self.stream_state
 
         if msg_type == "init":
+            # Clean up any existing streaming bubble to prevent duplicates
+            if self.current_streaming_bubble:
+                try:
+                    if self.br_chat_list.current and self.current_streaming_bubble in self.br_chat_list.current.controls:
+                        self.br_chat_list.current.controls.remove(self.current_streaming_bubble)
+                except Exception:
+                    pass
+                self.current_streaming_bubble = None
+
             state["status_text"] = ft.Text("Initializing...", italic=True, size=12, color=ft.Colors.GREY_500)
             state["agent_markdown"] = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)
             state["reasoning_view"] = ft.Markdown("", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, visible=False, selectable=True)
@@ -387,35 +395,31 @@ class ReaperChatView(ft.Column):
             state["first_text"] = False
 
         elif msg_type == "finish":
+            # Check if already processed to prevent double execution
+            if not self.current_streaming_bubble:
+                return
+
             final_text = state["agent_markdown"].value
             final_reasoning = state["reasoning_buffer"]
+
+            # Capture reference locally and clear global reference immediately (idempotency)
+            bubble_to_remove = self.current_streaming_bubble
+            self.current_streaming_bubble = None
 
             if self.br_chat_list.current:
                 current_settings = settings.load_settings()
                 current_char = current_settings.get("CHARACTER", "Reaper")
                 avatar_path = character_manager.get_character_image(current_char)
 
-                # Robust Removal Logic
-                was_reasoning_expanded = False
+                # Capture state before removal
+                was_reasoning_expanded = getattr(bubble_to_remove, "reasoning_expanded", False)
 
-                attempt = 0
-                if self.current_streaming_bubble:
-                    try:
-                        self.br_chat_list.current.update() # Force an update for consistence
-
-                        # Capture state before removal
-                        was_reasoning_expanded = getattr(self.current_streaming_bubble, "reasoning_expanded", False)
-
-                        while attempt < 2: #Ugly but a double message persists
-                            sleep(0.08)
-                            attempt += 1
-                            # Find the index of the streaming bubble
-                            index = self.br_chat_list.current.controls.index(self.current_streaming_bubble)
-                            self.br_chat_list.current.controls.pop(index)
-                    except ValueError:
-                        # Not found in list (weird, maybe cleared?)
-                        print(f"Streaming bubble not found in controls list. Attempt {attempt}")
-                        pass
+                # Remove the streaming bubble safely
+                try:
+                    if bubble_to_remove in self.br_chat_list.current.controls:
+                        self.br_chat_list.current.controls.remove(bubble_to_remove)
+                except ValueError:
+                    pass
 
                 # Create Final Message with Preserved State
                 final_msg_control = self.parse_and_render_message(
@@ -445,9 +449,6 @@ class ReaperChatView(ft.Column):
 
                 self.br_chat_list.current.update()
                 self.scroll_chat_to_bottom(delay_ms=100)
-
-            # Clear reference
-            self.current_streaming_bubble = None
 
             if self.br_status.current:
                 self.br_status.current.value = "Ready"
