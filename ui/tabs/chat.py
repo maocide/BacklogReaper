@@ -2,6 +2,7 @@ import time
 import json
 import threading
 import traceback
+import uuid
 import flet as ft
 
 import agent
@@ -27,7 +28,11 @@ class ReaperChatView(ft.Column):
         self.br_status = ft.Ref[ft.Text]()
         self.br_btn_send = ft.Ref[ft.IconButton]()
 
-        self.stop_event_br = threading.Event()
+        # Robust Threading
+        self.current_run_id = None
+        self.current_stop_event = None
+        self.current_streaming_bubble = None  # Track the active streaming bubble control
+
         self.user_portrait_url = None
 
         self.current_scroll_offset = 0
@@ -178,34 +183,34 @@ class ReaperChatView(ft.Column):
             avatar_src=avatar_path
         )
 
-    def run_backlog_reaping_thread(self, user_message):
+    def run_backlog_reaping_thread(self, user_message, run_id, stop_event):
         try:
-            if self.stop_event_br.is_set(): return
+            if stop_event.is_set(): return
 
             # Update db if not done for 20 mins
             if vault.get_games_count() and vault.get_elapsed_since_update() > 1200:
                 self.update_data_sources()
 
             # Signal initialization
-            self.page.pubsub.send_all({"type": "init"})
+            self.page.pubsub.send_all({"type": "init", "run_id": run_id})
 
             # CONSUME THE STREAM
             stream = agent.agent_chat_loop_stream(user_message, self.br_chat_history)
 
             for event_type, content in stream:
-                if self.stop_event_br.is_set(): break
+                if stop_event.is_set(): break
                 time.sleep(0.02) # Small yield
-                self.page.pubsub.send_all({"type": event_type, "content": content})
+                self.page.pubsub.send_all({"type": event_type, "content": content, "run_id": run_id})
 
             # Final Cleanup
-            if not self.stop_event_br.is_set():
-                self.page.pubsub.send_all({"type": "finish"})
+            if not stop_event.is_set():
+                self.page.pubsub.send_all({"type": "finish", "run_id": run_id})
 
         except Exception as e:
             traceback.print_exc()
-            self.page.pubsub.send_all({"type": "error", "content": str(e)})
+            self.page.pubsub.send_all({"type": "error", "content": str(e), "run_id": run_id})
         finally:
-            self.page.pubsub.send_all({"type": "cleanup"})
+            self.page.pubsub.send_all({"type": "cleanup", "run_id": run_id})
 
     async def _scroll_task(self, duration, delay_ms):
         if delay_ms > 0:
@@ -232,6 +237,17 @@ class ReaperChatView(ft.Column):
                     pass
 
     def start_chat_thread(self, user_message):
+        # Stop previous thread cleanly
+        if self.current_stop_event:
+            self.current_stop_event.set()
+
+        # Create new ID and Event
+        new_run_id = str(uuid.uuid4())
+        self.current_run_id = new_run_id
+
+        new_stop_event = threading.Event()
+        self.current_stop_event = new_stop_event
+
         # Reset state
         self.stream_state = {
             "status_text": None,
@@ -242,14 +258,21 @@ class ReaperChatView(ft.Column):
             "first_text": True,
             "reasoning_container_ref": None
         }
+        self.current_streaming_bubble = None
 
         # Start thread
         if hasattr(self.page, 'run_thread'):
-             self.page.run_thread(self.run_backlog_reaping_thread, user_message)
+             self.page.run_thread(self.run_backlog_reaping_thread, user_message, new_run_id, new_stop_event)
         else:
-             threading.Thread(target=self.run_backlog_reaping_thread, args=(user_message,), daemon=True).start()
+             threading.Thread(target=self.run_backlog_reaping_thread, args=(user_message, new_run_id, new_stop_event), daemon=True).start()
 
     def on_message(self, message):
+        msg_run_id = message.get("run_id")
+
+        # Guard: Ignore messages from old/zombie threads
+        if msg_run_id != self.current_run_id:
+            return
+
         msg_type = message.get("type")
         content = message.get("content")
         state = self.stream_state
@@ -281,6 +304,9 @@ class ReaperChatView(ft.Column):
                 reasoning_visible=False,
                 avatar_src=avatar_path
             )
+
+            # Store reference to the streaming bubble for later removal
+            self.current_streaming_bubble = full_message_block
 
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(full_message_block)
@@ -323,7 +349,18 @@ class ReaperChatView(ft.Column):
                     padding=ft.Padding.symmetric(vertical=5),
                 )
 
+                # Insert action BEFORE the streaming bubble (if possible) or just append?
+                # Usually actions come before the final text.
+                # Since we are streaming text into the bubble, if we append action to chat list,
+                # it will appear AFTER the bubble if we are not careful.
+                # But here we are inserting into chat list.
+                # Ideally, actions should be part of the bubble or separate.
+                # The current logic inserts it at `len(controls) - 1`.
+                # If the last control IS the streaming bubble, this inserts BEFORE it.
+                # This seems correct: Action 1, Action 2, Streaming Bubble.
+
                 position = len(self.br_chat_list.current.controls) - 1
+                if position < 0: position = 0
                 self.br_chat_list.current.controls.insert(position, action_display)
 
             try:
@@ -361,8 +398,27 @@ class ReaperChatView(ft.Column):
                 current_char = current_settings.get("CHARACTER", "Reaper")
                 avatar_path = character_manager.get_character_image(current_char)
 
-                self.br_chat_list.current.controls.pop()
-                self.br_chat_list.current.controls.append(self.parse_and_render_message(final_text, is_user=False, reasoning_text=final_reasoning, avatar_path=avatar_path))
+                # Robust Removal Logic
+                removed = False
+                if self.current_streaming_bubble:
+                    try:
+                        # Find the index of the streaming bubble
+                        index = self.br_chat_list.current.controls.index(self.current_streaming_bubble)
+                        self.br_chat_list.current.controls.pop(index)
+                        removed = True
+                    except ValueError:
+                        # Not found in list (weird, maybe cleared?)
+                        print("Streaming bubble not found in controls list.")
+                        pass
+
+                # Fallback if specific bubble not found: pop last item if it looks like a bubble?
+                # But safer to just append if we couldn't find the specific one.
+                # If we didn't remove, we might have a duplicate "thinking" bubble.
+                # But since we use run_id, we shouldn't have conflicts.
+
+                # Create Final Message
+                final_msg_control = self.parse_and_render_message(final_text, is_user=False, reasoning_text=final_reasoning, avatar_path=avatar_path)
+                self.br_chat_list.current.controls.append(final_msg_control)
 
                 # Add Regenerate Button
                 regen_btn = ft.Row(
@@ -382,6 +438,9 @@ class ReaperChatView(ft.Column):
 
                 self.br_chat_list.current.update()
                 self.scroll_chat_to_bottom(delay_ms=50)
+
+            # Clear reference
+            self.current_streaming_bubble = None
 
             if self.br_status.current:
                 self.br_status.current.value = "Ready"
@@ -468,7 +527,7 @@ class ReaperChatView(ft.Column):
                  user_message = last_msg["content"]
                  self.br_chat_history.pop()
 
-                 self.stop_event_br.clear()
+                 # Note: self.start_chat_thread manages stopping the old thread now.
                  self.start_chat_thread(user_message)
 
     def send_message(self, e):
@@ -491,6 +550,5 @@ class ReaperChatView(ft.Column):
             self.br_chat_list.current.update()
             self.scroll_chat_to_bottom(delay_ms=200)
 
-        self.stop_event_br.clear()
-
+        # start_chat_thread handles stop_event logic now
         self.start_chat_thread(user_message)
