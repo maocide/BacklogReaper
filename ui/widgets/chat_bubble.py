@@ -113,7 +113,7 @@ class ReaperChatBubble(ft.Container):
                     ],
                     collapsed_icon_color=reaper_name_color,
                     icon_color=reaper_border_color,
-                    initially_expanded=self.reasoning_expanded,
+                    expanded=self.reasoning_expanded,
                     on_change=self.on_reasoning_change
                 ),
                 visible=self.reasoning_visible,
