@@ -126,7 +126,7 @@ class ReaperChatView(ft.Column):
             self.user_portrait_url = game_intelligence.get_steam_avatar(settings.STEAM_USER)
         return self.user_portrait_url
 
-    def parse_and_render_message(self, text, is_user, reasoning_text=None, avatar_path=None):
+    def parse_and_render_message(self, text, is_user, reasoning_text=None, avatar_path=None, reasoning_expanded=False):
         controls = []
 
         # If it's a user message or no JSON, just render markdown
@@ -180,7 +180,8 @@ class ReaperChatView(ft.Column):
             is_user=is_user,
             reasoning_control=reasoning_control,
             reasoning_title="Dark Machinations...",
-            avatar_src=avatar_path
+            avatar_src=avatar_path,
+            reasoning_expanded=reasoning_expanded
         )
 
     def run_backlog_reaping_thread(self, user_message, run_id, stop_event):
@@ -302,7 +303,11 @@ class ReaperChatView(ft.Column):
                 reasoning_title="Consulting the Void...",
                 reasoning_ref=reasoning_ref,
                 reasoning_visible=False,
-                avatar_src=avatar_path
+                avatar_src=avatar_path,
+                # Default to expanded if desired, or let it be False.
+                # When initializing, it's probably collapsed or we can force it.
+                # Let's say it starts collapsed (False).
+                reasoning_expanded=False
             )
 
             # Store reference to the streaming bubble for later removal
@@ -349,16 +354,6 @@ class ReaperChatView(ft.Column):
                     padding=ft.Padding.symmetric(vertical=5),
                 )
 
-                # Insert action BEFORE the streaming bubble (if possible) or just append?
-                # Usually actions come before the final text.
-                # Since we are streaming text into the bubble, if we append action to chat list,
-                # it will appear AFTER the bubble if we are not careful.
-                # But here we are inserting into chat list.
-                # Ideally, actions should be part of the bubble or separate.
-                # The current logic inserts it at `len(controls) - 1`.
-                # If the last control IS the streaming bubble, this inserts BEFORE it.
-                # This seems correct: Action 1, Action 2, Streaming Bubble.
-
                 position = len(self.br_chat_list.current.controls) - 1
                 if position < 0: position = 0
                 self.br_chat_list.current.controls.insert(position, action_display)
@@ -400,8 +395,13 @@ class ReaperChatView(ft.Column):
 
                 # Robust Removal Logic
                 removed = False
+                was_reasoning_expanded = False
+
                 if self.current_streaming_bubble:
                     try:
+                        # Capture state before removal
+                        was_reasoning_expanded = getattr(self.current_streaming_bubble, "reasoning_expanded", False)
+
                         # Find the index of the streaming bubble
                         index = self.br_chat_list.current.controls.index(self.current_streaming_bubble)
                         self.br_chat_list.current.controls.pop(index)
@@ -411,13 +411,14 @@ class ReaperChatView(ft.Column):
                         print("Streaming bubble not found in controls list.")
                         pass
 
-                # Fallback if specific bubble not found: pop last item if it looks like a bubble?
-                # But safer to just append if we couldn't find the specific one.
-                # If we didn't remove, we might have a duplicate "thinking" bubble.
-                # But since we use run_id, we shouldn't have conflicts.
-
-                # Create Final Message
-                final_msg_control = self.parse_and_render_message(final_text, is_user=False, reasoning_text=final_reasoning, avatar_path=avatar_path)
+                # Create Final Message with Preserved State
+                final_msg_control = self.parse_and_render_message(
+                    final_text,
+                    is_user=False,
+                    reasoning_text=final_reasoning,
+                    avatar_path=avatar_path,
+                    reasoning_expanded=was_reasoning_expanded
+                )
                 self.br_chat_list.current.controls.append(final_msg_control)
 
                 # Add Regenerate Button

@@ -3,7 +3,7 @@ import styles
 
 class ReaperChatBubble(ft.Container):
     def __init__(self, avatar_name, content_control, is_user, reasoning_control=None, reasoning_title="Reasoning",
-                 reasoning_ref=None, reasoning_visible=True, avatar_src=None):
+                 reasoning_ref=None, reasoning_visible=True, avatar_src=None, reasoning_expanded=False):
         super().__init__()
         self.avatar_name = avatar_name
         self.content_control = content_control
@@ -13,6 +13,7 @@ class ReaperChatBubble(ft.Container):
         self.reasoning_ref = reasoning_ref
         self.reasoning_visible = reasoning_visible
         self.avatar_src = avatar_src
+        self.reasoning_expanded = reasoning_expanded
 
         # Tag for identifying message type in the list
         self.data = "user_message" if is_user else "assistant_message"
@@ -106,12 +107,14 @@ class ReaperChatBubble(ft.Container):
                         ft.Container(
                             content=self.reasoning_control,
                             padding=10,
-                            bgcolor=ft.Colors.BLACK,  # Darker inner background for thought process
+                            # bgcolor=ft.Colors.BLACK,  # REMOVED for transparency as requested
                             border=ft.border.only(left=ft.border.BorderSide(2, reaper_border_color))
                         )
                     ],
                     collapsed_icon_color=reaper_name_color,
                     icon_color=reaper_border_color,
+                    initially_expanded=self.reasoning_expanded,
+                    on_change=self.on_reasoning_change
                 ),
                 visible=self.reasoning_visible,
                 border=ft.border.all(1, ft.Colors.GREY_900),
@@ -178,3 +181,7 @@ class ReaperChatBubble(ft.Container):
         # Increase bottom margin for better separation between turns
         self.margin = ft.Margin(left=0, top=10, right=0, bottom=30)
         self.padding = ft.Padding(left=10, right=10)
+
+    def on_reasoning_change(self, e):
+        # Update local state so it can be read later
+        self.reasoning_expanded = e.control.expanded if e.control else False
