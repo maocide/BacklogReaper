@@ -9,7 +9,7 @@ from ui.tabs.settings import SettingsView
 def main(page: ft.Page):
     page.title = "Backlog Reaper"
     page.theme_mode = ft.ThemeMode.DARK
-    page.window.width = 1200
+    page.window.width = 1280
     page.window.height = 800
     page.bgcolor = styles.COLOR_BACKGROUND
     page.padding = 0

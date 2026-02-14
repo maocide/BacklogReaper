@@ -73,7 +73,7 @@ class ReaperChatView(ft.Column):
             ft.Row([
                 GrimoireTextField(
                     ref=self.br_input,
-                    hint_text="Ask the Reaper...",
+                    hint_text="Consult the Reaper...",
                     expand=True,
                     multiline=True,
                     shift_enter=True,
@@ -332,7 +332,7 @@ class ReaperChatView(ft.Column):
                     await self.br_chat_list.current.update_async()
                 else:
                     self.br_chat_list.current.update()
-                self.scroll_chat_to_bottom(forced=True)
+                self.scroll_chat_to_bottom(forced=True, delay_ms=600)
 
         elif msg_type == "reasoning":
             state["reasoning_buffer"] += content

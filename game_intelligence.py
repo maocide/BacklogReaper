@@ -1,6 +1,5 @@
 
 import difflib
-import json
 import re
 import urllib
 import urllib.parse
@@ -1284,7 +1283,117 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
         return {"error": f"Error: {e}"}
 
 
+def process_friends_list(raw_friends):
+
+
+    raw_friends.sort(key=lambda x: (x['personastate'], x['lastlogoff'], x['friend_since']), reverse=True)
+
+    clean_list = []
+    for f in raw_friends:
+        # Filter: Skip Private Profiles (We can't scan their games anyway)
+        if f.get('communityvisibilitystate', 0) != 3:
+            continue
+
+        clean_list.append(f)
+
+
+    friends_schema = {
+        # TRANSFORMATIONS: 'field_name': 'rule'
+        "transformations": {
+            "lastlogoff": "date",
+        },
+        # ALLOWLIST: Only keep these fields
+        "keep_keys": [
+            "steamid",
+            "lastlogoff",
+            "personaname",
+            "status",
+            "realname",
+        ]
+    }
+
+    clean_list = clean_json_for_ai(clean_list,
+                                      transformations=friends_schema["transformations"],
+                                      keep_keys=friends_schema["keep_keys"])
+
+
+    return clean_list
+
+
+@safe_tool
+def get_friends_who_own(game_name):
+    """
+    Checks which of the user's friends own a specific game.
+    WARNING: API Heavy. Requires fetching every friend's library.
+    """
+    # 1. Resolve Game
+    app = get_steam_app_info(game_name)
+    if not app:
+        return {"error": f"Game '{game_name}' not found."}
+
+    target_appid = int(app['id'][0])
+    target_name = app['name']
+
+    print(f"Scanning friends for '{target_name}' ({target_appid})...")
+
+    # 2. Get Friend List
+    steam = Steam(settings.STEAM_API_KEY)
+    user_id = resolve_steam_id(settings.STEAM_USER)
+
+    try:
+        # Returns list of dicts: {'steamid': '...', 'relationship': 'friend', 'friend_since': 0}
+        friends_list = steam.users.get_user_friends_list(user_id)
+    except Exception as e:
+        return {"error": f"Could not fetch friend list: {e}"}
+
+    if not friends_list or not friends_list["friends"]:
+        return {"result": "No friends found (or profile is private)."}
+
+    # Limit scanning to top 50 friends to prevent API timeout/ban
+    friends_to_scan = friends_list.get("friends",[])[:50]
+
+    friends_to_scan = process_friends_list(friends_to_scan)
+
+    # 3. Define the Worker Function
+    def check_friend_library(friend):
+        f_id = friend['steamid']
+        try:
+            # Fetch friend's library
+            games = steam.users.get_owned_games(f_id, include_appinfo=False)
+
+            # structure: {'game_count': 10, 'games': [{'appid': 10, ...}]}
+            if 'games' in games:
+                for g in games['games']:
+                    if g['appid'] == target_appid:
+                        # Found it!
+                        friend["playtime"] = round(g.get('playtime_forever', 0) / 60, 1)
+                        return friend
+        except Exception:
+            # Profile likely private
+            print(f"Error fetching friend library. {f_id}")
+            pass
+        return None
+
+    # 4. Execute Parallel Scan
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        results = list(executor.map(check_friend_library, friends_to_scan))
+
+    # Filter out None results
+    owners = [r for r in results if r]
+
+    # Sort by playtime (Veterans first)
+    owners.sort(key=lambda x: x['playtime'], reverse=True)
+
+    return {
+        "game": target_name,
+        "friend_count": len(friends_list["friends"]),
+        "owners_count": len(owners),
+        "owners": owners,
+        "user_owns_game": vault.is_game_owned(target_appid)
+    }
+
+
 if __name__ == "__main__":
-    print(get_batch_game_details(game_names=["KILL KNIGHT"]))
+    print(get_friends_who_own(game_name="Helldivers 2"))
     #print(get_reviews_byname(game_name="Akane"))
 

@@ -420,14 +420,34 @@ def get_game_by_appid(appid):
             return game
     return None
 
-def get_all_tags(limit=None):
+def get_all_tags(limit=None, recent_days=None):
     """
-    Returns a list of tags in the user's library with stats.
-    Used by the Agent to know what genres are available to search.
+    Returns a list of tags.
+    - Filters out non-game software tags.
+    - Filters out 'Ghost Tags' (Owned 1 game, never played) unless requesting recent history.
+    - Sorts by HOURS PLAYED (Interest) rather than COUNT (Hoarding).
     """
+
+    # 1. The "Anti-Noise" Blocklist
+    IGNORED_TAGS = {
+        "Software", "Utilities", "Design & Illustration", "Web Publishing",
+        "Animation & Modeling", "Video Production", "Audio Production",
+        "Education", "Game Development", "Benchmark", "Movie", "Documentary",
+        "360 Video", "Short", "Tutorial"
+    }
+
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute("SELECT tags, playtime_forever FROM games")
+
+        # 2. Handle "Recent" vs "Lifetime"
+        if recent_days:
+            # Unix timestamp for X days ago
+            cutoff = time.time() - (recent_days * 86400)
+            # Only look at games played recently
+            c.execute("SELECT tags, playtime_forever FROM games WHERE rtime_last_played > ?", (cutoff,))
+        else:
+            c.execute("SELECT tags, playtime_forever FROM games")
+
         rows = c.fetchall()
 
     stats = {}
@@ -440,30 +460,39 @@ def get_all_tags(limit=None):
         playtime_mins = row['playtime_forever'] or 0
 
         for tag in current_tags:
+            if tag in IGNORED_TAGS:
+                continue
+
             if tag not in stats:
                 stats[tag] = {'count': 0, 'minutes': 0}
 
             stats[tag]['count'] += 1
             stats[tag]['minutes'] += playtime_mins
 
-    # Format for the Agent
+    # Format and Filter
     results = []
     for tag, data in stats.items():
+
+        # FILTER: If looking at LIFETIME stats, ignore tags that are irrelevant.
+        # Rule: If you own < 2 games AND played < 1 hour total, it's noise.
+        # (We skip this check for 'recent_days' because sample size is naturally small)
+        if not recent_days:
+            if data['count'] < 2 and data['minutes'] < 60:
+                continue
+
         results.append({
-            "name": tag,  # "name" is intuitive for the search parameter
+            "name": tag,
             "owned": data['count'],
             "total_hours": round(data['minutes'] / 60, 1)
         })
 
-    # Sort by 'owned' count so the most relevant genres appear first
-    results.sort(key=lambda x: x['owned'], reverse=True)
+    # Smart Sorting
+    results.sort(key=lambda x: x['total_hours'], reverse=True)
 
-    # If the list is huge (e.g. 300 tags), maybe slice it if no limit was requested to save tokens?
-    # But usually, providing all allows the agent to find niche tags.
-    if limit:
-        return results[:limit]
-
-    return results
+    # Cap the output size for the Agent
+    # 50 tags is plenty for an AI
+    final_limit = limit if limit else 50
+    return results[:final_limit]
 
 def is_game_owned(appid):
     """

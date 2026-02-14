@@ -94,59 +94,37 @@ class GameCard(ft.Card):
                 else:
                     formatted_label = title.replace("_", " ").title()
 
-                if is_roast: # roast card
-                    new_line = ft.Text(
-                        spans=[
-                            ft.TextSpan(
-                                f"{formatted_label}: ", # Note the trailing space
-                                style=ft.TextStyle(
-                                    font_family=styles.FONT_MONO,
-                                    color=styles.COLOR_TEXT_SECONDARY,
-                                    weight=ft.FontWeight.BOLD
-                                )
-                            ),
-                            ft.TextSpan(
-                                str(content),
-                                style=ft.TextStyle(
-                                    font_family=styles.FONT_MONO,
-                                    color=styles.COLOR_TEXT_PRIMARY,
-                                    weight=ft.FontWeight.NORMAL
-                                )
-                            ),
-                        ],
-                        size=13,
-                        no_wrap=False, # Allows wrapping if the line is too long
-                    )
-                else: # game card
-                    new_line = ft.Row(
-                        controls=[
-                            ft.Text(
-                                f"{formatted_label}:",
+                # TODO: Consider adding status color, think about it
+                # val_color = styles.COLOR_TEXT_PRIMARY  # Default
+                #
+                # # If this row is the "Status" row, grab the special color
+                # if title.lower() == "status":
+                #     # You can import your get_status_color function from ui.utils
+                #     from ui.utils import get_status_color
+                #     val_color = get_status_color(str(content))
+
+                new_line = ft.Text(
+                    spans=[
+                        ft.TextSpan(
+                            f"{formatted_label}: ", # Note the trailing space
+                            style=ft.TextStyle(
                                 font_family=styles.FONT_MONO,
                                 color=styles.COLOR_TEXT_SECONDARY,
-                                weight=ft.FontWeight.BOLD,
-                                size=13,
-                                no_wrap=False
-                            ),
-                            ft.Container(
-                                content=ft.Text(
-                                    str(content),
-                                    font_family=styles.FONT_MONO,
-                                    color=styles.COLOR_TEXT_PRIMARY,
-                                    size=13,
-                                    text_align=ft.TextAlign.RIGHT,  # Align text to the right
-                                    weight=ft.FontWeight.BOLD,
-                                    selectable=True,
-                                    no_wrap = False
-                                ),
-                                expand=True, # forces the container to fill space
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.START,  # Align to top if it wraps
-                        margin=ft.Margin(0, 2, 0, 2),
-                    )
-
+                                weight=ft.FontWeight.BOLD
+                            )
+                        ),
+                        ft.TextSpan(
+                            str(content),
+                            style=ft.TextStyle(
+                                font_family=styles.FONT_MONO,
+                                color=styles.COLOR_TEXT_PRIMARY,
+                                weight=ft.FontWeight.NORMAL
+                            )
+                        ),
+                    ],
+                    size=13,
+                    no_wrap=False, # Allows wrapping if the line is too long
+                )
 
                 controls_list.append(new_line)
 
@@ -205,29 +183,19 @@ class GameCard(ft.Card):
             )
         )
 
-        if not is_roast:
-            gradient_layer = ft.Container(
-                gradient=ft.LinearGradient(
-                    begin=ft.Alignment.TOP_CENTER,
-                    end=ft.Alignment.BOTTOM_CENTER,
-                    colors=[
-                        ft.Colors.TRANSPARENT,
-                        ft.Colors.with_opacity(0.7, styles.COLOR_SURFACE),
-                        ft.Colors.with_opacity(0.7, styles.COLOR_SURFACE),
-                        styles.COLOR_SURFACE  # Solid Dark at very bottom
-                    ],
-                    stops=[0, 0.20, 0.8, 1.0]  # Starts fading halfway down
-                ),
-            )
-        else:
-            # Roast Gradient
-            gradient_layer = ft.Container(
-                gradient=ft.RadialGradient(
-                    center=ft.Alignment(0, 0),
-                    radius=1.2,  # Slightly larger radius for variable height
-                    colors=[styles.COLOR_SURFACE, ft.Colors.with_opacity(0.4, styles.COLOR_SURFACE)],
-                ),
-            )
+        gradient_layer = ft.Container(
+            gradient=ft.LinearGradient(
+                begin=ft.Alignment.TOP_CENTER,
+                end=ft.Alignment.BOTTOM_CENTER,
+                colors=[
+                    ft.Colors.with_opacity(0.65, styles.COLOR_SURFACE),
+                    ft.Colors.with_opacity(0.65, styles.COLOR_SURFACE),
+                    ft.Colors.with_opacity(0.65, styles.COLOR_SURFACE),
+                    ft.Colors.with_opacity(0.9, styles.COLOR_SURFACE),
+                ],
+                stops=[0, 0.3, 0.7, 1.0]
+            ),
+        )
 
         # Add positioning to force stretch
         gradient_layer.left = 0
@@ -236,6 +204,13 @@ class GameCard(ft.Card):
         gradient_layer.bottom = 0
         stack_controls.append(gradient_layer)
 
+        # Enforce minimum size, invisible control
+        stack_controls.append(
+            ft.Container(
+                width=card_width,
+                height=card_height,
+            )
+        )
         
         # CONTENT
         stack_controls.append(
@@ -245,13 +220,7 @@ class GameCard(ft.Card):
             )
         )
         
-        # Enforce minimum size, invisible control
-        stack_controls.append(
-            ft.Container(
-                width=card_width,
-                height=card_height,
-            )
-        )
+
 
         # Shadow
         shadow = ft.BoxShadow(
@@ -260,24 +229,6 @@ class GameCard(ft.Card):
             color=ft.Colors.with_opacity(0.80, styles.COLOR_SURFACE),
             offset=ft.Offset(0, 0)
         )
-        # if is_roast:
-        #     # "Burning Shame" Glow
-        #     shadow = ft.BoxShadow(
-        #         spread_radius=0,
-        #         blur_radius=15,
-        #         color=ft.Colors.with_opacity(0.15, styles.COLOR_ERROR),  # Subtle Red/Orange glow
-        #         offset=ft.Offset(0, 0),
-        #         blur_style=ft.BoxShadow.blur_style.OUTER
-        #     )
-        # else:
-        #     # "Levitating Object" Shadow
-        #     shadow = ft.BoxShadow(
-        #         spread_radius=-5,  # Negative spread makes it look like it's floating
-        #         blur_radius=20,
-        #         color=ft.Colors.BLACK,
-        #         offset=ft.Offset(0, 10)
-        #     )
-
 
 
         return ft.Container(

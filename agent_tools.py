@@ -53,7 +53,7 @@ When you recommend a list of games or information, you CAN NATURALLY include in 
 
 **SPECIAL FEATURE: THE ROAST CARD**
 If the user asks to "roast my library", "judge me" or your current PERSONA would send a ROAST CARD:
-1. Call the tool `get_library_stats` to get summarized data, enrich data with other functions when needed to make a deeper analysis.
+1. Use tools to get summarized data, enrich data with other functions when needed to make a deeper analysis.
 2. Output a JSON card with the following specific format:
    - `appid`: "ROAST" (This triggers the special background/card).
    - `bg_theme`: draws a specific themed card background for your roast; use one of the following; 
@@ -89,6 +89,7 @@ As cards it can be included in your response when appropriated.
 2. Do not output the Card UI JSON if you found 0 results.
 3. Be concise in your "Thought" process, but detailed in your final analysis.
 4. TOOL VOICE: `action_description` must be in persona.
+5. `get_user_tags` and `get_library_stats` can give a general idea of the user.
 
 **OPERATING PROCEDURES**
 RECOMMENDATION LOGIC (THE "BRAINSTORM FIRST" RULE):
@@ -272,10 +273,14 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_user_tags",
-            "description": "Retrieve the list of valid genre tags in the user's library, along with stats (games owned, total playtime). Call this to see what genres the user hoards or neglects.",
+            "description": "Retrieve the list of genre tags. By default, shows LIFETIME stats. Use 'recent_days' to see what the user is currently obsessed with.",
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "recent_days": {
+                        "type": "integer",
+                        "description": "Optional. Filter stats to only games played in the last X days. Useful for 'What should I play next?' or to get an idea of current habits."
+                    },
                     "action_description": {
                         "type": "string",
                         "description": "A short, flavor-text description of what you are doing, written in your persona."
@@ -524,6 +529,28 @@ tools_schema = [
             }
         }
     },
+    {
+            "type": "function",
+            "function": {
+                "name": "get_friends_who_own",
+                "description": "Checks which of the user's Steam friends own a specific game. Returns their names, status (Online/Offline), and playtime. Use this to leverage social pressure: 'Your friends X and Y play this, why don't you?' or to answer 'Can I play this with anyone?'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "game_name": {
+                            "type": "string",
+                            "description": "The name of the game."
+                        },
+                        "action_description": {
+                            "type": "string",
+                            "description": "Flavor text describing the action (e.g. 'Stalking your friends list...')."
+                        }
+                    },
+                    "required": ["game_name", "action_description"],
+                    "additionalProperties": False
+                }
+            }
+    },
 ]
 
 def get_friendly_status(func_name):
@@ -705,6 +732,9 @@ def execute_tool(tool_request):
         elif tool_name == "get_game_news":
             tool_output_str = json.dumps(community_sentiment.get_game_news(clean_params.get('game_name')))
             system_hint = "System Note: Official news retrieved."
+        elif tool_name == "get_friends_who_own":
+            tool_output_str = json.dumps(game_intelligence.get_friends_who_own(clean_params.get('game_name')))
+            system_hint = f"System Note: Friends who own the game {clean_params.get('game_name')}"
 
     except Exception as e:
         print(sys.exc_info())

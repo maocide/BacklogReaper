@@ -66,10 +66,9 @@ class ReaperChatBubble(ft.Container):
         if not self.is_user:
             if self.avatar_src:
                 avatar_content = ft.Container(
-                    content=ft.Image(src=self.avatar_src, fit=ft.BoxFit.COVER, border_radius=6),
-                    # DOUBLED SIZE:
-                    width=120,
-                    height=180,
+                    content=ft.Image(src=self.avatar_src, fit=ft.BoxFit.COVER, border_radius=3),
+                    width=180,
+                    #height=180,
                     #border=ft.border.all(2, reaper_border_color),  # Darker rim
                     border_radius=8,
                     padding=0,
