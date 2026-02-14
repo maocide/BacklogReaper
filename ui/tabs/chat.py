@@ -221,7 +221,7 @@ class ReaperChatView(ft.Column):
                 if hasattr(self.br_chat_list.current, 'scroll_to_async'):
                     await self.br_chat_list.current.scroll_to_async(offset=-1, duration=duration)
                 else:
-                    await self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
+                    self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
             except Exception:
                 pass
 
@@ -328,7 +328,10 @@ class ReaperChatView(ft.Column):
 
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(full_message_block)
-                await self.br_chat_list.current.update_async()
+                if hasattr(self.br_chat_list.current, 'update_async'):
+                    await self.br_chat_list.current.update_async()
+                else:
+                    self.br_chat_list.current.update()
                 self.scroll_chat_to_bottom(forced=True)
 
         elif msg_type == "reasoning":
@@ -337,25 +340,37 @@ class ReaperChatView(ft.Column):
                 state["reasoning_view"].value = state["reasoning_buffer"]
                 state["reasoning_view"].visible = True
                 if state["reasoning_view"].page:
-                    await state["reasoning_view"].update_async()
+                    if hasattr(state["reasoning_view"], 'update_async'):
+                        await state["reasoning_view"].update_async()
+                    else:
+                        state["reasoning_view"].update()
                 if "reasoning_container_ref" in state and state["reasoning_container_ref"].current:
                     state["reasoning_container_ref"].current.visible = True
                     if state["reasoning_container_ref"].current.page:
-                        await state["reasoning_container_ref"].current.update_async()
+                        if hasattr(state["reasoning_container_ref"].current, 'update_async'):
+                            await state["reasoning_container_ref"].current.update_async()
+                        else:
+                            state["reasoning_container_ref"].current.update()
             self.scroll_chat_to_bottom(duration=50)
 
         elif msg_type == "status":
             if state["status_text"]:
                 state["status_text"].value = content
                 try:
-                    await state["status_text"].update_async()
+                    if hasattr(state["status_text"], 'update_async'):
+                        await state["status_text"].update_async()
+                    else:
+                        state["status_text"].update()
                 except RuntimeError:
                     pass
 
             if self.br_status.current:
                 self.br_status.current.value = content
                 if self.br_status.current.page:
-                    await self.br_status.current.update_async()
+                    if hasattr(self.br_status.current, 'update_async'):
+                        await self.br_status.current.update_async()
+                    else:
+                        self.br_status.current.update()
 
         elif msg_type == "action":
             if self.br_chat_list.current:
@@ -372,7 +387,10 @@ class ReaperChatView(ft.Column):
                 self.br_chat_list.current.controls.insert(position, action_display)
 
             try:
-                await self.br_chat_list.current.update_async()
+                if hasattr(self.br_chat_list.current, 'update_async'):
+                    await self.br_chat_list.current.update_async()
+                else:
+                    self.br_chat_list.current.update()
                 self.scroll_chat_to_bottom(duration=50)
             except RuntimeError:
                 print("ERROR in action")
@@ -384,14 +402,20 @@ class ReaperChatView(ft.Column):
             if state["status_text"] and state["status_text"].visible:
                 state["status_text"].visible = False
                 if state["status_text"].page:
-                    await state["status_text"].update_async()
+                    if hasattr(state["status_text"], 'update_async'):
+                        await state["status_text"].update_async()
+                    else:
+                        state["status_text"].update()
 
             if state["previous_was_tool"] and not state["first_text"]:
                 state["agent_markdown"].value += "\n\n"
 
             state["agent_markdown"].value += content
             if state["agent_markdown"].page:
-                await state["agent_markdown"].update_async()
+                if hasattr(state["agent_markdown"], 'update_async'):
+                    await state["agent_markdown"].update_async()
+                else:
+                    state["agent_markdown"].update()
                 self.scroll_chat_to_bottom(duration=50)  # scrolls to end without interrupting
 
             state["previous_was_tool"] = False
@@ -444,31 +468,49 @@ class ReaperChatView(ft.Column):
                 )
                 self.br_chat_list.current.controls.append(regen_btn)
 
-                await self.br_chat_list.current.update_async()
+                if hasattr(self.br_chat_list.current, 'update_async'):
+                    await self.br_chat_list.current.update_async()
+                else:
+                    self.br_chat_list.current.update()
                 self.scroll_chat_to_bottom(delay_ms=100)
 
             if self.br_status.current:
                 self.br_status.current.value = "Ready"
                 self.br_status.current.color = styles.COLOR_TEXT_SECONDARY
-                await self.br_status.current.update_async()
+                if hasattr(self.br_status.current, 'update_async'):
+                    await self.br_status.current.update_async()
+                else:
+                    self.br_status.current.update()
 
         elif msg_type == "error":
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(ft.Text(f"Error: {content}", color=styles.COLOR_ERROR))
-                await self.br_chat_list.current.update_async()
+                if hasattr(self.br_chat_list.current, 'update_async'):
+                    await self.br_chat_list.current.update_async()
+                else:
+                    self.br_chat_list.current.update()
                 self.scroll_chat_to_bottom(forced=True)
             if self.br_status.current:
                 self.br_status.current.value = f"Error: {content}"
                 self.br_status.current.color = styles.COLOR_ERROR
-                await self.br_status.current.update_async()
+                if hasattr(self.br_status.current, 'update_async'):
+                    await self.br_status.current.update_async()
+                else:
+                    self.br_status.current.update()
 
         elif msg_type == "cleanup":
             if self.br_btn_send.current:
                 self.br_btn_send.current.disabled = False
-                await self.br_btn_send.current.update_async()
+                if hasattr(self.br_btn_send.current, 'update_async'):
+                    await self.br_btn_send.current.update_async()
+                else:
+                    self.br_btn_send.current.update()
             if self.br_input.current:
                 self.br_input.current.disabled = False
-                await self.br_input.current.update_async()
+                if hasattr(self.br_input.current, 'update_async'):
+                    await self.br_input.current.update_async()
+                else:
+                    self.br_input.current.update()
 
     async def remove_regen_button(self, perform_update=True):
         if self.br_chat_list.current and self.br_chat_list.current.controls:
@@ -477,14 +519,20 @@ class ReaperChatView(ft.Column):
             if getattr(last_ctrl, "data", "") == "regenerate_button":
                 self.br_chat_list.current.controls.pop()
                 if perform_update:
-                    await self.br_chat_list.current.update_async()
+                    if hasattr(self.br_chat_list.current, 'update_async'):
+                        await self.br_chat_list.current.update_async()
+                    else:
+                        self.br_chat_list.current.update()
                 return
 
             if isinstance(last_ctrl, ft.Row) and last_ctrl.controls and isinstance(last_ctrl.controls[0], ft.IconButton):
                  if last_ctrl.controls[0].icon == ft.Icons.REFRESH:
                     self.br_chat_list.current.controls.pop()
                     if perform_update:
-                        await self.br_chat_list.current.update_async()
+                        if hasattr(self.br_chat_list.current, 'update_async'):
+                            await self.br_chat_list.current.update_async()
+                        else:
+                            self.br_chat_list.current.update()
 
     async def regenerate_click(self, e):
         await self.remove_regen_button(perform_update=False)
@@ -507,7 +555,10 @@ class ReaperChatView(ft.Column):
 
                 self.br_chat_list.current.controls.pop()
 
-            await self.br_chat_list.current.update_async()
+            if hasattr(self.br_chat_list.current, 'update_async'):
+                await self.br_chat_list.current.update_async()
+            else:
+                self.br_chat_list.current.update()
 
             self.current_scroll_offset = 0
             self.max_scroll_extent = 0
@@ -515,8 +566,14 @@ class ReaperChatView(ft.Column):
 
         self.br_input.current.disabled = True
         self.br_btn_send.current.disabled = True
-        await self.br_input.current.update_async()
-        await self.br_btn_send.current.update_async()
+        if hasattr(self.br_input.current, 'update_async'):
+            await self.br_input.current.update_async()
+        else:
+            self.br_input.current.update()
+        if hasattr(self.br_btn_send.current, 'update_async'):
+            await self.br_btn_send.current.update_async()
+        else:
+            self.br_btn_send.current.update()
 
         if self.br_chat_history:
              last_msg = self.br_chat_history[-1]
@@ -533,8 +590,14 @@ class ReaperChatView(ft.Column):
         self.br_input.current.value = ""
         self.br_input.current.disabled = True
         self.br_btn_send.current.disabled = True
-        await self.br_input.current.update_async()
-        await self.br_btn_send.current.update_async()
+        if hasattr(self.br_input.current, 'update_async'):
+            await self.br_input.current.update_async()
+        else:
+            self.br_input.current.update()
+        if hasattr(self.br_btn_send.current, 'update_async'):
+            await self.br_btn_send.current.update_async()
+        else:
+            self.br_btn_send.current.update()
 
         user_portrait_url = self.get_user_portrait_url()
 
@@ -542,7 +605,10 @@ class ReaperChatView(ft.Column):
 
         if self.br_chat_list.current:
             self.br_chat_list.current.controls.append(self.parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
-            await self.br_chat_list.current.update_async()
+            if hasattr(self.br_chat_list.current, 'update_async'):
+                await self.br_chat_list.current.update_async()
+            else:
+                self.br_chat_list.current.update()
             self.scroll_chat_to_bottom(delay_ms=200)
 
         self.start_chat_thread(user_message)
