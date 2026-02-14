@@ -214,14 +214,14 @@ class ReaperChatView(ft.Column):
             await asyncio.sleep(delay_ms / 1000)
         if self.br_chat_list.current:
             try:
-                # Flet controls usually don't have separate async methods unless specified.
-                # update_async is special because update is sync by default.
-                # scroll_to sends a command.
-                # If we are in async, we should use scroll_to_async if available.
-                if hasattr(self.br_chat_list.current, 'scroll_to_async'):
-                    await self.br_chat_list.current.scroll_to_async(offset=-1, duration=duration)
-                else:
-                    self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
+                # Flet > 0.80: scroll_to is awaitable
+                # Check if it's awaitable or just assume based on user feedback
+                # To be safe: check if asyncio.iscoroutine or hasattr(awaitable)
+                # But typically calling it returns the coroutine object if async.
+
+                res = self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
+                if asyncio.iscoroutine(res):
+                    await res
             except Exception:
                 pass
 
