@@ -3,6 +3,7 @@ import json
 import threading
 import traceback
 import uuid
+import asyncio
 
 import flet as ft
 
@@ -85,12 +86,6 @@ class ReaperChatView(ft.Column):
 
     def did_mount(self):
         # We subscribe when the view is mounted
-        # Note: In flet_gui.py, subscription happened inside start_chat_thread.
-        # But here we want to listen always? Or only when chat is active?
-        # The original code subscribed in start_chat_thread and unsubscribed in finish/cleanup.
-        # If I subscribe here, I'll receive messages.
-        # But run_backlog_reaping_thread sends to all.
-        # So yes, I should subscribe here.
         self.page.pubsub.subscribe(self.on_message)
 
     def will_unmount(self):
@@ -216,11 +211,17 @@ class ReaperChatView(ft.Column):
 
     async def _scroll_task(self, duration, delay_ms):
         if delay_ms > 0:
-            import asyncio
             await asyncio.sleep(delay_ms / 1000)
         if self.br_chat_list.current:
             try:
-                await self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
+                # Flet controls usually don't have separate async methods unless specified.
+                # update_async is special because update is sync by default.
+                # scroll_to sends a command.
+                # If we are in async, we should use scroll_to_async if available.
+                if hasattr(self.br_chat_list.current, 'scroll_to_async'):
+                    await self.br_chat_list.current.scroll_to_async(offset=-1, duration=duration)
+                else:
+                    await self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
             except Exception:
                 pass
 
@@ -269,6 +270,11 @@ class ReaperChatView(ft.Column):
              threading.Thread(target=self.run_backlog_reaping_thread, args=(user_message, new_run_id, new_stop_event), daemon=True).start()
 
     def on_message(self, message):
+        # Delegate to async handler on main thread to avoid race conditions
+        if self.page:
+            self.page.run_task(self._on_message_async, message)
+
+    async def _on_message_async(self, message):
         msg_run_id = message.get("run_id")
 
         # Guard: Ignore messages from old/zombie threads
@@ -314,9 +320,6 @@ class ReaperChatView(ft.Column):
                 reasoning_ref=reasoning_ref,
                 reasoning_visible=False,
                 avatar_src=avatar_path,
-                # Default to expanded if desired, or let it be False.
-                # When initializing, it's probably collapsed or we can force it.
-                # Let's say it starts collapsed (False).
                 reasoning_expanded=False
             )
 
@@ -325,7 +328,7 @@ class ReaperChatView(ft.Column):
 
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(full_message_block)
-                self.br_chat_list.current.update()
+                await self.br_chat_list.current.update_async()
                 self.scroll_chat_to_bottom(forced=True)
 
         elif msg_type == "reasoning":
@@ -334,25 +337,25 @@ class ReaperChatView(ft.Column):
                 state["reasoning_view"].value = state["reasoning_buffer"]
                 state["reasoning_view"].visible = True
                 if state["reasoning_view"].page:
-                    state["reasoning_view"].update()
+                    await state["reasoning_view"].update_async()
                 if "reasoning_container_ref" in state and state["reasoning_container_ref"].current:
                     state["reasoning_container_ref"].current.visible = True
                     if state["reasoning_container_ref"].current.page:
-                        state["reasoning_container_ref"].current.update()
+                        await state["reasoning_container_ref"].current.update_async()
             self.scroll_chat_to_bottom(duration=50)
 
         elif msg_type == "status":
             if state["status_text"]:
                 state["status_text"].value = content
                 try:
-                    state["status_text"].update()
+                    await state["status_text"].update_async()
                 except RuntimeError:
                     pass
 
             if self.br_status.current:
                 self.br_status.current.value = content
                 if self.br_status.current.page:
-                    self.br_status.current.update()
+                    await self.br_status.current.update_async()
 
         elif msg_type == "action":
             if self.br_chat_list.current:
@@ -369,7 +372,7 @@ class ReaperChatView(ft.Column):
                 self.br_chat_list.current.controls.insert(position, action_display)
 
             try:
-                self.br_chat_list.current.update()
+                await self.br_chat_list.current.update_async()
                 self.scroll_chat_to_bottom(duration=50)
             except RuntimeError:
                 print("ERROR in action")
@@ -381,28 +384,26 @@ class ReaperChatView(ft.Column):
             if state["status_text"] and state["status_text"].visible:
                 state["status_text"].visible = False
                 if state["status_text"].page:
-                    state["status_text"].update()
+                    await state["status_text"].update_async()
 
             if state["previous_was_tool"] and not state["first_text"]:
                 state["agent_markdown"].value += "\n\n"
 
             state["agent_markdown"].value += content
             if state["agent_markdown"].page:
-                state["agent_markdown"].update()
+                await state["agent_markdown"].update_async()
                 self.scroll_chat_to_bottom(duration=50)  # scrolls to end without interrupting
 
             state["previous_was_tool"] = False
             state["first_text"] = False
 
         elif msg_type == "finish":
-            # Check if already processed to prevent double execution
             if not self.current_streaming_bubble:
                 return
 
             final_text = state["agent_markdown"].value
             final_reasoning = state["reasoning_buffer"]
 
-            # Capture reference locally and clear global reference immediately (idempotency)
             bubble_to_remove = self.current_streaming_bubble
             self.current_streaming_bubble = None
 
@@ -411,17 +412,14 @@ class ReaperChatView(ft.Column):
                 current_char = current_settings.get("CHARACTER", "Reaper")
                 avatar_path = character_manager.get_character_image(current_char)
 
-                # Capture state before removal
                 was_reasoning_expanded = getattr(bubble_to_remove, "reasoning_expanded", False)
 
-                # Remove the streaming bubble safely
                 try:
                     if bubble_to_remove in self.br_chat_list.current.controls:
                         self.br_chat_list.current.controls.remove(bubble_to_remove)
                 except ValueError:
                     pass
 
-                # Create Final Message with Preserved State
                 final_msg_control = self.parse_and_render_message(
                     final_text,
                     is_user=False,
@@ -431,7 +429,6 @@ class ReaperChatView(ft.Column):
                 )
                 self.br_chat_list.current.controls.append(final_msg_control)
 
-                # Add Regenerate Button
                 regen_btn = ft.Row(
                     controls=[
                         ft.IconButton(
@@ -447,63 +444,58 @@ class ReaperChatView(ft.Column):
                 )
                 self.br_chat_list.current.controls.append(regen_btn)
 
-                self.br_chat_list.current.update()
+                await self.br_chat_list.current.update_async()
                 self.scroll_chat_to_bottom(delay_ms=100)
 
             if self.br_status.current:
                 self.br_status.current.value = "Ready"
                 self.br_status.current.color = styles.COLOR_TEXT_SECONDARY
-                self.br_status.current.update()
+                await self.br_status.current.update_async()
 
         elif msg_type == "error":
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(ft.Text(f"Error: {content}", color=styles.COLOR_ERROR))
-                self.br_chat_list.current.update()
+                await self.br_chat_list.current.update_async()
                 self.scroll_chat_to_bottom(forced=True)
             if self.br_status.current:
                 self.br_status.current.value = f"Error: {content}"
                 self.br_status.current.color = styles.COLOR_ERROR
-                self.br_status.current.update()
+                await self.br_status.current.update_async()
 
         elif msg_type == "cleanup":
             if self.br_btn_send.current:
                 self.br_btn_send.current.disabled = False
-                self.br_btn_send.current.update()
+                await self.br_btn_send.current.update_async()
             if self.br_input.current:
                 self.br_input.current.disabled = False
-                self.br_input.current.update()
+                await self.br_input.current.update_async()
 
-    def remove_regen_button(self, perform_update=True):
+    async def remove_regen_button(self, perform_update=True):
         if self.br_chat_list.current and self.br_chat_list.current.controls:
             last_ctrl = self.br_chat_list.current.controls[-1]
 
-            # Robust Check via Data Tag
             if getattr(last_ctrl, "data", "") == "regenerate_button":
                 self.br_chat_list.current.controls.pop()
                 if perform_update:
-                    self.br_chat_list.current.update()
+                    await self.br_chat_list.current.update_async()
                 return
 
-            # Legacy Structural Check (fallback)
             if isinstance(last_ctrl, ft.Row) and last_ctrl.controls and isinstance(last_ctrl.controls[0], ft.IconButton):
                  if last_ctrl.controls[0].icon == ft.Icons.REFRESH:
                     self.br_chat_list.current.controls.pop()
                     if perform_update:
-                        self.br_chat_list.current.update()
+                        await self.br_chat_list.current.update_async()
 
-    def regenerate_click(self, e):
-        self.remove_regen_button(perform_update=False)
+    async def regenerate_click(self, e):
+        await self.remove_regen_button(perform_update=False)
 
-        # Prune History
         while self.br_chat_history and self.br_chat_history[-1]["role"] not in ("user", "system"):
             self.br_chat_history.pop()
 
-        # Prune UI
         if self.br_chat_list.current:
             while self.br_chat_list.current.controls:
                 last_ctrl = self.br_chat_list.current.controls[-1]
 
-                # Robust Check for User Message
                 is_user_message = False
                 if isinstance(last_ctrl, ReaperChatBubble) and getattr(last_ctrl, "is_user", False):
                     is_user_message = True
@@ -515,30 +507,25 @@ class ReaperChatView(ft.Column):
 
                 self.br_chat_list.current.controls.pop()
 
-            self.br_chat_list.current.update()
+            await self.br_chat_list.current.update_async()
 
-            # Reset Scroll State to ensure auto-scroll works on next token
             self.current_scroll_offset = 0
             self.max_scroll_extent = 0
             self.scroll_chat_to_bottom(forced=True, duration=0, delay_ms=50)
 
-        # Disable Inputs
         self.br_input.current.disabled = True
         self.br_btn_send.current.disabled = True
-        self.br_input.current.update()
-        self.br_btn_send.current.update()
+        await self.br_input.current.update_async()
+        await self.br_btn_send.current.update_async()
 
-        # Restart Thread
         if self.br_chat_history:
              last_msg = self.br_chat_history[-1]
              if last_msg["role"] == "user":
                  user_message = last_msg["content"]
                  self.br_chat_history.pop()
-
-                 # Note: self.start_chat_thread manages stopping the old thread now.
                  self.start_chat_thread(user_message)
 
-    def send_message(self, e):
+    async def send_message(self, e):
         user_message = self.br_input.current.value
         if not user_message:
             return
@@ -546,17 +533,16 @@ class ReaperChatView(ft.Column):
         self.br_input.current.value = ""
         self.br_input.current.disabled = True
         self.br_btn_send.current.disabled = True
-        self.br_input.current.update()
-        self.br_btn_send.current.update()
+        await self.br_input.current.update_async()
+        await self.br_btn_send.current.update_async()
 
         user_portrait_url = self.get_user_portrait_url()
 
-        self.remove_regen_button(perform_update=False)
+        await self.remove_regen_button(perform_update=False)
 
         if self.br_chat_list.current:
             self.br_chat_list.current.controls.append(self.parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
-            self.br_chat_list.current.update()
+            await self.br_chat_list.current.update_async()
             self.scroll_chat_to_bottom(delay_ms=200)
 
-        # start_chat_thread handles stop_event logic now
         self.start_chat_thread(user_message)
