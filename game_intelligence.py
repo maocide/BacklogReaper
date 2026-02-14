@@ -1350,9 +1350,9 @@ def get_friends_who_own(game_name):
         return {"result": "No friends found (or profile is private)."}
 
     # Limit scanning to top 50 friends to prevent API timeout/ban
-    friends_to_scan = friends_list.get("friends",[])[:50]
+    friends_to_scan = friends_list.get("friends",[])
 
-    friends_to_scan = process_friends_list(friends_to_scan)
+    friends_to_scan = process_friends_list(friends_to_scan)[:50]
 
     # 3. Define the Worker Function
     def check_friend_library(friend):
