@@ -1,7 +1,7 @@
 import flet as ft
 import styles
 import vault
-from ui.utils import get_roast_asset, launch_game
+from ui.utils import get_roast_asset, launch_game, get_status_color
 from ui.widgets.styled_inputs import GrimoireButton
 
 
@@ -13,28 +13,77 @@ class GameCard(ft.Card):
         self.shape = ft.RoundedRectangleBorder(radius=25.0)
 
         self.game_data = game_data
+
+        # Dimensions and style constants
+        self.card_width = 240
+        self.card_height = 340
+        self.tint_color = ft.Colors.TRANSPARENT
+
         self.content = self._build_content()
 
     def _build_content(self):
+        """
+        Orchestrates the construction of the card's content.
+        """
         game_data = self.game_data
-
-        # Extract appid specifically (safely)
         appid = game_data.get("appid")
-
         is_roast = (appid == "ROAST" or not appid)
-        card_width = 240
-        card_height = 340
-        tint_color = ft.Colors.TRANSPARENT
 
-        # DYNAMIC BACKGROUND LOGIC
+        # 1. Get Background Image
+        bg_image = self._get_bg_image(appid, is_roast, game_data)
+
+        # 2. Build Content Column (Header, Info Rows, Actions)
+        content_column = ft.Column(spacing=4)
+
+        # Header
+        content_column.controls.append(self._build_header(game_data.get("name", "")))
+        content_column.controls.append(ft.Divider(height=1, thickness=1, color=styles.COLOR_ACCENT_DIM))
+
+        # Info Rows
+        info_rows = self._build_info_rows(game_data)
+        content_column.controls.extend(info_rows)
+
+        # Spacer
+        content_column.controls.append(ft.Container(height=10))
+
+        # Actions (Buttons)
+        actions = self._build_actions(appid)
+        if actions:
+            content_column.controls.append(actions)
+
+        # 3. Build the Visual Stack (Background + Content)
+        return self._build_stack(bg_image, content_column)
+
+    def _get_bg_image(self, appid, is_roast, game_data):
+        """Determines the background image URL or asset path."""
         if appid and not is_roast:
             # Standard Game behavior
-            bg_image = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg"
+            return f"https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/library_600x900.jpg"
         else:
             theme = game_data.get("bg_theme", "DEFAULT")
-            bg_image = get_roast_asset(theme)
+            return get_roast_asset(theme)
 
+    def _build_header(self, name_value):
+        """Builds the game title row."""
+        return ft.Row(
+            controls=[
+                ft.Text(
+                    name_value,
+                    font_family=styles.FONT_HEADING,
+                    weight=ft.FontWeight.BOLD,
+                    size=15,
+                    no_wrap=True,
+                    overflow=ft.TextOverflow.FADE,
+                    tooltip=name_value,
+                    expand=True  # Allows text to take available space before cutting off
+                ),
+            ],
+            margin=ft.Margin(5, 5, 5, 0),
+            alignment=ft.MainAxisAlignment.START
+        )
 
+    def _build_info_rows(self, game_data):
+        """Generates the list of information rows based on game data."""
         controls_list = []
 
         # Mappings for nicer labels
@@ -46,44 +95,25 @@ class GameCard(ft.Card):
         # Items to skip in the generic loop
         ignore = ["appid", "name", "bg_theme"]
 
-        # HANDLE NAME FIRST
-        name_value = game_data.get("name", "")
-        controls_list.append(
-            ft.Row(
-                controls=[
-                    ft.Text(
-                        name_value,
-                        font_family=styles.FONT_HEADING,
-                        weight=ft.FontWeight.BOLD,
-                        size=15,
-                        no_wrap=True,
-                        overflow=ft.TextOverflow.FADE,
-                        tooltip=name_value,
-                        expand=True  # Allows text to take available space before cutting off
-                    ),
-                ],
-                margin=ft.Margin(5,5,5,0),
-                alignment=ft.MainAxisAlignment.START
-            )
-        )
-        # Add the divider as a separate item in the COLUMN, not the Row
-        controls_list.append(ft.Divider(height=1, thickness=1, color=styles.COLOR_ACCENT_DIM))
-
-        # LOOP THROUGH THE REST
         for title, content in game_data.items():
-            # Check if title is in the ignore list
             if title in ignore:
                 continue
-
 
             elif title == "comment":
                 row = ft.Row(
                     controls=[
-                        ft.Text(str(content), italic=True, size=12, text_align=ft.TextAlign.LEFT, font_family=styles.FONT_MONO, weight=ft.FontWeight.BOLD, color=styles.COLOR_BORDER_BRONZE),
+                        ft.Text(
+                            str(content),
+                            italic=True,
+                            size=12,
+                            text_align=ft.TextAlign.LEFT,
+                            font_family=styles.FONT_MONO,
+                            weight=ft.FontWeight.BOLD,
+                            color=styles.COLOR_BORDER_BRONZE
+                        ),
                     ],
                     margin=ft.Margin(5, 0, 5, 0),
                     wrap=True  # Allow comments to wrap to next line if long
-
                 )
                 controls_list.append(row)
 
@@ -94,19 +124,17 @@ class GameCard(ft.Card):
                 else:
                     formatted_label = title.replace("_", " ").title()
 
-                # TODO: Consider adding status color, think about it
-                # val_color = styles.COLOR_TEXT_PRIMARY  # Default
-                #
-                # # If this row is the "Status" row, grab the special color
-                # if title.lower() == "status":
-                #     # You can import your get_status_color function from ui.utils
-                #     from ui.utils import get_status_color
-                #     val_color = get_status_color(str(content))
+                # Determine Value Color
+                val_color = styles.COLOR_TEXT_PRIMARY  # Default
+
+                # Apply special color for "Status" field
+                if title.lower() == "status":
+                    val_color = get_status_color(str(content))
 
                 new_line = ft.Text(
                     spans=[
                         ft.TextSpan(
-                            f"{formatted_label}: ", # Note the trailing space
+                            f"{formatted_label}: ",
                             style=ft.TextStyle(
                                 font_family=styles.FONT_MONO,
                                 color=styles.COLOR_TEXT_SECONDARY,
@@ -117,7 +145,7 @@ class GameCard(ft.Card):
                             str(content),
                             style=ft.TextStyle(
                                 font_family=styles.FONT_MONO,
-                                color=styles.COLOR_TEXT_PRIMARY,
+                                color=val_color, # Use the calculated color
                                 weight=ft.FontWeight.NORMAL
                             )
                         ),
@@ -125,48 +153,45 @@ class GameCard(ft.Card):
                     size=13,
                     no_wrap=False, # Allows wrapping if the line is too long
                 )
-
                 controls_list.append(new_line)
 
-        controls_list.append(ft.Container(height=10))
+        return controls_list
 
-        # Save Button
+    def _build_actions(self, appid):
+        """Builds the action buttons (Save, Launch) if applicable."""
         if appid == "ROAST":
-            controls_list.append(
-                ft.Row(
-                    controls=[
-                        GrimoireButton(
-                            "Save it",
-                            icon=ft.Icons.SAVE,
-                            height=30,
-                            style=styles.CARD_STYLE,
-                            # Capture appid safely in lambda
-                            on_click=lambda e, a=appid: launch_game(a)
-                        )
-                    ],
-                    alignment=ft.MainAxisAlignment.END,
-                    vertical_alignment=ft.CrossAxisAlignment.END
-                )
+            return ft.Row(
+                controls=[
+                    GrimoireButton(
+                        "Save it",
+                        icon=ft.Icons.SAVE,
+                        height=30,
+                        style=styles.CARD_STYLE,
+                        on_click=lambda e: launch_game(appid) # Keeps original logic, though likely incorrect for 'Save'
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.END,
+                vertical_alignment=ft.CrossAxisAlignment.END
             )
-        elif not appid is None and vault.is_game_owned(appid): # Launch Button
-            controls_list.append(
-                ft.Row(
-                    controls=[
-                        GrimoireButton(
-                            "Launch",
-                            icon=ft.Icons.PLAY_ARROW,
-                            height=30,
-                            style=styles.CARD_STYLE,
-                            # Capture appid safely in lambda
-                            on_click=lambda e, a=appid: launch_game(a)
-                        )
-                    ],
-                    alignment=ft.MainAxisAlignment.END,
-                    vertical_alignment=ft.CrossAxisAlignment.END
-                )
+        elif appid and vault.is_game_owned(appid):
+            return ft.Row(
+                controls=[
+                    GrimoireButton(
+                        "Launch",
+                        icon=ft.Icons.PLAY_ARROW,
+                        height=30,
+                        style=styles.CARD_STYLE,
+                        on_click=lambda e: launch_game(appid)
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.END,
+                vertical_alignment=ft.CrossAxisAlignment.END
             )
+        return None
 
-        # Build the Stack
+    def _build_stack(self, bg_image, content_column):
+        """Combines background, gradient, and content into the final stack."""
+
         stack_controls = []
 
         # LAYER A: Background Image (Positioned to Fill)
@@ -174,7 +199,11 @@ class GameCard(ft.Card):
             ft.Container(
                 content=ft.Image(
                     src=bg_image,
-                    error_content=ft.Image(src=get_roast_asset("DEFAULT"),fit=ft.BoxFit.COVER,repeat=ft.ImageRepeat.NO_REPEAT), # FALLBACK
+                    error_content=ft.Image(
+                        src=get_roast_asset("DEFAULT"),
+                        fit=ft.BoxFit.COVER,
+                        repeat=ft.ImageRepeat.NO_REPEAT
+                    ), # FALLBACK
                     fit=ft.BoxFit.COVER,
                     repeat=ft.ImageRepeat.NO_REPEAT,
                 ),
@@ -183,6 +212,7 @@ class GameCard(ft.Card):
             )
         )
 
+        # LAYER B: Gradient Overlay
         gradient_layer = ft.Container(
             gradient=ft.LinearGradient(
                 begin=ft.Alignment.TOP_CENTER,
@@ -195,34 +225,28 @@ class GameCard(ft.Card):
                 ],
                 stops=[0, 0.3, 0.7, 1.0]
             ),
+            # Add positioning to force stretch
+            left=0, right=0, top=0, bottom=0,
         )
-
-        # Add positioning to force stretch
-        gradient_layer.left = 0
-        gradient_layer.right = 0
-        gradient_layer.top = 0
-        gradient_layer.bottom = 0
         stack_controls.append(gradient_layer)
 
-        # Enforce minimum size, invisible control
+        # LAYER C: Sizing Container (Invisible, enforces min size)
         stack_controls.append(
             ft.Container(
-                width=card_width,
-                height=card_height,
+                width=self.card_width,
+                height=self.card_height,
             )
         )
         
-        # CONTENT
+        # LAYER D: Content
         stack_controls.append(
             ft.Container(
                 padding=15,
-                content=ft.Column(controls_list, spacing=4),
+                content=content_column,
             )
         )
-        
 
-
-        # Shadow
+        # Shadow Style
         shadow = ft.BoxShadow(
             blur_radius=10,
             spread_radius=1,
@@ -230,18 +254,17 @@ class GameCard(ft.Card):
             offset=ft.Offset(0, 0)
         )
 
-
+        # Final Container Wrapper
         return ft.Container(
-            width=card_width,
-            height=card_height,  # Enforce outer constraint for Game Cards
-            bgcolor=tint_color,
+            width=self.card_width,
+            height=self.card_height,  # Enforce outer constraint for Game Cards
+            bgcolor=self.tint_color,
             border_radius=12,
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
             content=ft.Stack(
                 controls=stack_controls,
                 # For Roast cards, ensure the stack expands to fill the container width
-                width=card_width
+                width=self.card_width
             ),
-            #border = ft.border.all(1, ft.Colors.with_opacity(0.5, styles.COLOR_BORDER_BRONZE)),  # Subtle rim light
-            shadow = shadow,
+            shadow=shadow,
         )
