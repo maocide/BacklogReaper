@@ -609,7 +609,6 @@ def execute_tool(tool_request):
 
     # --- EXECUTE TOOL ---
     tool_output_str = ""
-    system_hint = ""
     # result_limit = 30 # Removed in favor of pagination
     reviews_limit = 10
     result_limit = 10
@@ -642,7 +641,8 @@ def execute_tool(tool_request):
 
             print(f"Agent Calling: {count} results.")
 
-            tool_output_str = json.dumps(results)
+            context_msg = f"Found {count} games in batch search."
+            tool_output_str = wrap_output(results, context=context_msg)
 
         elif tool_name == "get_user_tags": #TODO: Example use
             tags_list = vault.get_all_tags(**clean_params)
@@ -655,48 +655,60 @@ def execute_tool(tool_request):
             else:
                 context_msg = f"User top {limit} tags (Lifetime History)."
 
-            tool_output_str = wrap_output(tags_list, context=context_msg) #TODO: Use this in all sections
-            system_hint = "System Note: Tags retrieved." #TODO: Clean this out, no more needed
+            tool_output_str = wrap_output(tags_list, context=context_msg)
 
         elif tool_name == "get_library_stats":
             stats = vault.get_library_stats()
-            tool_output_str = json.dumps(stats)
-            system_hint = "System Note: Use this data to roast the user or analyze their habits."
+            context_msg = "Library statistics retrieved."
+            tool_output_str = wrap_output(stats, context=context_msg)
 
         elif tool_name == "find_similar_games":
             output = game_intelligence.generate_contextual_dna(clean_params.get('game_name'), result_limit)
-            tool_output_str = json.dumps(output)
-            system_hint = f"System Note: These are {result_limit} games in the user's library that match the target."
+            context_msg = f"Found {len(output)} games in the user's library that match the target."
+            tool_output_str = wrap_output(output, context=context_msg)
 
         elif tool_name == "search_steam_store":
-            tool_output_str = json.dumps(game_intelligence.search_steam_store(clean_params.get('search_term'), result_limit))
-            system_hint = f"System Note: These are {result_limit} from the steam store search."
+            data = game_intelligence.search_steam_store(clean_params.get('search_term'), result_limit)
+            context_msg = f"Found {len(data)} results from the steam store search."
+            tool_output_str = wrap_output(data, context=context_msg)
 
         elif tool_name == "get_game_details":
-            tool_output_str = json.dumps(game_intelligence.get_batch_game_details(clean_params.get('game_names')))
-            system_hint = "System Note: Details retrieved."
+            data = game_intelligence.get_batch_game_details(clean_params.get('game_names'))
+            context_msg = "Game details retrieved."
+            tool_output_str = wrap_output(data, context=context_msg)
 
         elif tool_name == "get_reviews":
-            tool_output_str = json.dumps(game_intelligence.get_reviews_byname(clean_params.get('game_name'), reviews_limit))
+            data = game_intelligence.get_reviews_byname(clean_params.get('game_name'), reviews_limit)
+            context_msg = f"Reviews for {clean_params.get('game_name')}."
+            tool_output_str = wrap_output(data, context=context_msg)
 
         elif tool_name == "get_community_sentiment":
-            tool_output_str = json.dumps(community_sentiment.get_community_sentiment(clean_params.get('game_name')))
+            data = community_sentiment.get_community_sentiment(clean_params.get('game_name'))
+            context_msg = f"Community sentiment for {clean_params.get('game_name')}."
+            tool_output_str = wrap_output(data, context=context_msg)
 
         elif tool_name == "get_achievements":
             stats = game_intelligence.get_achievement_stats(
                 game_name=clean_params.get('game_name'),
                 page=clean_params.get('page')
             )
-            tool_output_str = json.dumps(stats)
+            context_msg = f"Achievement stats for {clean_params.get('game_name')}."
+            tool_output_str = wrap_output(stats, context=context_msg)
 
         elif tool_name == "web_search":
-            tool_output_str = json.dumps(web_tools.web_search(clean_params.get('search')))
+            data = web_tools.web_search(clean_params.get('search'))
+            context_msg = f"Web search results for '{clean_params.get('search')}'."
+            tool_output_str = wrap_output(data, context=context_msg)
 
         elif tool_name == "get_webpage":
-            tool_output_str = json.dumps(community_sentiment.get_webpage(clean_params.get('url')))
+            data = community_sentiment.get_webpage(clean_params.get('url'))
+            context_msg = f"Content of webpage {clean_params.get('url')}."
+            tool_output_str = wrap_output(data, context=context_msg)
 
         elif tool_name == "get_user_wishlist":
-            tool_output_str = json.dumps(game_intelligence.get_user_wishlist(sort_by=clean_params.get('sort_by'), page=clean_params.get('page', 0)))
+            data = game_intelligence.get_user_wishlist(sort_by=clean_params.get('sort_by'), page=clean_params.get('page', 0))
+            context_msg = f"User wishlist (Page {clean_params.get('page', 0)})."
+            tool_output_str = wrap_output(data, context=context_msg)
 
         elif tool_name == "search_by_vibe":
             # Get the Engine
@@ -722,20 +734,24 @@ def execute_tool(tool_request):
                     "status": vault.calculate_status(game)  # Helper from your vault.py
                 })
 
-            tool_output_str = json.dumps(lean_results)
-            system_hint = f"System Note: Found {len(lean_results)} games matching that vibe via vector search."
+            context_msg = f"Found {len(lean_results)} games matching that vibe via vector search."
+            tool_output_str = wrap_output(lean_results, context=context_msg)
+
         elif tool_name == "get_game_news":
-            tool_output_str = json.dumps(community_sentiment.get_game_news(clean_params.get('game_name')))
-            system_hint = "System Note: Official news retrieved."
+            data = community_sentiment.get_game_news(clean_params.get('game_name'))
+            context_msg = f"Official news for {clean_params.get('game_name')}."
+            tool_output_str = wrap_output(data, context=context_msg)
+
         elif tool_name == "get_friends_who_own":
-            tool_output_str = json.dumps(game_intelligence.get_friends_who_own(clean_params.get('game_name')))
-            system_hint = f"System Note: Friends who own the game {clean_params.get('game_name')}"
+            data = game_intelligence.get_friends_who_own(clean_params.get('game_name'))
+            context_msg = f"Friends who own {clean_params.get('game_name')}."
+            tool_output_str = wrap_output(data, context=context_msg)
 
     except Exception as e:
         print(sys.exc_info())
-        tool_output_str = '{ "Error": "' + str(e) + '" }'
+        tool_output_str = wrap_output({"error": str(e)}, context="Error executing tool", warning="Exception occurred")
 
-    return tool_output_str, system_hint, action_desc
+    return tool_output_str
 
 def extract_json(response_text):
     """

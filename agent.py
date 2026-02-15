@@ -254,7 +254,7 @@ def agent_chat_loop_stream(user_input, chat_history):
                     yield "action", action_desc
 
                     # Execute the tool/function
-                    tool_result_str, hint, action = agent_tools.execute_tool({"tool": func_name, "params": params})
+                    tool_result_str = agent_tools.execute_tool({"tool": func_name, "params": params})
 
                 except Exception as e:
                     tool_result_str = f"Error executing tool: {str(e)}"
