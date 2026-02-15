@@ -588,6 +588,16 @@ def wrap_output(data, context=None, warning=None):
     Replaces the need for 'system_hint'.
     """
     count = 1
+    status = "success"
+
+    # Check for error in dict data (from safe_tool)
+    if isinstance(data, dict) and "error" in data:
+        status = "error"
+        if not context:
+            context = "Tool execution failed."
+        if "error_type" in data:
+            context += f" Type: {data['error_type']}"
+
     if isinstance(data, list):
         count = len(data)
     elif isinstance(data, dict):
@@ -595,6 +605,7 @@ def wrap_output(data, context=None, warning=None):
 
     payload = {
         "meta": {
+            "status": status,
             "summary": context or "Data retrieved successfully.",
             "count": count,
             "timestamp": datetime.now().strftime("%H:%M")
