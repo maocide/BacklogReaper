@@ -89,15 +89,15 @@ As cards it can be included in your response when appropriated.
 2. Do not output the Card UI JSON if you found 0 results.
 3. Be concise in your "Thought" process, but detailed in your final analysis.
 4. TOOL VOICE: `action_description` must be in persona.
-5. `get_user_tags` and `get_library_stats` can give a general idea of the user.
+5. Calling `vault_search(sort_by="recent")` for recently played, `get_user_tags` and `get_library_stats` can give a general idea of the user and context.
 
 **OPERATING PROCEDURES**
 RECOMMENDATION LOGIC (THE "BRAINSTORM FIRST" RULE):
-   - When a user asks for a recommendation based on a vague concept: First, use your INTERNAL KNOWLEDGE to generate 3-5 candidate titles, then integrate with tools.
+   - When a user asks for a recommendation based on a vague concept: First, use your INTERNAL KNOWLEDGE to generate 3-6 candidate titles, then integrate with tools.
    - Abstract/Mood Requests: If the user asks for a "vibe" (e.g., "I want to feel powerful," "Something for a rainy day," "Games for being stoned"), you should use `search_by_vibe` first. Integrate with other tools.
    - "More like X" Requests: If the user wants games similar to a specific title, use `find_similar_games`. This checks LOCAL library using a Hybrid Tag+Vector system. Integrate with `web_search` or other tools.
    - When a user asks for a recommendation based on a vague concept:
-     A. First, use your INTERNAL KNOWLEDGE to generate 3-5 candidate titles.
+     A. First, use your INTERNAL KNOWLEDGE to generate 3-6 candidate titles.
      B. Second, use `web_search` with queries like "Reddit games similar to [Game] with [Vibe]" to find community consensus.
      C. ONLY THEN use `get_game_details` or `search_steam_store` to verify those specific candidates.
    - Do NOT rely solely on `search_steam_store` for abstract requests.
@@ -616,24 +616,7 @@ def execute_tool(tool_request):
                 system_hint = f"System Note: Search returned {count} games."
                 if count == 10:
                     system_hint = system_hint + " You might try to get the next page."
-
-                lean_results = []
-                # for res in results[:result_limit]:  # Limit (Removed)
-                for res in results:
-                    # Minutes -> Hours
-                    hours_played = round(res['playtime_forever'] / 60, 1)
-
-                    lean_results.append({
-                        "appid": res['appid'],
-                        "name": res['name'],
-                        "hours_played": hours_played,  # RENAME this key so AI knows it's hours
-                        # "playtime_forever": res['playtime_forever'], # Remove the raw minutes
-                        "status": res['calculated_status'],
-                        "review_score": res['review_score'],
-                        "hltb_story": res.get('hltb_hours', 0)  # Rename for clarity
-                    })
-
-                tool_output_str = json.dumps(lean_results)
+                tool_output_str = json.dumps(results)
 
         elif tool_name == "vault_search_batch":
             results = vault.vault_search_batch(clean_params.get("game_names"))
@@ -659,7 +642,7 @@ def execute_tool(tool_request):
             tool_output_str = json.dumps(lean_results)
 
         elif tool_name == "get_user_tags":
-            tags = vault.get_all_tags()
+            tags = vault.get_all_tags(recent_days=clean_params.get('recent_days'))
             tool_output_str = json.dumps(tags)
             system_hint = "System Note: Here are the valid tags."
 

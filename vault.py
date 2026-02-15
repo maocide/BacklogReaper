@@ -420,7 +420,7 @@ def get_game_by_appid(appid):
             return game
     return None
 
-def get_all_tags(limit=None, recent_days=None):
+def get_all_tags(limit=50, recent_days=None):
     """
     Returns a list of tags.
     - Filters out non-game software tags.
@@ -491,8 +491,16 @@ def get_all_tags(limit=None, recent_days=None):
 
     # Cap the output size for the Agent
     # 50 tags is plenty for an AI
-    final_limit = limit if limit else 50
-    return results[:final_limit]
+    aggregated = {    }
+
+    if recent_days:
+        aggregated["description"] = f"User top {limit} tags for the last {recent_days} days."
+    else:
+        aggregated["description"] = f"User top {limit} tags"
+
+    aggregated["tags"] = results[:limit]
+
+    return aggregated
 
 def is_game_owned(appid):
     """
@@ -791,7 +799,7 @@ def get_library_stats():
 
 if __name__ == "__main__":
     pass
-    print(get_vault_statistics())
+    print(get_all_tags(recent_days=30))
     #hltb_test = get_hltb_search_scrape("Lossless Scaling")
     #print(hltb_test)
     # import vibe_engine
