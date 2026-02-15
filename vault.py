@@ -5,6 +5,8 @@ import difflib
 
 import requests
 from steam_web_api import Steam
+
+import ai_tools
 import settings
 from web_tools import get_store_data
 from web_tools import get_hltb_data
@@ -288,7 +290,7 @@ def update(username):
 
     print(f"Library Scan: Found {len(owned_games)} games.")
 
-    # --- STEP 1: SEGREGATE GAMES ---
+    # SEGREGATE GAMES
     existing_games = []  # Tuple list for batch update
     new_games = []  # List of dicts for parallel processing
 
@@ -323,7 +325,7 @@ def update(username):
             )
             conn.commit()
 
-    # --- STEP 3: PARALLEL PROCESSING (New Games) ---
+    # PARALLEL PROCESSING (New Games)
     if not new_games:
         print("No new recruits found.")
     else:
@@ -346,7 +348,7 @@ def update(username):
                 except Exception as exc:
                     print(f"Worker generated an exception: {exc}")
 
-        # --- STEP 4: BATCH INSERT (New Games) ---
+        # BATCH INSERT (New Games)
         if new_game_data:
             print(f"Saving {len(new_game_data)} new records to Vault...")
             with get_connection() as conn:
@@ -491,16 +493,8 @@ def get_all_tags(limit=50, recent_days=None):
 
     # Cap the output size for the Agent
     # 50 tags is plenty for an AI
-    aggregated = {    }
 
-    if recent_days:
-        aggregated["description"] = f"User top {limit} tags for the last {recent_days} days."
-    else:
-        aggregated["description"] = f"User top {limit} tags"
-
-    aggregated["tags"] = results[:limit]
-
-    return aggregated
+    return results[:limit]
 
 def is_game_owned(appid):
     """
@@ -601,9 +595,10 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
 
         # If we survived all filters, add to results
         # Inject the calculated fields so the AI sees them
-        game['calculated_status'] = game_status
-        game['hours'] = round(float(game['playtime_forever']) / 60.0, 1)
-        game['hltb_hours'] = round(float(game['hltb_main']) / 60.0, 1) if game['hltb_main'] else 0
+        game['status'] = game_status
+        game['hours'] = game['playtime_forever']
+        game['hltb_hours'] = game['hltb_main'] if game['hltb_main'] else 0
+        game['hltb_completionist'] = game['hltb_completionist'] if game['hltb_completionist'] else 0
         game['last_played'] = last_played_str
 
         results.append(game)
@@ -624,6 +619,30 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
              random.Random(seed).shuffle(results)
         else:
              random.shuffle(results)
+
+    game_schema = {
+        # TRANSFORMATIONS: 'field_name': 'rule'
+        "transformations": {
+            "hours": "minutes_to_hours",
+            "hltb_hours": "minutes_to_hours",
+            "hltb_conpletionist": "minutes_to_hours",
+        },
+        # ALLOWLIST: Only keep these fields
+        "keep_keys": [
+            "appid",
+            "name",
+            "hours",
+            "hltb_hours",
+            "votes_up",
+            "last_played",
+            "status"
+        ]
+    }
+
+
+    results = ai_tools.clean_json_for_ai(results,
+                                                 transformations=game_schema["transformations"],
+                                                 keep_keys=game_schema["keep_keys"])
 
     # Slice for pagination
     if page_size > 0:
@@ -799,7 +818,8 @@ def get_library_stats():
 
 if __name__ == "__main__":
     pass
-    print(get_all_tags(recent_days=30))
+    #print(get_all_tags(recent_days=30))
+    print(advanced_search(sort_by="recent"))
     #hltb_test = get_hltb_search_scrape("Lossless Scaling")
     #print(hltb_test)
     # import vibe_engine

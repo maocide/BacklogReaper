@@ -89,7 +89,7 @@ As cards it can be included in your response when appropriated.
 2. Do not output the Card UI JSON if you found 0 results.
 3. Be concise in your "Thought" process, but detailed in your final analysis.
 4. TOOL VOICE: `action_description` must be in persona.
-5. Calling `vault_search(sort_by="recent")` for recently played, `get_user_tags` and `get_library_stats` can give a general idea of the user and context.
+5. To get an idea of user habits check `vault_search(sort_by="recent")` for recently played, you have also `get_user_tags` and `get_library_stats`.
 
 **OPERATING PROCEDURES**
 RECOMMENDATION LOGIC (THE "BRAINSTORM FIRST" RULE):
@@ -581,6 +581,26 @@ def get_friendly_status(func_name):
 
     return mapping.get(func_name, f"⚙️ Executing {func_name}...")
 
+
+def wrap_output(data, context=None, warning=None):
+    """
+    Wraps raw data in a standard envelope for the Agent.
+    Replaces the need for 'system_hint'.
+    """
+    payload = {
+        "meta": {
+            "summary": context or "Data retrieved successfully.",
+            "count": len(data) if isinstance(data, list) else 1,
+            "timestamp": datetime.now().strftime("%H:%M")
+        },
+        "data": data
+    }
+
+    if warning:
+        payload["meta"]["warning"] = warning
+
+    return json.dumps(payload, default=str)  # default=str handles dates automatically
+
 def execute_tool(tool_request):
     tool_name = tool_request.get("tool")
     params = tool_request.get("params", {})
@@ -601,22 +621,20 @@ def execute_tool(tool_request):
     print(f"Agent Calling: {tool_name} | Params: {clean_params}")
 
     try:
-        if tool_name == "vault_search":
+        if tool_name == "vault_search":  #TODO: Example use
+            # Get Data
             results = vault.advanced_search(**clean_params)
-            count = len(results)
 
-            print(f"Agent Calling: {count} results.")
+            # Logic: Detect "Recent" search to add the specific warning
+            context_msg = f"Found {len(results)} games matching criteria."
+            warning_msg = None
 
-            # Create the Hint
-            if count == 0:
-                system_hint = "System Note: Search returned 0 results. Try removing tags or changing status. If this keeps happening, tell the user."
-                tool_output_str = "[]"
-            else:
-                # system_hint = f"System Note: Search returned {count} games, result limited to {result_limit}."
-                system_hint = f"System Note: Search returned {count} games."
-                if count == 10:
-                    system_hint = system_hint + " You might try to get the next page."
-                tool_output_str = json.dumps(results)
+            if clean_params.get('sort_by') == 'recent':
+                context_msg = "Recently played games."
+                warning_msg = "NOTE: 'hours_played' is LIFETIME total, not just recent playtime."
+
+            # Wrap & Return
+            tool_output_str = wrap_output(results, context=context_msg, warning=warning_msg)
 
         elif tool_name == "vault_search_batch":
             results = vault.vault_search_batch(clean_params.get("game_names"))
@@ -624,27 +642,21 @@ def execute_tool(tool_request):
 
             print(f"Agent Calling: {count} results.")
 
-            lean_results = []
-            for res in results:
-                # Minutes -> Hours
-                hours_played = round(res['playtime_forever'] / 60, 1)
+            tool_output_str = json.dumps(results)
 
-                lean_results.append({
-                    "appid": res['appid'],
-                    "name": res['name'],
-                    "hours_played": hours_played,  # RENAME this key so AI knows it's hours
-                    # "playtime_forever": res['playtime_forever'], # Remove the raw minutes
-                    "status": res['calculated_status'],
-                    "review_score": res['review_score'],
-                    "hltb_story": res.get('hltb_hours', 0)  # Rename for clarity
-                })
+        elif tool_name == "get_user_tags": #TODO: Example use
+            tags_list = vault.get_all_tags(**clean_params)
 
-            tool_output_str = json.dumps(lean_results)
+            limit = clean_params.get('limit', 50)
+            days = clean_params.get('recent_days')
 
-        elif tool_name == "get_user_tags":
-            tags = vault.get_all_tags(recent_days=clean_params.get('recent_days'))
-            tool_output_str = json.dumps(tags)
-            system_hint = "System Note: Here are the valid tags."
+            if days:
+                context_msg = f"User top {limit} tags for the last {days} days (Recent History)."
+            else:
+                context_msg = f"User top {limit} tags (Lifetime History)."
+
+            tool_output_str = wrap_output(tags_list, context=context_msg) #TODO: Use this in all sections
+            system_hint = "System Note: Tags retrieved." #TODO: Clean this out, no more needed
 
         elif tool_name == "get_library_stats":
             stats = vault.get_library_stats()
@@ -721,7 +733,7 @@ def execute_tool(tool_request):
 
     except Exception as e:
         print(sys.exc_info())
-        tool_output_str = f"Error: {str(e)}"
+        tool_output_str = '{ "Error": "' + str(e) + '" }'
 
     return tool_output_str, system_hint, action_desc
 
