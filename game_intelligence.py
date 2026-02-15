@@ -257,6 +257,27 @@ def get_similar_games(game_name):
 
 @safe_tool
 def get_game_deals(title, appid):
+    def fetch_with_retry(url, params=None, retries=3, backoff_factor=1.0):
+        for i in range(retries):
+            try:
+                response = requests.get(url, params=params)
+                if response.status_code == 429:
+                    wait_time = backoff_factor * (2 ** i)
+                    print(f"Rate limited (429). Retrying in {wait_time}s...")
+                    sleep(wait_time)
+                    continue
+                response.raise_for_status()
+                return response
+            except requests.exceptions.RequestException as e:
+                wait_time = backoff_factor * (2 ** i)
+                print(f"Request failed: {e}. Retrying in {wait_time}s...")
+                sleep(wait_time)
+                if i == retries - 1:
+                    # Return None instead of raising to let safe_tool handle or return clean error
+                    print(f"Max retries reached for {url}")
+                    return None
+        return None
+
     # --- STEP 1: Find the Game ---
     search_url = "https://www.cheapshark.com/api/1.0/games"
     search_params = {
@@ -265,8 +286,9 @@ def get_game_deals(title, appid):
     }
 
     print("Searching CheapShark for game...")
-    response = requests.get(search_url, params=search_params)
-    response.raise_for_status()
+    response = fetch_with_retry(search_url, params=search_params)
+    if not response:
+        return {"error": "Failed to fetch deals after retries."}
 
     # Parse the JSON list
     games_list = response.json()
@@ -293,8 +315,9 @@ def get_game_deals(title, appid):
     }
 
     print("\nFetching CheapShark specific deal details...")
-    deal_response = requests.get(deal_url, params=deal_params)
-    deal_response.raise_for_status()
+    deal_response = fetch_with_retry(deal_url, params=deal_params)
+    if not deal_response:
+        return {"error": "Failed to fetch specific deal details after retries."}
 
     deal_data = deal_response.json()
 
@@ -307,8 +330,9 @@ def get_game_deals(title, appid):
     store_url = "https://www.cheapshark.com/api/1.0/stores"
     store_params = {}
 
-    store_response = requests.get(store_url)
-    store_response.raise_for_status()
+    store_response = fetch_with_retry(store_url)
+    if not store_response:
+        return {"error": "Failed to fetch stores list after retries."}
 
     store_data = store_response.json()
     store_name = ""

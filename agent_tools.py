@@ -587,10 +587,16 @@ def wrap_output(data, context=None, warning=None):
     Wraps raw data in a standard envelope for the Agent.
     Replaces the need for 'system_hint'.
     """
+    count = 1
+    if isinstance(data, list):
+        count = len(data)
+    elif isinstance(data, dict):
+        count = len(data.keys())
+
     payload = {
         "meta": {
             "summary": context or "Data retrieved successfully.",
-            "count": len(data) if isinstance(data, list) else 1,
+            "count": count,
             "timestamp": datetime.now().strftime("%H:%M")
         },
         "data": data
