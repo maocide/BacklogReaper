@@ -40,6 +40,7 @@ class ReaperChatView(ft.Column):
         self.current_scroll_offset = 0
         self.max_scroll_extent = 0
         self.scroll_buffer = 50
+        self.max_chat_bubbles = 50  # Limit visible bubbles to prevent UI lag/leaks
 
         # Throttling state
         self.last_scroll_ts = 0
@@ -187,12 +188,12 @@ class ReaperChatView(ft.Column):
         try:
             if stop_event.is_set(): return
 
+            # Signal initialization immediately for responsiveness
+            self.page.pubsub.send_all({"type": "init", "run_id": run_id})
+
             # Update db if not done for 20 mins
             if vault.get_games_count() and vault.get_elapsed_since_update() > 1200:
                 self.update_data_sources()
-
-            # Signal initialization
-            self.page.pubsub.send_all({"type": "init", "run_id": run_id})
 
             # CONSUME THE STREAM
             stream = agent.agent_chat_loop_stream(user_message, self.br_chat_history)
@@ -597,6 +598,29 @@ class ReaperChatView(ft.Column):
                  self.br_chat_history.pop()
                  self.start_chat_thread(user_message)
 
+    async def prune_chat_ui(self):
+        """
+        Removes oldest chat bubbles if the list exceeds the maximum limit.
+        """
+        if not self.br_chat_list.current:
+            return
+
+        controls = self.br_chat_list.current.controls
+        if len(controls) > self.max_chat_bubbles:
+            # Calculate how many to remove
+            excess = len(controls) - self.max_chat_bubbles
+
+            # Remove from the top (oldest)
+            # We use a slice assignment or loop pop
+            # Note: 0 is top
+            for _ in range(excess):
+                controls.pop(0)
+
+            # Since we modify the list in place, we don't need to reassign,
+            # but we need to reset scroll/layout state slightly to avoid jumps?
+            # Actually, removing items from top might shift scroll position.
+            # But usually we are auto-scrolling to bottom anyway.
+
     async def send_message(self, e):
         user_message = self.br_input.current.value
         if not user_message:
@@ -619,6 +643,9 @@ class ReaperChatView(ft.Column):
         await self.remove_regen_button(perform_update=False)
 
         if self.br_chat_list.current:
+            # Prune before adding new message to keep list size stable
+            await self.prune_chat_ui()
+
             self.br_chat_list.current.controls.append(self.parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
             if hasattr(self.br_chat_list.current, 'update_async'):
                 await self.br_chat_list.current.update_async()
