@@ -41,6 +41,9 @@ class ReaperChatView(ft.Column):
         self.max_scroll_extent = 0
         self.scroll_buffer = 50
 
+        # Throttling state
+        self.last_scroll_ts = 0
+
 
         # State for streaming
         self.stream_state = {
@@ -230,14 +233,26 @@ class ReaperChatView(ft.Column):
         distance_from_bottom = self.max_scroll_extent - self.current_scroll_offset
         safe_scroll = distance_from_bottom <= self.scroll_buffer
 
-        if safe_scroll or forced:
+        if forced:
             if self.br_chat_list.current and self.page:
                 try:
-                    # Use page.run_task to schedule the coroutine/async method correctly
+                    self.last_scroll_ts = time.time()
                     self.page.run_task(self._scroll_task, duration, delay_ms)
                 except Exception:
-                    print("Error scrolling chat to bottom.")
+                    print("Error scrolling chat to bottom (forced).")
                     pass
+            return
+
+        if safe_scroll:
+            now = time.time()
+            if (now - self.last_scroll_ts) > 0.2: # Throttle: max 1 scroll every 200ms
+                if self.br_chat_list.current and self.page:
+                    try:
+                        self.last_scroll_ts = now
+                        self.page.run_task(self._scroll_task, duration, delay_ms)
+                    except Exception:
+                        print("Error scrolling chat to bottom.")
+                        pass
 
     def start_chat_thread(self, user_message):
         # Stop previous thread cleanly
