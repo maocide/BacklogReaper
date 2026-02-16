@@ -635,7 +635,7 @@ class ReaperChatView(ft.Column):
                     spacing=10
                 ),
                 padding=10,
-                alignment=ft.alignment.center
+                alignment=ft.Alignment.CENTER
             )
 
             # Add to chat (temporarily)
