@@ -18,7 +18,13 @@ COLOR_INPUT_CURSOR = "#D4A237" # Gold cursor
 COLOR_TEXT_PRIMARY   = "#e0e0e0" # Main Readable Text (Bone White)
 COLOR_TEXT_SECONDARY = "#a0a0a0" # Subtitles (Dust Grey)
 COLOR_SYSTEM_LOG     = "#607d8b" # Terminal/Action Logs (Spirit Blue)
-COLOR_ERROR          = "#4a0e0e" # Critical Errors
+
+# FIX: Brighter Red for visibility on dark backgrounds
+COLOR_ERROR          = "#ef5350" # bright Red (Blood Warning)
+# Old was #4a0e0e (too dark)
+
+# 5. UI Elements
+COLOR_PROGRESS_BAR  =  "#90caf9" # (Bright Spirit Blue)
 
 # Fonts
 FONT_HEADING = "Cinzel" # , Times New Roman, serif # Commented, otherwise cinzel was not used

@@ -1,6 +1,15 @@
 import flet as ft
 import webbrowser
 
+async def smart_update(control):
+    """
+    Updates a Flet control, preferring the async method if available.
+    """
+    if hasattr(control, 'update_async'):
+        await control.update_async()
+    else:
+        control.update()
+
 def launch_game(appid):
     """Launches the game using the steam protocol."""
     try:
