@@ -559,10 +559,10 @@ def get_friendly_status(func_name):
     """
     mapping = {
         # Vault / Local DB
-        "vault_search": "📂 Rummaging through your backlog...",
-        "vault_search_batch": "📂 Batch scanning your library...",
+        "vault_search": "📜 Rummaging through your backlog...",
+        "vault_search_batch": "📜 Rummaging through all your library...",
         "get_user_tags": "🏷️ analyzing your genre habits...",
-        "get_library_stats": "🧮 Auditing your entire life...",
+        "get_library_stats": "📊 Auditing your entire life...",
         "find_similar_games": "🔍 Matching games in your vault...",
         "get_achievements": "🏆 Checking your trophy cabinet...",
         "get_user_wishlist": "🌠 Judging your wishlist...",
@@ -574,7 +574,7 @@ def get_friendly_status(func_name):
         "get_reviews": "🗣️ Reading player reviews...",
         "get_community_sentiment": "🔥 Scouring the internet for drama...",
         "web_search": "🌐 Searching the web...",
-        "get_webpage": "📄 Reading webpage content...",
+        "get_webpage": "📃 Reading webpage content...",
         "get_game_news": "📰 Getting news...",
 
     }
@@ -594,7 +594,7 @@ def wrap_output(data, context=None, warning=None):
     if isinstance(data, dict) and "error" in data:
         status = "error"
         if not context:
-            context = "Tool execution failed."
+            context = "Tool execution failed. " + data['error']
         if "error_type" in data:
             context += f" Type: {data['error_type']}"
 

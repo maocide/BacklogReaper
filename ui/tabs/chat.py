@@ -246,7 +246,7 @@ class ReaperChatView(ft.Column):
 
         if safe_scroll:
             now = time.time()
-            if (now - self.last_scroll_ts) > 0.2: # Throttle: max 1 scroll every 200ms
+            if (now - self.last_scroll_ts) > 0.1: # Throttle: max 1 scroll every 100ms
                 if self.br_chat_list.current and self.page:
                     try:
                         self.last_scroll_ts = now
@@ -293,7 +293,7 @@ class ReaperChatView(ft.Column):
     async def _on_message_async(self, message):
         msg_run_id = message.get("run_id")
 
-        # Guard: Ignore messages from old/zombie threads
+        # Ignore messages from old/zombie threads
         if msg_run_id != self.current_run_id:
             return
 
@@ -499,20 +499,19 @@ class ReaperChatView(ft.Column):
                     self.br_status.current.update()
 
         elif msg_type == "error":
-            if self.br_chat_list.current:
-                self.br_chat_list.current.controls.append(ft.Text(f"Error: {content}", color=styles.COLOR_ERROR))
-                if hasattr(self.br_chat_list.current, 'update_async'):
-                    await self.br_chat_list.current.update_async()
-                else:
-                    self.br_chat_list.current.update()
-                self.scroll_chat_to_bottom(forced=True)
+            # Clean chat UI and chat history
+            self.br_input.current.value = await self.remove_last_ai_response(including_user=True)
+
+            self.page.show_dialog(ft.SnackBar(ft.Text("Error: " + content)))
+
             if self.br_status.current:
                 self.br_status.current.value = f"Error: {content}"
                 self.br_status.current.color = styles.COLOR_ERROR
-                if hasattr(self.br_status.current, 'update_async'):
-                    await self.br_status.current.update_async()
-                else:
-                    self.br_status.current.update()
+
+            if hasattr(self.page, 'update_async'):
+                await self.page.update_async()
+            else:
+                self.page.update()
 
         elif msg_type == "cleanup":
             if self.br_btn_send.current:
@@ -553,29 +552,9 @@ class ReaperChatView(ft.Column):
     async def regenerate_click(self, e):
         await self.remove_regen_button(perform_update=False)
 
-        while self.br_chat_history and self.br_chat_history[-1]["role"] not in ("user", "system"):
-            self.br_chat_history.pop()
+        await self.remove_last_ai_response(including_user=False)
 
         if self.br_chat_list.current:
-            while self.br_chat_list.current.controls:
-                last_ctrl = self.br_chat_list.current.controls[-1]
-
-                is_user_message = False
-                if isinstance(last_ctrl, ReaperChatBubble) and getattr(last_ctrl, "is_user", False):
-                    is_user_message = True
-                elif getattr(last_ctrl, "data", None) == "user_message":
-                    is_user_message = True
-
-                if is_user_message:
-                    break
-
-                self.br_chat_list.current.controls.pop()
-
-            if hasattr(self.br_chat_list.current, 'update_async'):
-                await self.br_chat_list.current.update_async()
-            else:
-                self.br_chat_list.current.update()
-
             self.current_scroll_offset = 0
             self.max_scroll_extent = 0
             self.scroll_chat_to_bottom(forced=True, duration=0, delay_ms=50)
@@ -597,6 +576,36 @@ class ReaperChatView(ft.Column):
                  user_message = last_msg["content"]
                  self.br_chat_history.pop()
                  self.start_chat_thread(user_message)
+
+    async def remove_last_ai_response(self, including_user=False):
+        # History update
+        while self.br_chat_history and self.br_chat_history[-1]["role"] not in ("user", "system"):
+            self.br_chat_history.pop()
+
+        user_text = ""
+        if including_user:
+            if self.br_chat_history and self.br_chat_history[-1]["role"] == "user":
+                user_text = self.br_chat_history[-1]["content"]
+                self.br_chat_history.pop()
+
+        # UI update
+        while self.br_chat_list.current.controls:
+            last_ctrl = self.br_chat_list.current.controls[-1]
+
+            is_user_message = False
+            if isinstance(last_ctrl, ReaperChatBubble) and getattr(last_ctrl, "is_user", False):
+                is_user_message = True
+            elif getattr(last_ctrl, "data", None) == "user_message":
+                is_user_message = True
+
+            if is_user_message:
+                if including_user: # Force to pop user message too
+                    self.br_chat_list.current.controls.pop()
+                    return user_text
+                break
+
+            self.br_chat_list.current.controls.pop()
+        return None
 
     async def prune_chat_ui(self):
         """
