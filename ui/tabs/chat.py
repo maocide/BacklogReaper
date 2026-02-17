@@ -30,8 +30,9 @@ class ReaperChatView(ft.Column):
         self.br_input = ft.Ref[ft.TextField]()
         self.br_status = ft.Ref[ft.Text]()
         self.br_btn_send = ft.Ref[ft.IconButton]()
+        self.br_btn_stop = ft.Ref[ft.IconButton]()
 
-        # Robust Threading
+        # Threading
         self.current_run_id = None
         self.current_stop_event = None
         self.current_streaming_bubble = None  # Track the active streaming bubble control
@@ -85,7 +86,8 @@ class ReaperChatView(ft.Column):
                     on_submit=self.send_message,
                     label_style=ft.TextStyle(italic=True, color=styles.COLOR_ACCENT_DIM)
                 ),
-                ft.IconButton(ref=self.br_btn_send, icon=ft.Icons.SEND, icon_color=styles.COLOR_TEXT_GOLD, on_click=self.send_message)
+                ft.IconButton(ref=self.br_btn_send, icon=ft.Icons.SEND, icon_color=styles.COLOR_TEXT_GOLD, on_click=self.send_message),
+                ft.IconButton(ref=self.br_btn_stop, icon=ft.Icons.STOP, icon_color=styles.COLOR_TEXT_GOLD, on_click=self.stop),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
         ]
 
@@ -94,6 +96,8 @@ class ReaperChatView(ft.Column):
         self.page.pubsub.subscribe(self.on_message)
         # Prefetch avatar without blocking using standard threading
         threading.Thread(target=self._prefetch_avatar, daemon=True).start()
+
+        self.br_btn_stop.current.visible = False
 
     def will_unmount(self):
         self.page.pubsub.unsubscribe(self.on_message)
@@ -251,7 +255,7 @@ class ReaperChatView(ft.Column):
 
         if safe_scroll:
             now = time.time()
-            if (now - self.last_scroll_ts) > 0.1: # Throttle: max 1 scroll every 100ms
+            if (now - self.last_scroll_ts) > 0.2: # Throttle: max 1 scroll every 200ms
                 if self.br_chat_list.current and self.page:
                     try:
                         self.last_scroll_ts = now
@@ -469,6 +473,7 @@ class ReaperChatView(ft.Column):
                 self.scroll_chat_to_bottom(delay_ms=100)
 
             if self.br_status.current:
+                self.br_btn_stop.current.visible = False
                 self.br_status.current.value = "Ready"
                 self.br_status.current.color = styles.COLOR_TEXT_SECONDARY
                 await ui.utils.smart_update(self.br_status.current)
@@ -486,8 +491,12 @@ class ReaperChatView(ft.Column):
             await ui.utils.smart_update(self.page)
 
         elif msg_type == "cleanup":
+            if  self.br_btn_stop.current:
+                self.br_btn_stop.current.visible = False
+                await ui.utils.smart_update(self.br_btn_stop.current)
             if self.br_btn_send.current:
                 self.br_btn_send.current.disabled = False
+                self.br_btn_send.current.visible = True
                 await ui.utils.smart_update(self.br_btn_send.current)
             if self.br_input.current:
                 self.br_input.current.disabled = False
@@ -593,6 +602,9 @@ class ReaperChatView(ft.Column):
         except Exception as e:
             print(f"Sync error: {e}")
 
+    async def stop(self, e):
+        self.current_stop_event.set() # TODO: finish
+
     async def send_message(self, e):
         user_message = self.br_input.current.value
         if not user_message:
@@ -601,8 +613,11 @@ class ReaperChatView(ft.Column):
         self.br_input.current.value = ""
         self.br_input.current.disabled = True
         self.br_btn_send.current.disabled = True
+        self.br_btn_stop.current.visible = True
+        self.br_btn_send.current.visible = False
         await ui.utils.smart_update(self.br_input.current)
         await ui.utils.smart_update(self.br_btn_send.current)
+        await ui.utils.smart_update(self.br_btn_stop.current)
 
         user_portrait_url = self.get_user_portrait_url()
 
@@ -617,7 +632,7 @@ class ReaperChatView(ft.Column):
             self.scroll_chat_to_bottom(delay_ms=200)
 
         # Check for Sync Needed
-        if vault.get_games_count() and vault.get_elapsed_since_update() > 1200:
+        if vault.get_games_count() and vault.get_elapsed_since_update() > 1200: # 20 Mins
             # Inject System Status Bubble
             sync_bubble = ft.Container(
                 content=ft.Row(
@@ -629,7 +644,7 @@ class ReaperChatView(ft.Column):
                             height=2,
                             border_radius=0
                         ),
-                        ft.Text("[System] Syncing Neural Link with Steam Vault...", color=styles.COLOR_SYSTEM_LOG, size=12, font_family=styles.STYLE_MONOSPACE)
+                        ft.Text("Syncing Neural Link with Steam Vault...", color=styles.COLOR_SYSTEM_LOG, size=12, font_family=styles.STYLE_MONOSPACE)
                     ],
                     alignment=ft.MainAxisAlignment.CENTER,
                     spacing=10
@@ -646,16 +661,6 @@ class ReaperChatView(ft.Column):
 
             # Run blocking update in thread, await it here
             await asyncio.to_thread(self._sync_data_sources_blocking)
-
-            # Update UI to "Synced" then remove or just remove
-            sync_bubble.content.controls[0] = ft.Icon(ft.Icons.CHECK, size=16, color=ft.Colors.GREEN_400)
-            sync_bubble.content.controls[1].value = "[System] Data Synced."
-            sync_bubble.content.controls[1].color = ft.Colors.GREEN_400
-            if self.br_chat_list.current:
-                 await ui.utils.smart_update(self.br_chat_list.current)
-
-            # Short pause to let user see "Synced"
-            await asyncio.sleep(1.0)
 
             # Remove the bubble
             if self.br_chat_list.current:

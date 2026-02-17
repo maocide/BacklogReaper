@@ -131,6 +131,31 @@ class GameCard(ft.Card):
                 if title.lower() == "status":
                     val_color = get_status_color(str(content))
 
+                # URL IDEA
+                # is_url = str(content).startswith(("http://", "https://"))
+                #
+                # if is_url:
+                #     # RENDER CLICKABLE LINK
+                #     value_control = ft.Container(
+                #         content=ft.Row(
+                #             controls=[
+                #                 ft.Icon(ft.Icons.OPEN_IN_NEW, size=12, color=styles.COLOR_TEXT_GOLD),
+                #                 ft.Text(
+                #                     "Open Portal",  # Or use "Link" if you prefer
+                #                     size=12,
+                #                     color=styles.COLOR_TEXT_GOLD,
+                #                     weight=ft.FontWeight.BOLD,
+                #                     # Make it look like a link
+                #                     style=ft.TextStyle(decoration=ft.TextDecoration.UNDERLINE)
+                #                 )
+                #             ],
+                #             spacing=4,
+                #             tight=True
+                #         ),
+                #         # The Container itself can be clickable, or the row
+                #         on_click=lambda e, url=content_str: page.launch_url(url)
+                #     )
+
                 new_line = ft.Text(
                     spans=[
                         ft.TextSpan(
