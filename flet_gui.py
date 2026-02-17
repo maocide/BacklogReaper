@@ -23,7 +23,7 @@ def main(page: ft.Page):
         scrollbar_theme=ft.ScrollbarTheme(
             thumb_color={
                 ft.ControlState.HOVERED: styles.COLOR_TEXT_GOLD,
-                ft.ControlState.DEFAULT: styles.COLOR_ACCENT_DIM,
+                ft.ControlState.DEFAULT: styles.COLOR_BORDER_BRONZE,
             },
             track_color=styles.COLOR_SURFACE,
             thickness=5,

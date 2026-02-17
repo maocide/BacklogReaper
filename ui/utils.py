@@ -1,5 +1,6 @@
 import flet as ft
 import webbrowser
+import styles
 
 async def smart_update(control):
     """
@@ -22,32 +23,37 @@ def launch_game(appid):
 def get_status_color(status):
     """Returns the color corresponding to a game status."""
     color_map = {
-        # Simplified Chart Categories
-        "Backlog": ft.Colors.GREY_500,  # Unplayed
-        "Trying": ft.Colors.AMBER_400,  # Testing, Bounced
-        "Active": ft.Colors.BLUE_400,   # Started, Seasoned, Hooked
-        "Finished": ft.Colors.GREEN_400,# Invested, Completionist, Played
-        "Shelved": ft.Colors.BROWN_400, # Abandoned, Forgotten, Mastered
+        # --- Common (Grey/White) ---
+        "Backlog": styles.COLOR_RARITY_COMMON,
+        "Unplayed": styles.COLOR_RARITY_COMMON,
+        "Forgotten": styles.COLOR_RARITY_COMMON,
 
-        # Detailed Game Card Categories (Fallback to related simplified color)
-        "Unplayed": ft.Colors.GREY_500,
+        # --- Magic (Blue) ---
+        "Trying": styles.COLOR_RARITY_MAGIC,
+        "Testing": styles.COLOR_RARITY_MAGIC,
+        "Started": styles.COLOR_RARITY_MAGIC,
 
-        "Testing": ft.Colors.AMBER_400,
-        "Bounced": ft.Colors.DEEP_ORANGE_400, # Distinction: Orange for bounced
+        # --- Rare (Yellow/Gold) ---
+        "Active": styles.COLOR_RARITY_RARE,
+        "Seasoned": styles.COLOR_RARITY_RARE,
+        "Hooked": styles.COLOR_RARITY_RARE,
 
-        "Started": ft.Colors.BLUE_200,
-        "Seasoned": ft.Colors.BLUE_600,
-        "Hooked": ft.Colors.PURPLE_400, # Distinction: Purple for endless/multi
+        # --- Legendary (Orange) ---
+        "Finished": styles.COLOR_RARITY_LEGENDARY,
+        "Invested": styles.COLOR_RARITY_LEGENDARY,
+        "Played": styles.COLOR_RARITY_LEGENDARY,
 
-        "Invested": ft.Colors.GREEN_300,
-        "Completionist": ft.Colors.GREEN_500,
-        "Played": ft.Colors.TEAL_400, # Distinction: Teal for generic played
+        # --- Set (Green) ---
+        "Completionist": styles.COLOR_RARITY_SET,
+        "Mastered": styles.COLOR_RARITY_SET,
 
-        "Abandoned": ft.Colors.BROWN_400,
-        "Forgotten": ft.Colors.BROWN_200,
-        "Mastered": ft.Colors.DEEP_PURPLE_400 # Distinction: Deep Purple for shelved master
+        # --- Junk (Brown/Rust) ---
+        "Shelved": styles.COLOR_RARITY_JUNK,
+        "Abandoned": styles.COLOR_RARITY_JUNK,
+        "Bounced": styles.COLOR_RARITY_JUNK,
     }
-    return color_map.get(status, ft.Colors.WHITE)
+    # Return mapped color or default to Primary Text Color
+    return color_map.get(status, styles.COLOR_TEXT_PRIMARY)
 
 def get_roast_asset(status_text):
     """

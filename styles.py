@@ -26,6 +26,14 @@ COLOR_ERROR          = "#ef5350" # bright Red (Blood Warning)
 # 5. UI Elements
 COLOR_PROGRESS_BAR  =  "#90caf9" # (Bright Spirit Blue)
 
+# --- DIABLO RARITY COLORS ---
+COLOR_RARITY_COMMON    = "#bdbdbd"  # Grey (Silver/White)
+COLOR_RARITY_MAGIC     = "#42a5f5"  # Blue (Magic)
+COLOR_RARITY_RARE      = "#fbc02d"  # Yellow (Rare)
+COLOR_RARITY_LEGENDARY = "#ffb74d"  # Orange (Legendary)
+COLOR_RARITY_SET       = "#66bb6a"  # Green (Set)
+COLOR_RARITY_JUNK      = "#8d6e63"  # Brown (Junk)
+
 # Fonts
 FONT_HEADING = "Cinzel" # , Times New Roman, serif # Commented, otherwise cinzel was not used
 FONT_BODY    = "Roboto, sans-serif"

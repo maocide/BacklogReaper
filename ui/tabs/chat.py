@@ -18,7 +18,7 @@ import styles
 import ui.utils
 from ui.widgets.chat_bubble import ReaperChatBubble
 from ui.widgets.game_card import GameCard
-from ui.widgets.styled_inputs import GrimoireTextField
+from ui.widgets.styled_inputs import GrimoireTextField, GrimoireProgressBar
 
 class ReaperChatView(ft.Container):
     def __init__(self):
@@ -87,7 +87,7 @@ class ReaperChatView(ft.Container):
                     on_submit=self.send_message,
                     label_style=ft.TextStyle(italic=True, color=styles.COLOR_ACCENT_DIM)
                 ),
-                ft.IconButton(ref=self.br_btn_send, icon=ft.Icons.SEND, icon_color=styles.COLOR_TEXT_GOLD, on_click=self.send_message),
+                ft.IconButton(ref=self.br_btn_send, icon=ft.Icons.AUTO_AWESOME, tooltip="Consult", icon_color=styles.COLOR_TEXT_GOLD, on_click=self.send_message),
                 ft.IconButton(ref=self.br_btn_stop, icon=ft.Icons.STOP_CIRCLE_OUTLINED, icon_color=styles.COLOR_TEXT_GOLD, on_click=self.stop, visible=False),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
         ])
@@ -650,12 +650,11 @@ class ReaperChatView(ft.Container):
             sync_bubble = ft.Container(
                 content=ft.Row(
                     controls=[
-                        ft.ProgressBar(
+                        GrimoireProgressBar(
                             width=300,
                             color=styles.COLOR_PROGRESS_BAR,
                             bgcolor=styles.COLOR_SURFACE,
-                            height=2,
-                            border_radius=0
+                            height=12
                         ),
                         ft.Text("Channeling into game library...", color=styles.COLOR_SYSTEM_LOG, size=12, font_family=styles.STYLE_MONOSPACE)
                     ],

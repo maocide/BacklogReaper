@@ -9,6 +9,7 @@ class GrimoireTextField(ft.TextField):
         kwargs.setdefault("cursor_color", styles.COLOR_INPUT_CURSOR)
         kwargs.setdefault("border_color", styles.COLOR_BORDER_BRONZE)
         kwargs.setdefault("focused_border_color", styles.COLOR_TEXT_GOLD)
+        kwargs.setdefault("focused_border_width", 2)
         kwargs.setdefault("label_style", ft.TextStyle(color=styles.COLOR_ACCENT_DIM))
         super().__init__(**kwargs)
 
@@ -50,3 +51,26 @@ class GrimoireButton(ft.FilledButton):
             content = kwargs.pop("content")
 
         super().__init__(content=content, icon=icon, on_click=on_click, style=style, **kwargs)
+
+class GrimoireProgressBar(ft.Container):
+    """
+    A progress bar styled like a mana bar (bordered container).
+    """
+    def __init__(self, width=300, height=8, color=styles.COLOR_PROGRESS_BAR, bgcolor=styles.COLOR_SURFACE, **kwargs):
+        # The internal ProgressBar needs to fill the container minus padding
+        self.internal_bar = ft.ProgressBar(
+                value=None, # Indeterminate by default
+                color=color,
+                bgcolor=bgcolor,
+                border_radius=ft.border_radius.all(2),
+            )
+
+        super().__init__(
+            width=width,
+            height=height,
+            border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
+            border_radius=ft.border_radius.all(4),
+            padding=ft.padding.all(2), # Space between border and bar
+            content=self.internal_bar,
+            **kwargs
+        )

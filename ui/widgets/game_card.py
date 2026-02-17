@@ -4,6 +4,8 @@ import vault
 from ui.utils import get_roast_asset, launch_game, get_status_color
 from ui.widgets.styled_inputs import GrimoireButton
 
+# TOGGLE: Set to False to disable the rarity-colored borders
+SHOW_RARITY_BORDER = True
 
 class GameCard(ft.Card):
     def __init__(self, game_data):
@@ -131,31 +133,6 @@ class GameCard(ft.Card):
                 if title.lower() == "status":
                     val_color = get_status_color(str(content))
 
-                # URL IDEA
-                # is_url = str(content).startswith(("http://", "https://"))
-                #
-                # if is_url:
-                #     # RENDER CLICKABLE LINK
-                #     value_control = ft.Container(
-                #         content=ft.Row(
-                #             controls=[
-                #                 ft.Icon(ft.Icons.OPEN_IN_NEW, size=12, color=styles.COLOR_TEXT_GOLD),
-                #                 ft.Text(
-                #                     "Open Portal",  # Or use "Link" if you prefer
-                #                     size=12,
-                #                     color=styles.COLOR_TEXT_GOLD,
-                #                     weight=ft.FontWeight.BOLD,
-                #                     # Make it look like a link
-                #                     style=ft.TextStyle(decoration=ft.TextDecoration.UNDERLINE)
-                #                 )
-                #             ],
-                #             spacing=4,
-                #             tight=True
-                #         ),
-                #         # The Container itself can be clickable, or the row
-                #         on_click=lambda e, url=content_str: page.launch_url(url)
-                #     )
-
                 new_line = ft.Text(
                     spans=[
                         ft.TextSpan(
@@ -279,6 +256,20 @@ class GameCard(ft.Card):
             offset=ft.Offset(0, 0)
         )
 
+        # --- THEMATIC BORDER LOGIC ---
+        border_side = None
+        if SHOW_RARITY_BORDER:
+            # Check if this card has a specific status
+            status = self.game_data.get("status")
+            if status:
+                color = get_status_color(status)
+                border_side = ft.border.all(2, color)
+            # If no status (e.g. Roast card), maybe default border?
+            elif self.game_data.get("appid") == "ROAST":
+                 # Roast cards get red border? or just none?
+                 # Let's leave them none for now or maybe Bronze.
+                 pass
+
         # Final Container Wrapper
         return ft.Container(
             width=self.card_width,
@@ -292,4 +283,5 @@ class GameCard(ft.Card):
                 width=self.card_width
             ),
             shadow=shadow,
+            border=border_side
         )
