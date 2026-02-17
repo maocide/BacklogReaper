@@ -30,7 +30,7 @@ COLOR_PROGRESS_BAR  =  "#90caf9" # (Bright Spirit Blue)
 COLOR_RARITY_COMMON    = "#bdbdbd"  # Grey (Silver/White)
 COLOR_RARITY_MAGIC     = "#42a5f5"  # Blue (Magic)
 COLOR_RARITY_RARE      = "#fbc02d"  # Yellow (Rare)
-COLOR_RARITY_LEGENDARY = "#ffb74d"  # Orange (Legendary)
+COLOR_RARITY_LEGENDARY = "#ff6f00"  # Deep Orange (Legendary - adjusted for contrast)
 COLOR_RARITY_SET       = "#66bb6a"  # Green (Set)
 COLOR_RARITY_JUNK      = "#8d6e63"  # Brown (Junk)
 
@@ -38,7 +38,7 @@ COLOR_RARITY_JUNK      = "#8d6e63"  # Brown (Junk)
 COLOR_RARITY_COMMON_VAR    = "#e0e0e0"  # Lighter Grey
 COLOR_RARITY_MAGIC_VAR     = "#1e88e5"  # Darker Blue
 COLOR_RARITY_RARE_VAR      = "#fdd835"  # Lighter Yellow
-COLOR_RARITY_LEGENDARY_VAR = "#ffa726"  # Darker Orange
+COLOR_RARITY_LEGENDARY_VAR = "#ef6c00"  # Slightly Lighter/Different Deep Orange
 COLOR_RARITY_SET_VAR       = "#81c784"  # Lighter Green
 COLOR_RARITY_JUNK_VAR      = "#a1887f"  # Lighter Brown
 
