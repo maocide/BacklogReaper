@@ -34,6 +34,15 @@ COLOR_RARITY_LEGENDARY = "#ffb74d"  # Orange (Legendary)
 COLOR_RARITY_SET       = "#66bb6a"  # Green (Set)
 COLOR_RARITY_JUNK      = "#8d6e63"  # Brown (Junk)
 
+# --- VARIANTS (For Chart Distinction) ---
+COLOR_RARITY_COMMON_VAR    = "#e0e0e0"  # Lighter Grey
+COLOR_RARITY_MAGIC_VAR     = "#1e88e5"  # Darker Blue
+COLOR_RARITY_RARE_VAR      = "#fdd835"  # Lighter Yellow
+COLOR_RARITY_LEGENDARY_VAR = "#ffa726"  # Darker Orange
+COLOR_RARITY_SET_VAR       = "#81c784"  # Lighter Green
+COLOR_RARITY_JUNK_VAR      = "#a1887f"  # Lighter Brown
+
+
 # Fonts
 FONT_HEADING = "Cinzel" # , Times New Roman, serif # Commented, otherwise cinzel was not used
 FONT_BODY    = "Roboto, sans-serif"

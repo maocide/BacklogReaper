@@ -26,30 +26,30 @@ def get_status_color(status):
         # --- Common (Grey/White) ---
         "Backlog": styles.COLOR_RARITY_COMMON,
         "Unplayed": styles.COLOR_RARITY_COMMON,
-        "Forgotten": styles.COLOR_RARITY_COMMON,
+        "Forgotten": styles.COLOR_RARITY_COMMON_VAR, # Variant for distinction
 
         # --- Magic (Blue) ---
         "Trying": styles.COLOR_RARITY_MAGIC,
-        "Testing": styles.COLOR_RARITY_MAGIC,
+        "Testing": styles.COLOR_RARITY_MAGIC_VAR, # Variant
         "Started": styles.COLOR_RARITY_MAGIC,
 
         # --- Rare (Yellow/Gold) ---
         "Active": styles.COLOR_RARITY_RARE,
-        "Seasoned": styles.COLOR_RARITY_RARE,
+        "Seasoned": styles.COLOR_RARITY_RARE_VAR, # Variant
         "Hooked": styles.COLOR_RARITY_RARE,
 
         # --- Legendary (Orange) ---
         "Finished": styles.COLOR_RARITY_LEGENDARY,
-        "Invested": styles.COLOR_RARITY_LEGENDARY,
+        "Invested": styles.COLOR_RARITY_LEGENDARY_VAR, # Variant
         "Played": styles.COLOR_RARITY_LEGENDARY,
 
         # --- Set (Green) ---
         "Completionist": styles.COLOR_RARITY_SET,
-        "Mastered": styles.COLOR_RARITY_SET,
+        "Mastered": styles.COLOR_RARITY_SET_VAR, # Variant
 
         # --- Junk (Brown/Rust) ---
         "Shelved": styles.COLOR_RARITY_JUNK,
-        "Abandoned": styles.COLOR_RARITY_JUNK,
+        "Abandoned": styles.COLOR_RARITY_JUNK_VAR, # Variant
         "Bounced": styles.COLOR_RARITY_JUNK,
     }
     # Return mapped color or default to Primary Text Color

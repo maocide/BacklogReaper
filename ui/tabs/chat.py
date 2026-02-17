@@ -87,7 +87,7 @@ class ReaperChatView(ft.Container):
                     on_submit=self.send_message,
                     label_style=ft.TextStyle(italic=True, color=styles.COLOR_ACCENT_DIM)
                 ),
-                ft.IconButton(ref=self.br_btn_send, icon=ft.Icons.AUTO_AWESOME, tooltip="Consult", icon_color=styles.COLOR_TEXT_GOLD, on_click=self.send_message),
+                ft.IconButton(ref=self.br_btn_send, icon=ft.Icons.SEND, tooltip="Consult", icon_color=styles.COLOR_TEXT_GOLD, on_click=self.send_message),
                 ft.IconButton(ref=self.br_btn_stop, icon=ft.Icons.STOP_CIRCLE_OUTLINED, icon_color=styles.COLOR_TEXT_GOLD, on_click=self.stop, visible=False),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
         ])
