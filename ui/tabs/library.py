@@ -19,7 +19,7 @@ class LibraryView(ft.Container):
         # State
         self.all_games_data = []
         self.current_page = 0
-        self.page_size = 15
+        self.page_size = 11
         self.sort_col_index = 2 # Playtime by default
         self.sort_ascending = False
 
