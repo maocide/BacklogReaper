@@ -600,7 +600,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         # Inject the calculated fields so the AI sees them
         game['status'] = game_status
         game['hours'] = game['playtime_forever']
-        game['hltb_hours'] = game['hltb_main'] if game['hltb_main'] else 0
+        game['hltb_main'] = game['hltb_main'] if game['hltb_main'] else 0
         game['hltb_completionist'] = game['hltb_completionist'] if game['hltb_completionist'] else 0
         game['last_played'] = last_played_str
 
@@ -627,16 +627,17 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         # TRANSFORMATIONS: 'field_name': 'rule'
         "transformations": {
             "hours": "minutes_to_hours",
-            "hltb_hours": "minutes_to_hours",
-            "hltb_conpletionist": "minutes_to_hours",
+            "hltb_main": "minutes_to_hours",
+            "hltb_completionist": "minutes_to_hours",
         },
         # ALLOWLIST: Only keep these fields
         "keep_keys": [
             "appid",
             "name",
             "hours",
-            "hltb_hours",
-            "votes_up",
+            "hltb_main",
+            "hltb_completionist",
+            "review_score",
             "last_played",
             "status"
         ]

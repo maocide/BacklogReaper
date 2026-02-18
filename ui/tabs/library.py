@@ -8,7 +8,7 @@ import settings
 import styles
 from ui.utils import get_status_color
 from vibe_engine import VibeEngine
-from ui.widgets.styled_inputs import GrimoireButton
+from ui.widgets.styled_inputs import GrimoireButton, GrimoireProgressBar
 
 class LibraryView(ft.Container):
     def __init__(self):
@@ -26,6 +26,7 @@ class LibraryView(ft.Container):
         # Refs
         self.gf_table = ft.Ref[ft.DataTable]()
         self.gf_status = ft.Ref[ft.Text]()
+        self.gf_progress = ft.Ref[ft.Container]() # Ref to the Container wrapping the bar
         self.gf_btn_update = ft.Ref[ft.FilledButton]()
         self.gf_page_info = ft.Ref[ft.Text]()
         self.gf_btn_prev = ft.Ref[ft.IconButton]()
@@ -37,6 +38,7 @@ class LibraryView(ft.Container):
                 GrimoireButton(ref=self.gf_btn_update, text="Update Library", icon=ft.Icons.REFRESH, on_click=self.start_update_click),
             ]),
             ft.Text(ref=self.gf_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
+            GrimoireProgressBar(ref=self.gf_progress, width=None, visible=False), # Full width by default in column if not constrained
             ft.Divider(),
             # Table Container
             ft.Container(
@@ -231,19 +233,22 @@ class LibraryView(ft.Container):
     def start_update_click(self, e):
         username = settings.STEAM_USER
         if not username:
-             self.page.snack_bar = ft.SnackBar(ft.Text("Please configure Steam Username in Settings!"))
-             self.page.snack_bar.open = True
+             self.page.show_dialog(ft.SnackBar(ft.Text("Please configure Steam Username in Settings!")))
              self.page.update()
              return
 
         if not settings.STEAM_API_KEY:
-             self.page.snack_bar = ft.SnackBar(ft.Text("Please configure Steam API Key in Settings!"))
-             self.page.snack_bar.open = True
+             self.page.show_dialog(ft.SnackBar(ft.Text("Please configure Steam API Key in Settings!")))
              self.page.update()
              return
 
         self.gf_btn_update.current.disabled = True
         self.gf_btn_update.current.update()
+
+        # Show Progress
+        if self.gf_progress.current:
+            self.gf_progress.current.visible = True
+            self.gf_progress.current.update()
 
         if hasattr(self.page, 'run_thread'):
              self.page.run_thread(self.run_update_thread, username)
@@ -271,6 +276,11 @@ class LibraryView(ft.Container):
                 self.gf_status.current.color = styles.COLOR_TEXT_SECONDARY
                 self.gf_status.current.update()
 
+            # Hide Progress
+            if self.gf_progress.current:
+                self.gf_progress.current.visible = False
+                self.gf_progress.current.update()
+
         elif msg_type == "update_error":
             if self.gf_status.current:
                 self.gf_status.current.value = f"Error: {content}"
@@ -279,3 +289,8 @@ class LibraryView(ft.Container):
             if self.gf_btn_update.current:
                 self.gf_btn_update.current.disabled = False
                 self.gf_btn_update.current.update()
+
+            # Hide Progress
+            if self.gf_progress.current:
+                self.gf_progress.current.visible = False
+                self.gf_progress.current.update()
