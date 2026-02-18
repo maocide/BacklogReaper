@@ -409,10 +409,6 @@ def get_all_games(page=-1, page_size=-1):
         # Convert to list of dicts immediately to avoid threading issues with Row objects later
         games = [dict(row) for row in rows]
 
-        # Inject hltb_hours for all games
-        for game in games:
-            game['hltb_hours'] = round(float(game['hltb_main']) / 60.0, 1) if game['hltb_main'] else 0
-
         return games
 
 def get_game_by_appid(appid):
@@ -426,8 +422,6 @@ def get_game_by_appid(appid):
         row = c.fetchone()
         if row:
             game = dict(row)
-            # Inject hltb_hours
-            game['hltb_hours'] = round(float(game['hltb_main']) / 60.0, 1) if game['hltb_main'] else 0
             return game
     return None
 

@@ -7,10 +7,11 @@ import styles
 from ui.utils import get_status_color
 from ui.widgets.metric_card import MetricCard
 
-class DashboardView(ft.Column):
+class DashboardView(ft.Container):
     def __init__(self):
         super().__init__()
         self.expand = True
+        self.padding = ft.Padding(0, 5, 5, 10) # Consistent Padding
 
         # Refs
         self.vs_status = ft.Ref[ft.Text]()
@@ -22,7 +23,7 @@ class DashboardView(ft.Column):
         self.vs_hours_chart = ft.Ref[ftc.BarChart]()
         self.vs_dashboard_container = ft.Ref[ft.Column]()
 
-        self.controls = [
+        self.content = ft.Column([
             ft.Row([
                 ft.Text("Dashboard", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
                 ft.IconButton(icon=ft.Icons.REFRESH, on_click=self._refresh_stats_click, tooltip="Refresh Stats")
@@ -85,7 +86,7 @@ class DashboardView(ft.Column):
                 scroll=ft.ScrollMode.AUTO,
                 expand=True
             )
-        ]
+        ])
 
     def did_mount(self):
         # Auto-load on mount

@@ -4,10 +4,11 @@ import character_manager
 import styles
 from ui.widgets.styled_inputs import GrimoireTextField, GrimoireDropdown, GrimoireButton
 
-class SettingsView(ft.Column):
+class SettingsView(ft.Container):
     def __init__(self):
         super().__init__()
         self.expand = True
+        self.padding = ft.Padding(0, 5, 5, 10) # Consistent Padding
 
         self.set_steam_api = ft.Ref[ft.TextField]()
         self.set_openai_api = ft.Ref[ft.TextField]()
@@ -30,7 +31,7 @@ class SettingsView(ft.Column):
         available_chars = character_manager.get_available_characters()
         char_options = [ft.dropdown.Option(c) for c in available_chars]
 
-        self.controls = [
+        self.content = ft.Column([
             ft.Text("Settings", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
             ft.Divider(),
             ft.Text("Persona", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
@@ -52,7 +53,7 @@ class SettingsView(ft.Column):
             ft.Divider(),
             GrimoireButton(text="Save Settings", icon=ft.Icons.SAVE, on_click=self.save_settings_click),
             ft.Text(ref=self.set_status, value="")
-        ]
+        ])
 
     def save_settings_click(self, e):
         new_settings = {
