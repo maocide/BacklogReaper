@@ -4,6 +4,7 @@ import threading
 import traceback
 import uuid
 import asyncio
+from warnings import catch_warnings
 
 import flet as ft
 
@@ -32,6 +33,7 @@ class ReaperChatView(ft.Container):
         self.br_status = ft.Ref[ft.Text]()
         self.br_btn_send = ft.Ref[ft.IconButton]()
         self.br_btn_stop = ft.Ref[ft.IconButton]()
+        self.br_empty_state = ft.Ref[ft.Container]()
 
         # Threading
         self.current_run_id = None
@@ -44,9 +46,6 @@ class ReaperChatView(ft.Container):
         self.max_scroll_extent = 0
         self.scroll_buffer = 50
         self.max_chat_bubbles = 50  # Limit visible bubbles to prevent UI lag/leaks
-
-
-
 
         # State for streaming
         self.stream_state = {
@@ -65,16 +64,24 @@ class ReaperChatView(ft.Container):
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=self.copy_chat_history)
             ]),
             ft.Container(
-                content=ft.Column(
-                    ref=self.br_chat_list,
-                    on_scroll=self.handle_scroll,
-                    expand=True,
-                    spacing=10,
-                    scroll=ft.ScrollMode.AUTO,
-                    scroll_interval=50,
-                ),
-                padding=0,
                 expand=True,
+                padding=0,
+                content=ft.Stack(
+                    controls=[
+                        # Background
+                        self._build_empty_state(),
+                        # Chat List (Transparent overlay)
+                        ft.Column(
+                            ref=self.br_chat_list,
+                            on_scroll=self.handle_scroll,
+                            expand=True,
+                            spacing=10,
+                            scroll=ft.ScrollMode.AUTO,
+                            scroll_interval=50,
+                        )
+                    ],
+                    expand=True,
+                )
             ),
             ft.Text(ref=self.br_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
             ft.Row([
@@ -107,6 +114,38 @@ class ReaperChatView(ft.Container):
         except Exception as e:
             print(f"Error fetching avatar: {e}")
 
+    def _build_empty_state(self):
+        current_char = ""
+        try:
+            current_settings = settings.load_settings()
+            current_char = current_settings.get("CHARACTER", "Reaper")
+            if current_char == "Reaper":
+                current_char = "the Reaper"
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+
+        return ft.Container(
+            ref=self.br_empty_state,  # We need a ref to hide it later
+            alignment=ft.Alignment.CENTER,
+            content=ft.Column(
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=10,
+                controls=[
+                    ft.Image(
+                        src="assets/summoning_circle.png",
+                        width=450, height=450,
+                        fit=ft.BoxFit.CONTAIN,
+                        opacity=0.12,  # Ghostly faint
+                        color_blend_mode=ft.BlendMode.MODULATE  # Optional blending
+                    ),
+                    ft.Text("The Ledger is Open", font_family="Cinzel", size=22, opacity=0.7),
+                    ft.Text(f"Summon {current_char}...", font_family=styles.FONT_MONO, size=12, italic=True,
+                            color=styles.COLOR_TEXT_SECONDARY),
+                ]
+            )
+        )
+
     def update_data_sources(self):
         vault.update(settings.STEAM_USER)
         vibes = VibeEngine.get_instance()
@@ -123,8 +162,7 @@ class ReaperChatView(ft.Container):
 
         self.page.run_task(ft.Clipboard().set, full_log)
 
-        self.page.snack_bar = ft.SnackBar(ft.Text("Chat history copied to clipboard!"))
-        self.page.snack_bar.open = True
+        self.page.show_dialog(ft.SnackBar(ft.Text("Chat history copied to clipboard!")))
         self.page.update()
 
     def handle_scroll(self, e: ft.OnScrollEvent):
@@ -629,8 +667,13 @@ class ReaperChatView(ft.Container):
         if not user_message:
             return
 
+        # Hide Background
+        if self.br_empty_state.current.visible:
+            self.br_empty_state.current.visible = False
+            self.br_empty_state.current.update()
+
         self.br_input.current.value = ""
-        await self.update_buttons(True)
+        await self.update_buttons(True) # Show/hide buttons
 
         user_portrait_url = self.get_user_portrait_url()
 

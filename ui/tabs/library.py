@@ -20,13 +20,6 @@ class LibraryView(ft.Column):
         self.gf_btn_stop = ft.Ref[ft.FilledButton]()
         self.stop_event_gf = threading.Event()
 
-        BUTTON_STYLE = ft.ButtonStyle(
-            color=styles.COLOR_TEXT_GOLD,
-            bgcolor=styles.COLOR_SURFACE,
-            shape=ft.RoundedRectangleBorder(radius=5),
-            side=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE)
-        )
-
         self.controls = [
             ft.Text("Game List Fetcher", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
             ft.Row([

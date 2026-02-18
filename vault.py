@@ -4,6 +4,7 @@ import random
 import difflib
 
 import requests
+from PIL.ImageChops import offset
 from steam_web_api import Steam
 
 import ai_tools
@@ -392,10 +393,18 @@ def get_games_count():
         return 0
 
 
-def get_all_games():
+def get_all_games(page=-1, page_size=-1):
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute("SELECT * FROM games ORDER BY playtime_forever DESC")
+
+        if page != -1 and page_size != -1:
+            offset_value = page * page_size
+            sql_string = "SELECT * FROM games ORDER BY playtime_forever DESC LIMIT ? OFFSET ?"
+            c.execute(sql_string, (page_size, offset_value))
+        else:
+            sql_string = f"""SELECT * FROM games ORDER BY playtime_forever DESC"""
+            c.execute(sql_string)
+
         rows = c.fetchall()
         # Convert to list of dicts immediately to avoid threading issues with Row objects later
         games = [dict(row) for row in rows]
@@ -819,6 +828,7 @@ def get_library_stats():
 if __name__ == "__main__":
     pass
     #print(get_all_tags(recent_days=30))
+    #print(get_all_games(0,20))
     print(advanced_search(sort_by="recent"))
     #hltb_test = get_hltb_search_scrape("Lossless Scaling")
     #print(hltb_test)

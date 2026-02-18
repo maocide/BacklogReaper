@@ -44,8 +44,8 @@ def main(page: ft.Page):
         print("STARTUP CHECKS FAILED:")
         for f in failures:
             print(f" - {f}")
-        page.snack_bar = ft.SnackBar(ft.Text(f"Setup Needed: {', '.join(failures)}"))
-        page.snack_bar.open = True
+        page.show_dialog(ft.SnackBar(ft.Text("Chat history copied to clipboard!")))
+        page.update()
 
     # Initialize Views
     view_dashboard = DashboardView()
