@@ -695,8 +695,6 @@ class ReaperChatView(ft.Container):
                     controls=[
                         GrimoireProgressBar(
                             width=300,
-                            color=styles.COLOR_PROGRESS_BAR,
-                            bgcolor=styles.COLOR_SURFACE,
                             height=12
                         ),
                         ft.Text("Channeling into game library...", color=styles.COLOR_SYSTEM_LOG, size=12, font_family=styles.STYLE_MONOSPACE)
