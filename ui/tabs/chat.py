@@ -11,10 +11,11 @@ import flet as ft
 import agent
 import vault
 import settings
-import character_manager
+from character_manager import CharacterManager, Character
 import game_intelligence
 from vibe_engine import VibeEngine
 import styles
+from chat_history import ChatHistory
 
 import ui.utils
 from ui.widgets.chat_bubble import ReaperChatBubble
@@ -27,7 +28,10 @@ class ReaperChatView(ft.Container):
         self.expand = True
         self.padding = ft.Padding(0, 5, 5, 10)
 
-        self.br_chat_history = []
+        # Initialize ChatHistory and Agent
+        self.chat_history = ChatHistory()
+        self.agent = agent.Agent()
+
         self.br_chat_list = ft.Ref[ft.Column]()
         self.br_input = ft.Ref[ft.TextField]()
         self.br_status = ft.Ref[ft.Text]()
@@ -105,8 +109,19 @@ class ReaperChatView(ft.Container):
         # Prefetch avatar without blocking using standard threading
         threading.Thread(target=self._prefetch_avatar, daemon=True).start()
 
+        # Initialize Character
+        self._initialize_character()
+
     def will_unmount(self):
         self.page.pubsub.unsubscribe(self.on_message)
+
+    def _initialize_character(self):
+        current_settings = settings.load_settings()
+        char_name = current_settings.get("CHARACTER", "Reaper")
+        character = CharacterManager.load_character(char_name)
+        if not character:
+             character = Character.default()
+        self.chat_history.load_character(character)
 
     def _prefetch_avatar(self):
         try:
@@ -152,10 +167,10 @@ class ReaperChatView(ft.Container):
         vibes.ingest_library()
 
     def copy_chat_history(self, e):
-        if not self.br_chat_history: return
+        if not self.chat_history.messages: return
 
         full_log = ""
-        for msg in self.br_chat_history:
+        for msg in self.chat_history.messages:
             role = msg.get("role", "unknown").upper()
             content = msg.get("content", "")
             full_log += f"**{role}**: {content}\n\n"
@@ -242,7 +257,7 @@ class ReaperChatView(ft.Container):
             # Note: Update logic moved to main thread before spawning this thread
 
             # CONSUME THE STREAM
-            stream = agent.agent_chat_loop_stream(user_message, self.br_chat_history)
+            stream = self.agent.chat_stream(user_message, self.chat_history)
 
             for event_type, content in stream:
                 if stop_event.is_set(): break
@@ -363,8 +378,8 @@ class ReaperChatView(ft.Container):
             # Get Real Name and Avatar
             current_settings = settings.load_settings()
             current_char = current_settings.get("CHARACTER", "Reaper")
-            real_char_name = character_manager.get_character_real_name(current_char)
-            avatar_path = character_manager.get_character_image(current_char)
+            real_char_name = CharacterManager.get_character_real_name(current_char)
+            avatar_path = CharacterManager.get_character_image(current_char)
 
             bubble_content = ft.Column([state["status_text"], state["agent_markdown"]], tight=True, spacing=5)
 
@@ -471,7 +486,7 @@ class ReaperChatView(ft.Container):
             if self.br_chat_list.current:
                 current_settings = settings.load_settings()
                 current_char = current_settings.get("CHARACTER", "Reaper")
-                avatar_path = character_manager.get_character_image(current_char)
+                avatar_path = CharacterManager.get_character_image(current_char)
 
                 was_reasoning_expanded = getattr(bubble_to_remove, "reasoning_expanded", False)
 
@@ -569,23 +584,23 @@ class ReaperChatView(ft.Container):
 
         await self.update_buttons(True)
 
-        if self.br_chat_history:
-             last_msg = self.br_chat_history[-1]
+        if self.chat_history.messages:
+             last_msg = self.chat_history.messages[-1]
              if last_msg["role"] == "user":
                  user_message = last_msg["content"]
-                 self.br_chat_history.pop()
+                 self.chat_history.pop()
                  self.start_chat_thread(user_message)
 
     async def remove_last_ai_response(self, including_user=False):
         # History update
-        while self.br_chat_history and not self.br_chat_history[-1]["role"] == "user":
-            self.br_chat_history.pop()
+        while self.chat_history.messages and not self.chat_history.messages[-1]["role"] == "user":
+            self.chat_history.pop()
 
         user_text = ""
         if including_user:
-            if self.br_chat_history and self.br_chat_history[-1]["role"] == "user":
-                user_text = self.br_chat_history[-1]["content"]
-                self.br_chat_history.pop()
+            if self.chat_history.messages and self.chat_history.messages[-1]["role"] == "user":
+                user_text = self.chat_history.messages[-1]["content"]
+                self.chat_history.pop()
 
         # UI update
         while self.br_chat_list.current.controls:
