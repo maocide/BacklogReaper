@@ -60,7 +60,7 @@ class ReaperChatView(ft.Container):
 
         self.content = ft.Column([
             ft.Row([
-                ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
+                ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family=styles.FONT_HEADING),
                 ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=self.copy_chat_history)
             ]),
             ft.Container(
@@ -139,7 +139,7 @@ class ReaperChatView(ft.Container):
                         opacity=0.12,  # Ghostly faint
                         color_blend_mode=ft.BlendMode.MODULATE  # Optional blending
                     ),
-                    ft.Text("The Ledger is Open", font_family="Cinzel", size=22, opacity=0.7),
+                    ft.Text("The Ledger is Open", font_family=styles.FONT_HEADING, size=22, opacity=0.7),
                     ft.Text(f"Summon {current_char}...", font_family=styles.FONT_MONO, size=12, italic=True,
                             color=styles.COLOR_TEXT_SECONDARY),
                 ]

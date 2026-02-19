@@ -32,7 +32,7 @@ class SettingsView(ft.Container):
         char_options = [ft.dropdown.Option(c) for c in available_chars]
 
         self.content = ft.Column([
-            ft.Text("Settings", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family="Cinzel"),
+            ft.Text("Settings", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family=styles.FONT_HEADING),
             ft.Divider(),
             ft.Text("Persona", theme_style=ft.TextThemeStyle.TITLE_MEDIUM),
             GrimoireDropdown(

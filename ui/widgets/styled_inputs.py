@@ -52,25 +52,48 @@ class GrimoireButton(ft.FilledButton):
 
         super().__init__(content=content, icon=icon, on_click=on_click, style=style, **kwargs)
 
+
 class GrimoireProgressBar(ft.Container):
     """
-    A progress bar styled like a mana bar (bordered container).
+    A progress bar styled like a mana bar (bordered container with a gradient).
     """
-    def __init__(self, width=300, height=8, color=styles.COLOR_PROGRESS_BAR, bgcolor=styles.COLOR_SURFACE, **kwargs):
-        # The internal ProgressBar needs to fill the container minus padding
+
+    def __init__(self, width=300, height=12, **kwargs):
+        # 1. The actual bar must be WHITE and TRANSPARENT so the shader applies correctly
         self.internal_bar = ft.ProgressBar(
-                value=None, # Indeterminate by default
-                color=color,
-                bgcolor=bgcolor,
-                border_radius=ft.border_radius.all(2),
-            )
+            value=None,  # Indeterminate by default
+            color=ft.Colors.WHITE,
+            bgcolor=ft.Colors.TRANSPARENT,
+            border_radius=ft.BorderRadius.all(4),
+        )
+
+        # 2. Define the magical gradient (Deep Blue -> Electric Azure -> Bright Cyan)
+        self.mana_gradient = ft.LinearGradient(
+            begin=ft.Alignment.CENTER_LEFT,
+            end=ft.Alignment.CENTER_RIGHT,
+            colors=[
+                styles.COLOR_PROGRESS_BASE,  # Deep Magic (Base)
+                styles.COLOR_PROGRESS_BAR,  # Electric Azure (Middle)
+                styles.COLOR_PROGRESS_TIP  # Arcane Spark (Tip)
+            ],
+        )
+
+        # 3. Wrap the bar in the ShaderMask
+        self.masked_bar = ft.ShaderMask(
+            content=self.internal_bar,
+            blend_mode=ft.BlendMode.SRC_IN,
+            shader=self.mana_gradient,
+            border_radius=ft.BorderRadius.all(4),
+            expand=True,  # Ensure the mask stretches correctly
+        )
 
         super().__init__(
             width=width,
             height=height,
-            border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
-            border_radius=ft.border_radius.all(4),
-            padding=ft.padding.all(2), # Space between border and bar
-            content=self.internal_bar,
+            border=ft.Border.all(1, styles.COLOR_BORDER_BRONZE),
+            border_radius=ft.BorderRadius.all(6),  # Smooth glass tube edges
+            padding=ft.Padding.symmetric(horizontal=3, vertical=3),  # "Glass thickness"
+            bgcolor=styles.COLOR_BACKGROUND,  # The void behind the glass
+            content=self.masked_bar,  # Use the masked version here!
             **kwargs
         )

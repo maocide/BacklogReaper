@@ -27,41 +27,39 @@ def clean_history(history, max_user_turns=10):
     # The split point is the index of the Nth-to-last user message.
     cutoff_index = user_indices[-max_user_turns]
 
-    # 1. Initial rough slice
+    # Initial rough slice
     recent_context = conversation[cutoff_index:]
     old_context = conversation[:cutoff_index]
 
     final_history = [system_prompt]
 
-    # 2. HEALING THE CUT
+    # HEALING THE CUT
     # We must ensure 'recent_context' doesn't start with an orphaned Tool Output
     # and doesn't split a tool call from its result.
 
     while old_context:
         first_recent = recent_context[0]
 
-        # Scenario A: The slice starts with a Tool Output (role='tool')
+        # The slice starts with a Tool Output (role='tool')
         # We need to pull the previous message (which might be another tool or the assistant call)
         if first_recent.get('role') == 'tool':
-            recent_context.insert(0, old_context.pop())
+            if old_context:
+                recent_context.insert(0, old_context.pop())
             continue
 
-        # Scenario B: The slice starts with an Assistant message that HAS tool calls
-        # We must ensure we didn't leave any "Tool Outputs" behind in 'old_context'
-        # that belong to this assistant message.
-
-        # Scenario C: The END of 'old_context' is an Assistant message with tool_calls.
+        # The END of 'old_context' is an Assistant message with tool_calls.
         # This means the Assistant asked for something, but the result is in 'recent'.
         # We must pull that Assistant message into 'recent' to keep the pair together.
         last_old = old_context[-1]
         if last_old.get('role') == 'assistant' and 'tool_calls' in last_old:
-            recent_context.insert(0, old_context.pop())
+            if old_context:
+                recent_context.insert(0, old_context.pop())
             continue
 
         # If we get here, the cut is clean (e.g., starts with User or plain Assistant text)
         break
 
-    # 3. Summarization (Standard)
+    # Summarization
     # If we have anything in old_context, we summarize it (since we triggered the limit).
     if len(old_context) > 0:
         print("Summarizing history...")
@@ -70,11 +68,18 @@ def clean_history(history, max_user_turns=10):
         prev_summary = ""
         msgs_to_summarize = []
 
+        # Separate the previous summary from the new messages to be processed
         for msg in old_context:
-            if msg['role'] == 'system' and "[SUMMARY" in msg.get('content', ''):
-                prev_summary = msg['content']  # Grab the text of the old summary
+            content = msg.get('content', '')
+            if msg['role'] == 'system' and "[PREVIOUS CONVERSATION SUMMARY:" in content:
+                prev_summary = content
             else:
                 msgs_to_summarize.append(msg)
+
+        # If there's nothing new to summarize, don't waste an API call
+        if not msgs_to_summarize:
+            final_history.extend(recent_context)
+            return final_history
 
         # Create the summarization prompt
         summary_instruction_template = agent_tools.get_summary_instruction()

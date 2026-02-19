@@ -19,7 +19,7 @@ class LibraryView(ft.Container):
         # State
         self.all_games_data = []
         self.current_page = 0
-        self.page_size = 11
+        self.page_size = 12
         self.sort_col_index = 2 # Playtime by default
         self.sort_ascending = False
 
@@ -34,7 +34,7 @@ class LibraryView(ft.Container):
 
         self.content = ft.Column([
             ft.Row([
-                ft.Text("Grimoire Library", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
+                ft.Text("Grimoire Library", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family=styles.FONT_HEADING),
                 GrimoireButton(ref=self.gf_btn_update, text="Update Library", icon=ft.Icons.REFRESH, on_click=self.start_update_click),
             ]),
             ft.Text(ref=self.gf_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
@@ -58,7 +58,13 @@ class LibraryView(ft.Container):
                         rows=[],
                         vertical_lines=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE),
                         horizontal_lines=ft.BorderSide(1, styles.COLOR_ACCENT_DIM),
-                        heading_row_color=styles.COLOR_ACCENT_DIM,
+                        heading_row_color=styles.COLOR_BACKGROUND,
+                        heading_row_height=40,
+                        heading_text_style=ft.TextStyle(
+                            font_family=styles.FONT_HEADING,
+                            color=styles.COLOR_TEXT_GOLD,
+                            weight=ft.FontWeight.BOLD
+                        ),
                         data_row_color=styles.COLOR_SURFACE,
                         data_text_style=ft.TextStyle(color=styles.COLOR_TEXT_PRIMARY),
                     )

@@ -2,6 +2,8 @@ import threading
 import traceback
 import flet as ft
 import flet_charts as ftc
+from sympy import expand
+
 import vault
 import styles
 from ui.utils import get_status_color
@@ -19,13 +21,13 @@ class DashboardView(ft.Container):
         self.vs_metric_hours = ft.Ref[ft.Text]()
         self.vs_metric_backlog = ft.Ref[ft.Text]()
         self.vs_pie_chart = ft.Ref[ftc.PieChart]()
-        self.vs_bar_chart = ft.Ref[ftc.BarChart]()
-        self.vs_hours_chart = ft.Ref[ftc.BarChart]()
+        self.vs_bar_chart = ft.Ref[ft.Column]()
+        self.vs_hours_chart = ft.Ref[ft.Column]()
         self.vs_dashboard_container = ft.Ref[ft.Column]()
 
         self.content = ft.Column([
             ft.Row([
-                ft.Text("Dashboard", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family="Cinzel"),
+                ft.Text("Dashboard", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family=styles.FONT_HEADING),
                 ft.IconButton(icon=ft.Icons.REFRESH, on_click=self._refresh_stats_click, tooltip="Refresh Stats")
             ]),
             ft.Text(ref=self.vs_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY),
@@ -45,7 +47,7 @@ class DashboardView(ft.Container):
                      # Charts
                      ft.ResponsiveRow([
                          ft.Column([
-                             ft.Text("Library Status", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                             ft.Text("Library Status", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER, font_family=styles.FONT_HEADING),
                              ftc.PieChart(
                                  ref=self.vs_pie_chart,
                                  sections=[],
@@ -55,29 +57,17 @@ class DashboardView(ft.Container):
                              )
                          ], col=4),
                          ft.Column([
-                             ft.Text("Top Genres (Games Owned)", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
-                             ftc.BarChart(
-                                 ref=self.vs_bar_chart,
-                                 groups=[],
-                                 border=ft.Border.all(1, ft.Colors.GREY_800),
-                                 left_axis=ftc.ChartAxis(label_size=40, title=ft.Text("Games"), title_size=40),
-                                 bottom_axis=ftc.ChartAxis(label_size=40),
-                                 horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
-                                 tooltip=ftc.BarChartTooltip(bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900)),
-                                 interactive=True,
+                             ft.Text("Top Genres (Hours Played)", size=20, weight=ft.FontWeight.BOLD,
+                                     text_align=ft.TextAlign.CENTER, font_family=styles.FONT_HEADING),
+                             ft.Column(
+                                 ref=self.vs_hours_chart,
                                  expand=True,
                              ),
                              ft.Divider(height=20),
-                             ft.Text("Top Genres (Hours Played)", size=20, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
-                             ftc.BarChart(
-                                 ref=self.vs_hours_chart,
-                                 groups=[],
-                                 border=ft.Border.all(1, ft.Colors.GREY_800),
-                                 left_axis=ftc.ChartAxis(label_size=40, title=ft.Text("Hours"), title_size=40),
-                                 bottom_axis=ftc.ChartAxis(label_size=40),
-                                 horizontal_grid_lines=ftc.ChartGridLines(color=ft.Colors.GREY_800, width=1, dash_pattern=[3, 3]),
-                                 tooltip=ftc.BarChartTooltip(bgcolor=ft.Colors.with_opacity(0.8, ft.Colors.GREY_900)),
-                                 interactive=True,
+                             ft.Text("Top Genres (Games Owned)", size=20, weight=ft.FontWeight.BOLD,
+                                     text_align=ft.TextAlign.CENTER, font_family=styles.FONT_HEADING),
+                             ft.Column(
+                                 ref=self.vs_bar_chart,
                                  expand=True,
                              )
                          ], col=8)
@@ -87,6 +77,58 @@ class DashboardView(ft.Container):
                 expand=True
             )
         ])
+
+    def build_horizontal_stat_bar(self, label_text: str, current_val: float, max_val: float, bar_color: str, unit: str = "", label_width: int = 120, value_width: int = 60):
+        """
+        Creates a single horizontal bar for the custom chart.
+        """
+        # Calculate percentage for the progress bar (0.0 to 1.0)
+        fraction = current_val / max_val if max_val > 0 else 0
+
+        return ft.Row(
+            controls=[
+                # 1. The Label (Fixed width so the bars align perfectly)
+                ft.Text(
+                    label_text,
+                    width=label_width,  # Adjust based on longest genre name
+                    color=styles.COLOR_TEXT_PRIMARY,
+                    font_family=styles.FONT_MONO,
+                    size=12,
+                    text_align=ft.TextAlign.RIGHT,
+                    no_wrap=True,
+                ),
+
+                # 2. The Bar (Using your exact style, expanding to fill space)
+                ft.Container(
+                    content=ft.ProgressBar(
+                        value=fraction,
+                        color=bar_color,
+                        bgcolor=styles.COLOR_BACKGROUND,
+                        border_radius=ft.border_radius.all(6),
+                    ),
+                    border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
+                    border_radius=ft.border_radius.all(6),
+                    padding=ft.padding.all(2),
+                    bgcolor=styles.COLOR_SURFACE,
+                    expand=True,  # Fills the middle space
+                    height=16,  # Slightly thicker than a normal progress bar
+                ),
+
+                # 3. The Value (Numbers on the right)
+                ft.Text(
+                    f"{current_val}{unit}",  # or f"{current_val}h" for hours
+                    width=value_width,
+                    color=styles.COLOR_TEXT_GOLD,
+                    weight=ft.FontWeight.BOLD,
+                    font_family=styles.FONT_MONO,
+                    size=12,
+                    no_wrap=True,
+                )
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+
+        )
 
     def did_mount(self):
         # Auto-load on mount
@@ -103,6 +145,9 @@ class DashboardView(ft.Container):
 
     def _load_stats_thread(self):
         try:
+            self.vs_bar_chart.current.controls.clear()
+            self.vs_hours_chart.current.controls.clear()
+
             if self.vs_status.current:
                 self.vs_status.current.value = "Crunching the numbers..."
                 self.vs_status.current.update()
@@ -131,6 +176,9 @@ class DashboardView(ft.Container):
             for status, count in status_counts.items():
                 if count > 0:
                     color = get_status_color(status)
+                    if status.lower() in ["backlog", "unplayed", "untouched"]:
+                        color = styles.COLOR_CHART_VOID
+
                     pie_sections.append(
                         ftc.PieChartSection(
                             count,
@@ -143,79 +191,53 @@ class DashboardView(ft.Container):
 
             if self.vs_pie_chart.current: self.vs_pie_chart.current.sections = pie_sections
 
-            # Update Bar Chart
-            genre_counts = stats["genre_counts"]
-            bar_groups = []
-
-            max_count = 0
-            for i, item in enumerate(genre_counts):
-                count = item["count"]
-                if count > max_count: max_count = count
-                bar_groups.append(
-                    ftc.BarChartGroup(
-                        x=i,
-                        rods=[
-                            ftc.BarChartRod(
-                                from_y=0,
-                                to_y=count,
-                                width=20,
-                                color=ft.Colors.PURPLE_400,
-                                tooltip=f"{item['tag']}: {count}",
-                                border_radius=5
-                            )
-                        ]
-                    )
-                )
-
-            if self.vs_bar_chart.current:
-                self.vs_bar_chart.current.groups = bar_groups
-                # Create custom axis labels
-                axis_labels = []
-                for i, item in enumerate(genre_counts):
-                     # Truncate long genre names
-                     tag_name = item['tag']
-                     if len(tag_name) > 10: tag_name = tag_name[:8] + ".."
-
-                     axis_labels.append(ftc.ChartAxisLabel(value=i, label=ft.Container(ft.Text(tag_name, size=10), padding=5)))
-
-                self.vs_bar_chart.current.bottom_axis.labels = axis_labels
-                self.vs_bar_chart.current.max_y = max_count + 5
-
-            # Update Hours Chart
+            # Update Hours Chart (Hours Played)
             genre_hours = stats.get("genre_hours", [])
-            hours_groups = []
-            max_hours = 0
+            max_hours = max([item["count"] for item in genre_hours]) if genre_hours else 0
 
-            for i, item in enumerate(genre_hours):
-                count = item["count"]
-                if count > max_hours: max_hours = count
-                hours_groups.append(
-                    ftc.BarChartGroup(
-                        x=i,
-                        rods=[
-                            ftc.BarChartRod(
-                                from_y=0,
-                                to_y=count,
-                                width=20,
-                                color=ft.Colors.TEAL_400,
-                                tooltip=f"{item['tag']}: {count}h",
-                                border_radius=5
-                            )
-                        ]
-                    )
+            # Find longest string for alignment, multiply by 8px (Monospace size 12 width)
+            max_label_len_hrs = max([len(str(item["tag"])) for item in genre_hours]) if genre_hours else 0
+            label_width_hrs = max(max_label_len_hrs * 8, 80)
+
+            chart_column_hrs = self.vs_hours_chart.current
+
+            for item in genre_hours:
+                row = self.build_horizontal_stat_bar(
+                    label_text=item["tag"],
+                    current_val=int(item["count"]),  # Cast to int so you don't get 14.500000h
+                    max_val=max_hours,
+                    bar_color=styles.COLOR_BORDER_BRONZE,  # MANA BLUE for Time
+                    unit="h",
+                    label_width=label_width_hrs,
+                    value_width=50,
                 )
+                chart_column_hrs.controls.append(row)
 
-            if self.vs_hours_chart.current:
-                self.vs_hours_chart.current.groups = hours_groups
-                # Axis Labels for Hours
-                hours_axis_labels = []
-                for i, item in enumerate(genre_hours):
-                     tag_name = item['tag']
-                     if len(tag_name) > 10: tag_name = tag_name[:8] + ".."
-                     hours_axis_labels.append(ftc.ChartAxisLabel(value=i, label=ft.Container(ft.Text(tag_name, size=10), padding=5)))
+            # Update Bar Chart (Games Owned)
+            genre_counts = stats["genre_counts"]
+            max_count = max([item["count"] for item in genre_counts]) if genre_counts else 0
 
-                self.vs_hours_chart.current.bottom_axis.labels = hours_axis_labels
-                self.vs_hours_chart.current.max_y = max_hours + 10
+            # Find longest string for alignment, multiply by 8px (Monospace size 12 width)
+            max_label_len = max([len(str(item["tag"])) for item in genre_counts]) if genre_counts else 0
+            label_width = max(max_label_len * 8, 80)  # Minimum 80px width
+
+            chart_column = self.vs_bar_chart.current
+
+            for item in genre_counts:
+                row = self.build_horizontal_stat_bar(
+                    label_text=item["tag"],
+                    current_val=item["count"],
+                    max_val=max_count,
+                    bar_color=styles.COLOR_BORDER_BRONZE,  # GOLD for Owned
+                    unit="",
+                    label_width=label_width,
+                    value_width=40,  # Fixed width for values is usually cleaner
+                )
+                chart_column.controls.append(row)
+
+
+
+
 
             if self.vs_status.current:
                 self.vs_status.current.value = "Dashboard updated."
@@ -232,3 +254,5 @@ class DashboardView(ft.Container):
             if self.vs_status.current:
                 self.vs_status.current.value = f"Error loading stats: {e}"
                 self.vs_status.current.update()
+
+
