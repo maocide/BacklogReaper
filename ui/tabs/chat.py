@@ -51,6 +51,8 @@ class ReaperChatView(ft.Container):
         self.scroll_buffer = 50
         self.max_chat_bubbles = 50  # Limit visible bubbles to prevent UI lag/leaks
 
+        self.last_stream_update_timestamp = 0
+
         # State for streaming
         self.stream_state = {
             "status_text": None,
@@ -261,7 +263,6 @@ class ReaperChatView(ft.Container):
 
             for event_type, content in stream:
                 if stop_event.is_set(): break
-                time.sleep(0.04) # Small yield
                 self.page.pubsub.send_all({"type": event_type, "content": content, "run_id": run_id})
 
             # Final Cleanup
@@ -414,13 +415,20 @@ class ReaperChatView(ft.Container):
             if state["reasoning_view"]:
                 state["reasoning_view"].value = state["reasoning_buffer"]
                 state["reasoning_view"].visible = True
-                if state["reasoning_view"].page:
+
+            if "reasoning_container_ref" in state and state["reasoning_container_ref"].current:
+                state["reasoning_container_ref"].current.visible = True
+
+            # Throttled Update
+            if time.time() - self.last_stream_update_timestamp > 0.05:
+                if state["reasoning_view"] and state["reasoning_view"].page:
                     await ui.utils.smart_update(state["reasoning_view"])
-                if "reasoning_container_ref" in state and state["reasoning_container_ref"].current:
-                    state["reasoning_container_ref"].current.visible = True
-                    if state["reasoning_container_ref"].current.page:
-                        await ui.utils.smart_update(state["reasoning_container_ref"].current)
-            self.scroll_chat_to_bottom(duration=50)
+
+                if "reasoning_container_ref" in state and state["reasoning_container_ref"].current and state["reasoning_container_ref"].current.page:
+                    await ui.utils.smart_update(state["reasoning_container_ref"].current)
+
+                self.scroll_chat_to_bottom(duration=50)
+                self.last_stream_update_timestamp = time.time()
 
         elif msg_type == "status":
             if state["status_text"]:
@@ -460,25 +468,41 @@ class ReaperChatView(ft.Container):
             state["previous_was_tool"] = True
 
         elif msg_type == "text":
+            # Update state synchronously first
+            status_update_needed = False
             if state["status_text"] and state["status_text"].visible:
                 state["status_text"].visible = False
-                if state["status_text"].page:
-                    await ui.utils.smart_update(state["status_text"])
+                status_update_needed = True
 
             if state["previous_was_tool"] and not state["first_text"]:
                 state["agent_markdown"].value += "\n\n"
 
             state["agent_markdown"].value += content
-            if state["agent_markdown"].page:
-                await ui.utils.smart_update(state["agent_markdown"])
-                self.scroll_chat_to_bottom(duration=50)  # scrolls to end without interrupting
 
             state["previous_was_tool"] = False
             state["first_text"] = False
 
+            # Throttled Update
+            if status_update_needed or (time.time() - self.last_stream_update_timestamp > 0.05):
+                if status_update_needed and state["status_text"] and state["status_text"].page:
+                    await ui.utils.smart_update(state["status_text"])
+
+                if state["agent_markdown"].page:
+                    await ui.utils.smart_update(state["agent_markdown"])
+
+                self.scroll_chat_to_bottom(duration=50)
+                self.last_stream_update_timestamp = time.time()
+
         elif msg_type == "finish":
             if not self.current_streaming_bubble:
                 return
+
+            # Force final flush of streaming controls to ensure completeness before replacement
+            if state["agent_markdown"] and state["agent_markdown"].page:
+                await ui.utils.smart_update(state["agent_markdown"])
+
+            if state["reasoning_view"] and state["reasoning_view"].page:
+                await ui.utils.smart_update(state["reasoning_view"])
 
             final_text = state["agent_markdown"].value
             final_reasoning = state["reasoning_buffer"]
