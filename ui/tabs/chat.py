@@ -261,7 +261,7 @@ class ReaperChatView(ft.Container):
 
             for event_type, content in stream:
                 if stop_event.is_set(): break
-                time.sleep(0.02) # Small yield
+                time.sleep(0.04) # Small yield
                 self.page.pubsub.send_all({"type": event_type, "content": content, "run_id": run_id})
 
             # Final Cleanup
