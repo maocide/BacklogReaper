@@ -319,6 +319,9 @@ class ReaperChatView(ft.Container):
         if self.current_stop_event:
             self.current_stop_event.set()
 
+        # Update prompt with current character from settings before starting
+        self._initialize_character()
+
         # Create new ID and Event
         new_run_id = str(uuid.uuid4())
         self.current_run_id = new_run_id

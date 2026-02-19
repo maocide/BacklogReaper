@@ -1,6 +1,6 @@
 import flet as ft
 import settings
-import character_manager
+from character_manager import CharacterManager
 import styles
 from ui.widgets.styled_inputs import GrimoireTextField, GrimoireDropdown, GrimoireButton
 
@@ -18,6 +18,14 @@ class SettingsView(ft.Container):
         self.set_character_dd = ft.Ref[ft.Dropdown]()
         self.set_status = ft.Ref[ft.Text]()
 
+        self.set_steam_api = ft.Ref()
+        self.set_openai_api = ft.Ref()
+        self.set_openai_base = ft.Ref()
+        self.set_openai_model = ft.Ref()
+        self.set_steam_user = ft.Ref()
+        self.set_character_dd = ft.Ref()
+        self.set_status = ft.Ref()
+
         # Load initial values
         current_settings = settings.load_settings()
         init_steam_key = current_settings.get("STEAM_API_KEY") or settings.STEAM_API_KEY or ""
@@ -28,7 +36,7 @@ class SettingsView(ft.Container):
         init_character = current_settings.get("CHARACTER", "Reaper")
 
         # Load Characters
-        available_chars = character_manager.get_available_characters()
+        available_chars = CharacterManager.get_available_characters()
         char_options = [ft.dropdown.Option(c) for c in available_chars]
 
         self.content = ft.Column([
@@ -69,8 +77,8 @@ class SettingsView(ft.Container):
             settings.reload() # Refresh live config
             self.set_status.current.value = "Settings Saved!"
             self.set_status.current.color = ft.Colors.GREEN
+            self.set_status.current.update()
         else:
             self.set_status.current.value = "Error saving settings."
             self.set_status.current.color = ft.Colors.RED
-
-        self.update()
+            self.set_status.current.update()
