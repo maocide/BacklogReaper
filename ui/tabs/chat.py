@@ -51,7 +51,7 @@ class ReaperChatView(ft.Container):
         self.scroll_buffer = 50
         self.max_chat_bubbles = 50  # Limit visible bubbles to prevent UI lag/leaks
 
-        self.last_stream_update_timestamp = 0
+        self.stream_active = False
 
         # State for streaming
         self.stream_state = {
@@ -61,7 +61,8 @@ class ReaperChatView(ft.Container):
             "reasoning_buffer": "",
             "previous_was_tool": False,
             "first_text": True,
-            "reasoning_container_ref": None
+            "reasoning_container_ref": None,
+            "needs_update": False
         }
 
         self.content = ft.Column([
@@ -277,6 +278,34 @@ class ReaperChatView(ft.Container):
         finally:
             self.page.pubsub.send_all({"type": "cleanup", "run_id": run_id})
 
+    async def _render_loop(self):
+        """
+        Dedicated background task to update UI from stream state.
+        Decouples message processing speed from UI rendering speed (RPC calls).
+        """
+        while self.stream_active:
+            if self.stream_state.get("needs_update", False):
+                state = self.stream_state
+
+                # Update Reasoning
+                if state["reasoning_view"] and state["reasoning_view"].page and state["reasoning_view"].visible:
+                     await ui.utils.smart_update(state["reasoning_view"])
+                if state["reasoning_container_ref"] and state["reasoning_container_ref"].current and state["reasoning_container_ref"].current.page and state["reasoning_container_ref"].current.visible:
+                     await ui.utils.smart_update(state["reasoning_container_ref"].current)
+
+                # Update Status Text (for visibility changes or text updates)
+                if state["status_text"] and state["status_text"].page:
+                     await ui.utils.smart_update(state["status_text"])
+
+                # Update Markdown
+                if state["agent_markdown"] and state["agent_markdown"].page:
+                    await ui.utils.smart_update(state["agent_markdown"])
+
+                self.scroll_chat_to_bottom(duration=50)
+                self.stream_state["needs_update"] = False
+
+            await asyncio.sleep(0.05)
+
     async def _scroll_task(self, duration, delay_ms):
         if delay_ms > 0:
             await asyncio.sleep(delay_ms / 1000)
@@ -410,6 +439,10 @@ class ReaperChatView(ft.Container):
                 await ui.utils.smart_update(self.br_chat_list.current)
                 self.scroll_chat_to_bottom(forced=True, delay_ms=600)
 
+            # Start background render loop
+            self.stream_active = True
+            self.page.run_task(self._render_loop)
+
         elif msg_type == "reasoning":
             state["reasoning_buffer"] += content
             if state["reasoning_view"]:
@@ -419,16 +452,7 @@ class ReaperChatView(ft.Container):
             if "reasoning_container_ref" in state and state["reasoning_container_ref"].current:
                 state["reasoning_container_ref"].current.visible = True
 
-            # Throttled Update
-            if time.time() - self.last_stream_update_timestamp > 0.05:
-                if state["reasoning_view"] and state["reasoning_view"].page:
-                    await ui.utils.smart_update(state["reasoning_view"])
-
-                if "reasoning_container_ref" in state and state["reasoning_container_ref"].current and state["reasoning_container_ref"].current.page:
-                    await ui.utils.smart_update(state["reasoning_container_ref"].current)
-
-                self.scroll_chat_to_bottom(duration=50)
-                self.last_stream_update_timestamp = time.time()
+            state["needs_update"] = True
 
         elif msg_type == "status":
             if state["status_text"]:
@@ -469,10 +493,11 @@ class ReaperChatView(ft.Container):
 
         elif msg_type == "text":
             # Update state synchronously first
-            status_update_needed = False
             if state["status_text"] and state["status_text"].visible:
                 state["status_text"].visible = False
-                status_update_needed = True
+                # Force update for status visibility change immediately or flag?
+                # Flagging is safer for consistency, but visibility change might need immediate update?
+                # Let's flag it. The loop is fast enough (50ms).
 
             if state["previous_was_tool"] and not state["first_text"]:
                 state["agent_markdown"].value += "\n\n"
@@ -482,18 +507,11 @@ class ReaperChatView(ft.Container):
             state["previous_was_tool"] = False
             state["first_text"] = False
 
-            # Throttled Update
-            if status_update_needed or (time.time() - self.last_stream_update_timestamp > 0.05):
-                if status_update_needed and state["status_text"] and state["status_text"].page:
-                    await ui.utils.smart_update(state["status_text"])
-
-                if state["agent_markdown"].page:
-                    await ui.utils.smart_update(state["agent_markdown"])
-
-                self.scroll_chat_to_bottom(duration=50)
-                self.last_stream_update_timestamp = time.time()
+            state["needs_update"] = True
 
         elif msg_type == "finish":
+            self.stream_active = False
+
             if not self.current_streaming_bubble:
                 return
 
