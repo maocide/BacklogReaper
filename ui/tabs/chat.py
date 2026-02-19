@@ -4,6 +4,7 @@ import threading
 import traceback
 import uuid
 import asyncio
+import queue
 from warnings import catch_warnings
 
 import flet as ft
@@ -43,6 +44,7 @@ class ReaperChatView(ft.Container):
         self.current_run_id = None
         self.current_stop_event = None
         self.current_streaming_bubble = None  # Track the active streaming bubble control
+        self.stream_queue = queue.Queue()
 
         self.user_portrait_url = None
 
@@ -107,8 +109,6 @@ class ReaperChatView(ft.Container):
         ])
 
     def did_mount(self):
-        # We subscribe when the view is mounted
-        self.page.pubsub.subscribe(self.on_message)
         # Prefetch avatar without blocking using standard threading
         threading.Thread(target=self._prefetch_avatar, daemon=True).start()
 
@@ -116,7 +116,10 @@ class ReaperChatView(ft.Container):
         self._initialize_character()
 
     def will_unmount(self):
-        self.page.pubsub.unsubscribe(self.on_message)
+        # Stop any active stream if unmounting
+        if self.current_stop_event:
+            self.current_stop_event.set()
+        self.stream_active = False
 
     def _initialize_character(self):
         current_settings = settings.load_settings()
@@ -255,7 +258,7 @@ class ReaperChatView(ft.Container):
             if stop_event.is_set(): return
 
             # Signal initialization immediately for responsiveness
-            self.page.pubsub.send_all({"type": "init", "run_id": run_id})
+            self.stream_queue.put({"type": "init", "run_id": run_id})
 
             # Note: Update logic moved to main thread before spawning this thread
 
@@ -264,26 +267,35 @@ class ReaperChatView(ft.Container):
 
             for event_type, content in stream:
                 if stop_event.is_set(): break
-                self.page.pubsub.send_all({"type": event_type, "content": content, "run_id": run_id})
+                self.stream_queue.put({"type": event_type, "content": content, "run_id": run_id})
 
             # Final Cleanup
             if not stop_event.is_set():
-                self.page.pubsub.send_all({"type": "finish", "run_id": run_id})
+                self.stream_queue.put({"type": "finish", "run_id": run_id})
             else: # Stop button, cancel event
-                self.page.pubsub.send_all({"type": "cancel", "run_id": run_id})
+                self.stream_queue.put({"type": "cancel", "run_id": run_id})
 
         except Exception as e:
             traceback.print_exc()
-            self.page.pubsub.send_all({"type": "error", "content": str(e), "run_id": run_id})
+            self.stream_queue.put({"type": "error", "content": str(e), "run_id": run_id})
         finally:
-            self.page.pubsub.send_all({"type": "cleanup", "run_id": run_id})
+            self.stream_queue.put({"type": "cleanup", "run_id": run_id})
 
     async def _render_loop(self):
         """
-        Dedicated background task to update UI from stream state.
+        Dedicated background task to update UI from stream queue and state.
         Decouples message processing speed from UI rendering speed (RPC calls).
         """
-        while self.stream_active:
+        while self.stream_active or not self.stream_queue.empty():
+            # Process all available items in the queue
+            while not self.stream_queue.empty():
+                try:
+                    message = self.stream_queue.get_nowait()
+                    await self._process_stream_message(message)
+                except queue.Empty:
+                    break
+
+            # If updates are pending, apply them to the UI
             if self.stream_state.get("needs_update", False):
                 state = self.stream_state
 
@@ -304,85 +316,17 @@ class ReaperChatView(ft.Container):
                 self.scroll_chat_to_bottom(duration=50)
                 self.stream_state["needs_update"] = False
 
+            # If stream is inactive and queue is empty, exit loop
+            if not self.stream_active and self.stream_queue.empty():
+                break
+
             await asyncio.sleep(0.05)
 
-    async def _scroll_task(self, duration, delay_ms):
-        if delay_ms > 0:
-            await asyncio.sleep(delay_ms / 1000)
-        if self.br_chat_list.current:
-            try:
-                # Flet > 0.80: scroll_to is awaitable
-                # Check if it's awaitable or just assume based on user feedback
-                # To be safe: check if asyncio.iscoroutine or hasattr(awaitable)
-                # But typically calling it returns the coroutine object if async.
-
-                res = self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
-                if asyncio.iscoroutine(res):
-                    await res
-            except Exception:
-                pass
-
-    def scroll_chat_to_bottom(self, duration=700, delay_ms=0, forced=False):
-        # Distance for scroll
-        distance_from_bottom = self.max_scroll_extent - self.current_scroll_offset
-        safe_scroll = distance_from_bottom <= self.scroll_buffer
-
-        if forced:
-            if self.br_chat_list.current and self.page:
-                try:
-                    self.page.run_task(self._scroll_task, duration, delay_ms)
-                except Exception:
-                    print("Error scrolling chat to bottom (forced).")
-                    pass
-            return
-
-        if safe_scroll:
-            if self.br_chat_list.current and self.page:
-                try:
-                    self.page.run_task(self._scroll_task, duration, delay_ms)
-                except Exception:
-                    print("Error scrolling chat to bottom.")
-                    pass
-
-    def start_chat_thread(self, user_message):
-        # Stop previous thread cleanly
-        if self.current_stop_event:
-            self.current_stop_event.set()
-
-        # Update prompt with current character from settings before starting
-        self._initialize_character()
-
-        # Create new ID and Event
-        new_run_id = str(uuid.uuid4())
-        self.current_run_id = new_run_id
-
-        new_stop_event = threading.Event()
-        self.current_stop_event = new_stop_event
-
-        # Reset state
-        self.stream_state = {
-            "status_text": None,
-            "agent_markdown": None,
-            "reasoning_view": None,
-            "reasoning_buffer": "",
-            "previous_was_tool": False,
-            "first_text": True,
-            "reasoning_container_ref": None
-        }
-        self.current_streaming_bubble = None
-
-        # Start thread
-        if hasattr(self.page, 'run_thread'):
-             self.page.run_thread(self.run_backlog_reaping_thread, user_message, new_run_id, new_stop_event)
-        else:
-             threading.Thread(target=self.run_backlog_reaping_thread, args=(user_message, new_run_id, new_stop_event), daemon=True).start()
-
-    def on_message(self, message):
-        # Delegate to async handler on main thread to avoid race conditions
-        if self.page:
-            self.page.run_task(self._on_message_async, message)
-
-    async def _on_message_async(self, message):
+    async def _process_stream_message(self, message):
+        """
+        Internal handler to process stream messages and update state/UI.
+        Replaces _on_message_async.
+        """
         msg_run_id = message.get("run_id")
 
         # Ignore messages from old/zombie threads
@@ -439,10 +383,6 @@ class ReaperChatView(ft.Container):
                 await ui.utils.smart_update(self.br_chat_list.current)
                 self.scroll_chat_to_bottom(forced=True, delay_ms=600)
 
-            # Start background render loop
-            self.stream_active = True
-            self.page.run_task(self._render_loop)
-
         elif msg_type == "reasoning":
             state["reasoning_buffer"] += content
             if state["reasoning_view"]:
@@ -486,7 +426,6 @@ class ReaperChatView(ft.Container):
                 await ui.utils.smart_update(self.br_chat_list.current)
                 self.scroll_chat_to_bottom(duration=50)
             except RuntimeError:
-                print("ERROR in action")
                 pass
 
             state["previous_was_tool"] = True
@@ -495,9 +434,6 @@ class ReaperChatView(ft.Container):
             # Update state synchronously first
             if state["status_text"] and state["status_text"].visible:
                 state["status_text"].visible = False
-                # Force update for status visibility change immediately or flag?
-                # Flagging is safer for consistency, but visibility change might need immediate update?
-                # Let's flag it. The loop is fast enough (50ms).
 
             if state["previous_was_tool"] and not state["first_text"]:
                 state["agent_markdown"].value += "\n\n"
@@ -510,7 +446,7 @@ class ReaperChatView(ft.Container):
             state["needs_update"] = True
 
         elif msg_type == "finish":
-            self.stream_active = False
+            self.stream_active = False # Signal loop to exit (after queue empty)
 
             if not self.current_streaming_bubble:
                 return
@@ -577,6 +513,8 @@ class ReaperChatView(ft.Container):
                 await ui.utils.smart_update(self.br_status.current)
 
         elif msg_type == "error":
+            self.stream_active = False
+
             # Clean chat UI and chat history
             self.br_input.current.value = await self.remove_last_ai_response(including_user=True)
 
@@ -589,6 +527,8 @@ class ReaperChatView(ft.Container):
             await ui.utils.smart_update(self.page)
 
         elif msg_type == "cancel":
+            self.stream_active = False
+
             # Clean chat UI and chat history
             self.br_input.current.value = await self.remove_last_ai_response(including_user=True)
 
@@ -599,7 +539,82 @@ class ReaperChatView(ft.Container):
             await ui.utils.smart_update(self.page)
 
         elif msg_type == "cleanup":
+            # Just ensure buttons are reset, stream_active should be False by now via other events
             await self.update_buttons(False)
+
+    async def _scroll_task(self, duration, delay_ms):
+        if delay_ms > 0:
+            await asyncio.sleep(delay_ms / 1000)
+        if self.br_chat_list.current:
+            try:
+                # Flet > 0.80: scroll_to is awaitable
+                res = self.br_chat_list.current.scroll_to(offset=-1, duration=duration)
+                if asyncio.iscoroutine(res):
+                    await res
+            except Exception:
+                pass
+
+    def scroll_chat_to_bottom(self, duration=700, delay_ms=0, forced=False):
+        # Distance for scroll
+        distance_from_bottom = self.max_scroll_extent - self.current_scroll_offset
+        safe_scroll = distance_from_bottom <= self.scroll_buffer
+
+        if forced:
+            if self.br_chat_list.current and self.page:
+                try:
+                    self.page.run_task(self._scroll_task, duration, delay_ms)
+                except Exception:
+                    pass
+            return
+
+        if safe_scroll:
+            if self.br_chat_list.current and self.page:
+                try:
+                    self.page.run_task(self._scroll_task, duration, delay_ms)
+                except Exception:
+                    pass
+
+    def start_chat_thread(self, user_message):
+        # Stop previous thread cleanly
+        if self.current_stop_event:
+            self.current_stop_event.set()
+
+        # Update prompt with current character from settings before starting
+        self._initialize_character()
+
+        # Create new ID and Event
+        new_run_id = str(uuid.uuid4())
+        self.current_run_id = new_run_id
+
+        new_stop_event = threading.Event()
+        self.current_stop_event = new_stop_event
+
+        # Ensure queue is clean-ish (we can't easily clear a Queue, but we rely on run_id filtering)
+        # Ideally we'd replace the queue, but that's messy if the loop is reading.
+        # But filter by run_id handles it.
+
+        # Reset state
+        self.stream_state = {
+            "status_text": None,
+            "agent_markdown": None,
+            "reasoning_view": None,
+            "reasoning_buffer": "",
+            "previous_was_tool": False,
+            "first_text": True,
+            "reasoning_container_ref": None,
+            "needs_update": False
+        }
+        self.current_streaming_bubble = None
+
+        # Start background render loop
+        self.stream_active = True
+        self.page.run_task(self._render_loop)
+
+        # Start thread
+        if hasattr(self.page, 'run_thread'):
+             self.page.run_thread(self.run_backlog_reaping_thread, user_message, new_run_id, new_stop_event)
+        else:
+             threading.Thread(target=self.run_backlog_reaping_thread, args=(user_message, new_run_id, new_stop_event), daemon=True).start()
 
     async def remove_regen_button(self, perform_update=True):
         if self.br_chat_list.current and self.br_chat_list.current.controls:
@@ -675,19 +690,9 @@ class ReaperChatView(ft.Container):
 
         controls = self.br_chat_list.current.controls
         if len(controls) > self.max_chat_bubbles:
-            # Calculate how many to remove
             excess = len(controls) - self.max_chat_bubbles
-
-            # Remove from the top (oldest)
-            # We use a slice assignment or loop pop
-            # Note: 0 is top
             for _ in range(excess):
                 controls.pop(0)
-
-            # Since we modify the list in place, we don't need to reassign,
-            # but we need to reset scroll/layout state slightly to avoid jumps?
-            # Actually, removing items from top might shift scroll position.
-            # But usually we are auto-scrolling to bottom anyway.
 
     def _sync_data_sources_blocking(self):
         # This function runs in a separate thread
@@ -700,7 +705,7 @@ class ReaperChatView(ft.Container):
 
     async def stop(self, e):
         if self.current_stop_event:
-            self.current_stop_event.set() # TODO: finish
+            self.current_stop_event.set()
 
     async def update_buttons(self, is_running):
         if is_running:
