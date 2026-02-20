@@ -628,7 +628,8 @@ class ReaperChatView(ft.Container):
             self.current_stop_event.set()
 
         # Update prompt with current character from settings before starting
-        self._initialize_character()
+        ####self._initialize_character()
+        # this leads to duplicate messages on regenerate, or we could save state on regenerate message removal
 
         # Create new ID and Event
         new_run_id = str(uuid.uuid4())
