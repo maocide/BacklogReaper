@@ -1,5 +1,8 @@
 import json
 import copy
+import os
+import traceback
+
 from ai_tools import aiCall
 import agent_tools
 
@@ -40,6 +43,19 @@ class ChatHistory:
 
     def get_history(self):
         return self.messages
+
+    def reset_history(self):
+        self.messages = self.messages[:1]
+
+    def get_chat_length(self):
+        """
+        Returns the length of the chat history without system prompt.
+        :return:
+        """
+        if not self.messages:
+            return 0
+        else:
+            return len(self.messages)-1
 
     def clean_history(self):
         """
@@ -129,12 +145,28 @@ class ChatHistory:
         self.messages = final_history
 
     def save(self):
-        # Stub for future implementation
-        pass
+        # Ensure the data directory exists
+        os.makedirs("data/chats", exist_ok=True)
+
+        file_path = f"data/chats/{self.character_name.lower()}_history.json"
+
+        data = {
+            "character": self.character_name,
+            "messages": [msg for msg in self.messages]
+        }
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
 
     def load(self):
-        # Stub for future implementation
-        pass
+        file_path = f"data/chats/{self.character_name.lower()}_history.json"
+
+        try:
+            json_loaded = json.load(open(file_path))
+            self.messages = json_loaded["messages"]
+        except Exception as e:
+            #traceback.print_exc()
+            print(f"Failed to load data from {file_path}: {e}")
 
     # List-like access compatibility
     def append(self, message):

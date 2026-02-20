@@ -62,10 +62,18 @@ def main(page: ft.Page):
     # Navigation Logic
     def on_nav_change(e):
         index = e.control.selected_index
+
+        is_chat_tab = (index == 1)
+
         view_dashboard.visible = (index == 0)
         view_chat.visible = (index == 1)
         view_library.visible = (index == 2)
         view_settings.visible = (index == 3)
+
+        # Refresh char selection and chat status
+        if is_chat_tab:
+            view_chat.refresh_state()
+
         page.update()
 
     rail = ft.NavigationRail(

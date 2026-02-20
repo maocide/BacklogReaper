@@ -26,11 +26,13 @@ from ui.widgets.styled_inputs import GrimoireTextField, GrimoireProgressBar
 class ReaperChatView(ft.Container):
     def __init__(self):
         super().__init__()
+        self.confirm_dialog = None
         self.expand = True
         self.padding = ft.Padding(0, 5, 5, 10)
 
         # Initialize ChatHistory and Agent
         self.chat_history = ChatHistory()
+        self.character = None
         self.agent = agent.Agent()
 
         self.br_chat_list = ft.Ref[ft.Column]()
@@ -39,6 +41,7 @@ class ReaperChatView(ft.Container):
         self.br_btn_send = ft.Ref[ft.IconButton]()
         self.br_btn_stop = ft.Ref[ft.IconButton]()
         self.br_empty_state = ft.Ref[ft.Container]()
+        self.br_empty_state_name = ft.Ref[ft.Text]()
 
         # Threading
         self.current_run_id = None
@@ -70,7 +73,12 @@ class ReaperChatView(ft.Container):
         self.content = ft.Column([
             ft.Row([
                 ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family=styles.FONT_HEADING),
-                ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=self.copy_chat_history)
+                ft.IconButton(
+                    icon=ft.Icons.DELETE_OUTLINE,
+                    tooltip="Wipe Ledger",
+                    on_click=self.prompt_clear_chat
+                ),
+                ft.IconButton(icon=ft.Icons.COPY, tooltip="Copy Chat History", on_click=self.copy_chat_history),
             ]),
             ft.Container(
                 expand=True,
@@ -115,6 +123,9 @@ class ReaperChatView(ft.Container):
         # Initialize Character
         self._initialize_character()
 
+        # Reload chat history
+        self._reload_chat_from_history()
+
     def will_unmount(self):
         # Stop any active stream if unmounting
         if self.current_stop_event:
@@ -124,16 +135,50 @@ class ReaperChatView(ft.Container):
     def _initialize_character(self):
         current_settings = settings.load_settings()
         char_name = current_settings.get("CHARACTER", "Reaper")
-        character = CharacterManager.load_character(char_name)
-        if not character:
-             character = Character.default()
-        self.chat_history.load_character(character)
+        self.character = CharacterManager.load_character(char_name)
+        if not self.character:
+             self.character = Character.default()
+        self.chat_history.load_character(self.character)
+        self.chat_history.load()
 
     def _prefetch_avatar(self):
         try:
-             self.user_portrait_url = game_intelligence.get_steam_avatar(settings.STEAM_USER)
+            url = game_intelligence.get_steam_avatar(settings.STEAM_USER)
+
+            # If we got a valid URL that is different from what we have
+            if url and url != self.user_portrait_url:
+                self.user_portrait_url = url
+
+                # Retroactively update any user bubbles already on the screen
+                if self.br_chat_list.current and self.br_chat_list.current.page:
+                    for ctrl in self.br_chat_list.current.controls:
+                        # Check if this control is a user chat bubble
+                        if getattr(ctrl, "is_user", False):
+                            print(ctrl)
+                            ctrl.set_avatar(url)
+                            # Safely update just the bubble
+                            self.page.run_task(ui.utils.smart_update, ctrl)
+
         except Exception as e:
             print(f"Error fetching avatar: {e}")
+
+    def _reload_chat_from_history(self):
+        self.br_chat_list.current.controls.clear()
+        if self.chat_history.get_chat_length():
+            self.hide_background()
+
+            for message in self.chat_history.messages:
+                content = message.get('content', None)
+                if message.get('role') == 'assistant' and content:
+                    self.br_chat_list.current.controls.append(
+                        self.parse_and_render_message(text=content, is_user=False, avatar_path=CharacterManager.get_character_image(self.character.name))
+                    )
+                elif message.get('role') == 'user' and content:
+                    self.br_chat_list.current.controls.append(
+                        self.parse_and_render_message(text=content, is_user=True, avatar_path=self.get_user_portrait_url())
+                    )
+
+        self.scroll_chat_to_bottom(500,0,True)
 
     def _build_empty_state(self):
         current_char = ""
@@ -162,7 +207,7 @@ class ReaperChatView(ft.Container):
                     ),
                     ft.Text("The Ledger is Open", font_family=styles.FONT_HEADING, size=22, opacity=0.7),
                     ft.Text(f"Summon {current_char}...", font_family=styles.FONT_MONO, size=12, italic=True,
-                            color=styles.COLOR_TEXT_SECONDARY),
+                            color=styles.COLOR_TEXT_SECONDARY , ref=self.br_empty_state_name),
                 ]
             )
         )
@@ -512,6 +557,9 @@ class ReaperChatView(ft.Container):
                 self.br_status.current.color = styles.COLOR_TEXT_SECONDARY
                 await ui.utils.smart_update(self.br_status.current)
 
+            # Finished we now save chat status
+            self.chat_history.save()
+
         elif msg_type == "error":
             self.stream_active = False
 
@@ -608,7 +656,10 @@ class ReaperChatView(ft.Container):
 
         # Start background render loop
         self.stream_active = True
-        self.page.run_task(self._render_loop)
+        if hasattr(self.page, 'run_thread'):
+            self.page.run_task(self._render_loop)
+        else:
+            threading.Thread(target=self._render_loop, daemon=True).start()
 
         # Start thread
         if hasattr(self.page, 'run_thread'):
@@ -694,6 +745,42 @@ class ReaperChatView(ft.Container):
             for _ in range(excess):
                 controls.pop(0)
 
+    def hide_background(self):
+        # Hide Background
+        if self.br_empty_state.current.visible:
+            self.br_empty_state.current.visible = False
+            self.br_empty_state.current.update()
+
+    def refresh_state(self):
+        """Called by flet main page/controller when the user navigates back to this tab."""
+        # Check if the character actually changed in settings
+        current_settings = settings.load_settings()
+        new_char_name = current_settings.get("CHARACTER", "Reaper")
+
+        # If the character changed, we must reload the chat
+        if not self.character or self.character.name != new_char_name:
+            self.chat_history.reset_history()  # Removes all messages
+            self._initialize_character()  # Loads the new Character and JSON
+
+            # Update the Summoning Circle text
+            if self.br_empty_state.current:
+                char_display = new_char_name if new_char_name != "Reaper" else "the Reaper"
+                self.br_empty_state_name.current.value = f"Summon {char_display}..."
+                self.br_empty_state.current.update()
+                self.br_empty_state_name.current.update()
+
+            self._reload_chat_from_history()  # Rebuilds UI from new JSON
+
+            # If the new history is empty, ensure the circle is visible
+            if not self.chat_history.get_chat_length() and self.br_empty_state.current:
+                self.br_empty_state.current.visible = True
+            else:
+                self.hide_background()
+
+            self.update()
+        else:
+            self.scroll_chat_to_bottom(forced=True, duration=500, delay_ms=0)
+
     def _sync_data_sources_blocking(self):
         # This function runs in a separate thread
         try:
@@ -733,9 +820,7 @@ class ReaperChatView(ft.Container):
             return
 
         # Hide Background
-        if self.br_empty_state.current.visible:
-            self.br_empty_state.current.visible = False
-            self.br_empty_state.current.update()
+        self.hide_background()
 
         self.br_input.current.value = ""
         await self.update_buttons(True) # Show/hide buttons
@@ -788,3 +873,62 @@ class ReaperChatView(ft.Container):
 
 
         self.start_chat_thread(user_message)
+
+    def prompt_clear_chat(self, e):
+        """Opens the confirmation dialog."""
+
+        # Define the dialog
+        self.confirm_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Burn the Ledger?", font_family=styles.FONT_HEADING, color=styles.COLOR_ERROR),
+            content=ft.Text("Are you sure you want to wipe chat history? This action cannot be undone.",
+                            color=styles.COLOR_TEXT_PRIMARY),
+            bgcolor=styles.COLOR_SURFACE,
+            shape=ft.RoundedRectangleBorder(radius=8),
+            actions=[
+                ft.TextButton(
+                    "Cancel",
+                    style=ft.ButtonStyle(color=styles.COLOR_TEXT_SECONDARY),
+                    on_click=self.close_dialog
+                ),
+                ft.FilledButton(
+                    "Wipe It",
+                    style=ft.ButtonStyle(
+                        bgcolor=styles.COLOR_ERROR,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=5)
+                    ),
+                    on_click=self.execute_clear_chat
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        # Show the dialog (Using Flet 0.22+ syntax)
+        self.page.show_dialog(self.confirm_dialog)
+
+    def close_dialog(self, e):
+        """Closes the dialog without doing anything."""
+        if self.confirm_dialog:
+            self.confirm_dialog.open = False
+            self.page.update()
+
+    def execute_clear_chat(self, e):
+        """Performs the actual deletion after confirmation."""
+
+        # Clear the backend data (Assuming you made a method that keeps the system prompt)
+        self.chat_history.reset_history()
+        self.chat_history.save()
+
+        # Clear the Flet UI column
+        if self.br_chat_list.current:
+            self.br_chat_list.current.controls.clear()
+
+        # Bring back the Summoning Circle
+        if self.br_empty_state.current:
+            self.br_empty_state.current.visible = True
+
+        # close dialog
+        self.confirm_dialog.open = False
+
+        self.update()

@@ -14,6 +14,7 @@ class ReaperChatBubble(ft.Container):
         self.reasoning_visible = reasoning_visible
         self.avatar_src = avatar_src
         self.reasoning_expanded = reasoning_expanded
+        self.avatar_content = None
 
         # Tag for identifying message type in the list
         self.data = "user_message" if is_user else "assistant_message"
@@ -62,10 +63,10 @@ class ReaperChatBubble(ft.Container):
 
         # AVATAR CONSTRUCTION
         # We use a Container to frame the image nicely
-        avatar_content = None
+        self.avatar_content = None
         if not self.is_user:
             if self.avatar_src:
-                avatar_content = ft.Container(
+                self.avatar_content = ft.Container(
                     content=ft.Image(src=self.avatar_src, fit=ft.BoxFit.COVER, border_radius=3),
                     width=180,
                     #height=180,
@@ -78,7 +79,7 @@ class ReaperChatBubble(ft.Container):
             else:
                 # Fallback placeholder
                 # Fallback if image is missing: A simple colored initial or Icon
-                avatar_content = ft.Container(
+                self.avatar_content = ft.Container(
                     content=ft.Icon(ft.Icons.ANDROID, color=reaper_name_color),
                     width=60, height=90,
                     bgcolor=ft.Colors.BLACK,
@@ -93,7 +94,7 @@ class ReaperChatBubble(ft.Container):
                 src = ft.Image(src=self.avatar_src, fit=ft.BoxFit.COVER)
 
             # Keep user small
-            avatar_content = ft.Container(
+            self.avatar_content = ft.Container(
                 content=src,
                 width=80, height=80,
                 bgcolor=ft.Colors.BLACK,
@@ -172,10 +173,10 @@ class ReaperChatBubble(ft.Container):
                     alignment=ft.Alignment.TOP_RIGHT
                 )
             )
-            row_controls.append(avatar_content)
+            row_controls.append(self.avatar_content)
         else:
             # Reaper Layout: Avatar | Message
-            row_controls.append(avatar_content)
+            row_controls.append(self.avatar_content)
             # We let the message expand, but the Column constraints in main chat view
             # usually handle the total width.
             row_controls.append(ft.Container(content=message_container, col={"sm": 12, "md": 11, "lg": 10}, expand=True))
@@ -193,3 +194,12 @@ class ReaperChatBubble(ft.Container):
     def on_reasoning_change(self, e):
         # Update local state so it can be read later
         self.reasoning_expanded = e.control.expanded if e.control else False
+
+    def set_avatar(self, new_url):
+        """Updates the avatar image."""
+        self.avatar_src = new_url
+
+        if hasattr(self, 'avatar_content') and self.avatar_content:
+            src = ft.Image(src=self.avatar_src, fit=ft.BoxFit.COVER)
+            self.avatar_content.content = src
+            self.avatar_content.update()
