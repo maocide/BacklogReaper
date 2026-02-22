@@ -179,6 +179,9 @@ class ReaperChatView(ft.Container):
                         self.parse_and_render_message(text=content, is_user=True, avatar_path=self.get_user_portrait_url())
                     )
 
+            if self.chat_history.messages and self.chat_history.messages[-1].get('role') == 'assistant':
+                self._append_message_actions()
+
         self.scroll_chat_to_bottom(500,0,True)
 
     def _build_empty_state(self):
@@ -533,20 +536,7 @@ class ReaperChatView(ft.Container):
                 )
                 self.br_chat_list.current.controls.append(final_msg_control)
 
-                regen_btn = ft.Row(
-                    controls=[
-                        ft.IconButton(
-                            icon=ft.Icons.REFRESH,
-                            tooltip="Regenerate Response",
-                            icon_color=ft.Colors.GREY_500,
-                            on_click=self.regenerate_click,
-                            icon_size=20,
-                        )
-                    ],
-                    alignment=ft.MainAxisAlignment.END,
-                    data="regenerate_button"
-                )
-                self.br_chat_list.current.controls.append(regen_btn)
+                self._append_message_actions()
 
                 await ui.utils.smart_update(self.br_chat_list.current)
                 self.scroll_chat_to_bottom(delay_ms=100, forced=True)
@@ -670,24 +660,73 @@ class ReaperChatView(ft.Container):
         else:
              threading.Thread(target=self.run_backlog_reaping_thread, args=(user_message, new_run_id, new_stop_event), daemon=True).start()
 
-    async def remove_regen_button(self, perform_update=True):
+    def _append_message_actions(self):
+        """Builds and appends the action buttons below the latest AI response."""
+        if not self.br_chat_list.current:
+            return
+
+        actions_row = ft.Row(
+            controls=[
+                # Delete/Undo Button
+                ft.IconButton(
+                    icon=ft.Icons.UNDO,
+                    tooltip="Delete & Edit Last Prompt",
+                    icon_color=styles.COLOR_TEXT_SECONDARY,
+                    on_click=self.delete_last_click,
+                    icon_size=20,
+                ),
+                # Regenerate Button
+                ft.IconButton(
+                    icon=ft.Icons.REFRESH,
+                    tooltip="Regenerate Response",
+                    icon_color=styles.COLOR_TEXT_SECONDARY,
+                    on_click=self.regenerate_click,
+                    icon_size=20,
+                )
+            ],
+            alignment=ft.MainAxisAlignment.END,
+            data="message_action_buttons"
+        )
+        self.br_chat_list.current.controls.append(actions_row)
+
+    async def remove_message_actions(self, perform_update=True):
         if self.br_chat_list.current and self.br_chat_list.current.controls:
             last_ctrl = self.br_chat_list.current.controls[-1]
 
-            if getattr(last_ctrl, "data", "") == "regenerate_button":
+            # Check for new ID or old ID
+            ctrl_data = getattr(last_ctrl, "data", "")
+            if ctrl_data == "message_action_buttons" or ctrl_data == "regenerate_button":
                 self.br_chat_list.current.controls.pop()
                 if perform_update:
                     await ui.utils.smart_update(self.br_chat_list.current)
                 return
 
+            # Legacy check (fallback)
             if isinstance(last_ctrl, ft.Row) and last_ctrl.controls and isinstance(last_ctrl.controls[0], ft.IconButton):
                  if last_ctrl.controls[0].icon == ft.Icons.REFRESH:
                     self.br_chat_list.current.controls.pop()
                     if perform_update:
                         await ui.utils.smart_update(self.br_chat_list.current)
 
+    async def delete_last_click(self, e):
+        # 1. Remove the action buttons row
+        await self.remove_message_actions(perform_update=False)
+
+        # 2. Pop AI and User messages, and grab the user's text
+        user_text = await self.remove_last_ai_response(including_user=True)
+
+        # 3. Put text back in the input box
+        if user_text and self.br_input.current:
+            self.br_input.current.value = user_text
+            await ui.utils.smart_update(self.br_input.current)
+
+        # 4. Scroll and save
+        self.scroll_chat_to_bottom(forced=True, duration=0, delay_ms=50)
+        self.chat_history.save()
+        await self.update_buttons(False) # Ensure we are in "Ready" state
+
     async def regenerate_click(self, e):
-        await self.remove_regen_button(perform_update=False)
+        await self.remove_message_actions(perform_update=False)
 
         await self.remove_last_ai_response(including_user=False)
 
@@ -830,7 +869,7 @@ class ReaperChatView(ft.Container):
 
         user_portrait_url = self.get_user_portrait_url()
 
-        await self.remove_regen_button(perform_update=False)
+        await self.remove_message_actions(perform_update=False)
 
         if self.br_chat_list.current:
             # Prune before adding new message to keep list size stable
