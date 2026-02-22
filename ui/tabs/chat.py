@@ -10,6 +10,7 @@ from warnings import catch_warnings
 import flet as ft
 
 import agent
+import character_manager
 import vault
 import settings
 from character_manager import CharacterManager, Character
@@ -93,8 +94,9 @@ class ReaperChatView(ft.Container):
                             on_scroll=self.handle_scroll,
                             expand=True,
                             spacing=10,
+                            auto_scroll=False,
                             scroll=ft.ScrollMode.AUTO,
-                            scroll_interval=50,
+                            scroll_interval=100,
                         )
                     ],
                     expand=True,
@@ -154,7 +156,6 @@ class ReaperChatView(ft.Container):
                     for ctrl in self.br_chat_list.current.controls:
                         # Check if this control is a user chat bubble
                         if getattr(ctrl, "is_user", False):
-                            print(ctrl)
                             ctrl.set_avatar(url)
                             # Safely update just the bubble
                             self.page.run_task(ui.utils.smart_update, ctrl)
@@ -275,14 +276,15 @@ class ReaperChatView(ft.Container):
         bubble_content = ft.Column(controls, tight=True, spacing=5)
 
         user_avatar_name = settings.STEAM_USER if settings.STEAM_USER else "USER"
-        current_char = "Reaper"
+        current_char_name = "Reaper"
         try:
             current_settings = settings.load_settings()
-            current_char = current_settings.get("CHARACTER", "Reaper")
+            current_char = current_settings.get("CHARACTER", "Ember")
+            current_char_name = CharacterManager.load_character(current_char).name
         except:
-            print("Error loading settings for character.")
+            print("Error getting character name")
 
-        avatar_name = user_avatar_name if is_user else current_char
+        avatar_name = user_avatar_name if is_user else current_char_name
 
         reasoning_control = None
         if reasoning_text and not is_user:

@@ -71,8 +71,11 @@ class ChatHistory:
         # Count user turns (actual interactions)
         user_indices = [i for i, msg in enumerate(conversation) if msg.get('role') == 'user']
 
-        # If we are within limits, do nothing
-        if len(user_indices) <= self.max_user_turns:
+        # If max is 10, trigger_threshold becomes 15.
+        trigger_threshold = self.max_user_turns + (self.max_user_turns // 2)
+
+        # If we haven't hit the 15-turn overflow, do nothing
+        if len(user_indices) <= trigger_threshold:
             return
 
         # Determine split point:
