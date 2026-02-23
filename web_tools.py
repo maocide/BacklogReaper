@@ -160,26 +160,22 @@ def web_search(query, max_results=10):
     except TimeoutException:
         # 2. Handle Connection Timeouts (The error you just saw)
         print(f"   [DDG] ⚠️ TIMEOUT for: '{query}' (Skipping)")
-        result['message'] = 'Search timed out.'
-        return result
+        return {'error': 'Search timed out.'}
 
     except DuckDuckGoSearchException:
         # 3. Handle "No results found" or other API logic errors
         # (This silences the "ddgs.exceptions.DDGSException" you saw earlier)
         # print(f"   [DDG] No results for: '{query}'")
-        result['message'] = 'No results found.'
-        return result
+        return {'error': 'No results found.'}
 
     except Exception as e:
         # 4. Catch-all for anything else (DNS issues, etc.)
         print(f"   [DDG] Unexpected Error: {e}")
-        result['message'] = f'Error: {e}'
-        return result
+        return {'error': f'Error: {e}'}
 
     # 5. Process success
     if not results:
-        result['message'] = 'No results found.'
-        return result
+        return {'error': 'No results found.'}
 
     data = []
     for res in results:
@@ -189,8 +185,7 @@ def web_search(query, max_results=10):
             'href': res.get('href', '')
         })
 
-    result["search_results"] = data
-    return result
+    return data
 
 def get_store_data(app_id, max_tags=10):
     """
@@ -245,16 +240,21 @@ def get_hltb_search_scrape(game_name):
 
     max_attempts = 3
     attempts = 0
-    search_data = {}
+    search_data = []
 
     # Retry Loop with Exponential Backoff
     while attempts < max_attempts:
         # Perform the search
         search_data = web_search(query, max_results=5)
 
-        # Check success: Must have 'search_results' and it must not be empty
-        if search_data and "search_results" in search_data and search_data["search_results"]:
+        # Check success: Must be a list and not empty, and not an error dict
+        if isinstance(search_data, list) and search_data:
             break  # Success! Exit loop.
+
+        # Check for error dict (if it's not a list, it might be an error dict)
+        if isinstance(search_data, dict) and "error" in search_data:
+             print(f"   [HLTB] Search Error: {search_data['error']}")
+             # We might not retry on some errors, but for now let's retry
 
         # If we failed...
         attempts += 1
@@ -264,7 +264,7 @@ def get_hltb_search_scrape(game_name):
             time.sleep(wait_time)
 
     # Final check after retries
-    if not search_data or "search_results" not in search_data or not search_data["search_results"]:
+    if not isinstance(search_data, list) or not search_data:
         print(f"   [HLTB] Giving up on '{game_name}' after {max_attempts} attempts.")
         return []
 
@@ -274,7 +274,7 @@ def get_hltb_search_scrape(game_name):
 
     clean_target = game_name.lower().strip()
 
-    for res in search_data["search_results"]:
+    for res in search_data:
         url = res.get('href', '')
         title = res.get('title', '')
 

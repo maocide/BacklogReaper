@@ -209,7 +209,12 @@ def scrape_reddit_search(game_name):
 
     if not results:
         print("Error: Reddit ignoring the Reaper. (Trying WEB Search...)")
-        return web_search(f"site:reddit.com {game_name}")
+        web_res = web_search(f"site:reddit.com {game_name}")
+        if isinstance(web_res, list):
+            return {"results": web_res}
+        else:
+            # Propagate error dict or return it wrapped if needed, but error dict is fine
+            return web_res
 
     return {"results": results}
 
@@ -432,7 +437,7 @@ def get_game_news(game_name: str, limit: int = 5):
                 "content": clean_text[:1500] + "..." if len(clean_text) > 1500 else clean_text
             })
 
-        return {"news": formatted_news}
+        return formatted_news
 
     except Exception as e:
         print(f"News API Error: {e}")
