@@ -1371,7 +1371,7 @@ def get_friends_who_own(game_name):
         return {"error": f"Could not fetch friend list: {e}"}
 
     if not friends_list or not friends_list["friends"]:
-        return {"result": "No friends found (or profile is private)."}
+        return {"error": "No friends found (or profile is private)."}
 
     # Limit scanning to top 50 friends to prevent API timeout/ban
     friends_to_scan = friends_list.get("friends",[])

@@ -416,7 +416,7 @@ def get_game_news(game_name: str, limit: int = 5):
         news_items = data.get('appnews', {}).get('newsitems', [])
 
         if not news_items:
-            return {"content": "No recent news found for this game."}
+            return {"error": "No recent news found for this game."}
 
         # 3. Format for Agent
         formatted_news = []
