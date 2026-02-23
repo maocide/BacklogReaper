@@ -1,0 +1,91 @@
+Final Tool Return Type Audit Report
+
+1. vault_search (List[Dict])
+   - Function: vault.advanced_search
+   - Returns: Raw list of game objects.
+   - Status: Consistent.
+
+2. vault_search_batch (List[Dict])
+   - Function: vault.vault_search_batch
+   - Returns: Raw list of game objects (concatenated).
+   - Status: Consistent.
+
+3. get_user_tags (List[Dict])
+   - Function: vault.get_all_tags
+   - Returns: Raw list of tag objects.
+   - Status: Consistent.
+
+4. get_library_stats (Dict)
+   - Function: vault.get_library_stats
+   - Returns: Dictionary of stats.
+   - Status: Correct (single object return).
+
+5. find_similar_games (List[Dict])
+   - Function: game_intelligence.generate_contextual_dna
+   - Returns: Raw list of game objects.
+   - Status: Consistent.
+
+6. search_steam_store (List[Dict])
+   - Function: game_intelligence.search_steam_store
+   - Returns: Raw list of search results.
+   - Status: Consistent.
+
+7. get_game_details (List[Dict]) [UPDATED]
+   - Function: game_intelligence.get_batch_game_details
+   - Returns: Raw list of game detail objects (now consistent with vault_search_batch).
+   - Old behavior: Dict[str, Dict]
+   - Status: Consistent (List).
+
+8. get_reviews (Dict)
+   - Function: game_intelligence.get_reviews_byname
+   - Returns: Complex Dict structure (reviews list + summary dict).
+   - Status: Correct (complex data).
+
+9. get_community_sentiment (Dict)
+   - Function: community_sentiment.get_community_sentiment
+   - Returns: Dict of sub-dictionaries (4chan, Reddit, etc.).
+   - Status: Correct (complex data).
+
+10. get_achievements (Dict)
+    - Function: game_intelligence.get_achievement_stats
+    - Returns: Dict (Dashboard or Pagination view).
+    - Status: Correct (complex data).
+
+11. web_search (List[Dict] or Dict[Error]) [UPDATED]
+    - Function: web_tools.web_search
+    - Returns: Raw list of results on success, or {"error": "..."} on failure.
+    - Old behavior: {"search_results": [...]} or {"message": "..."}
+    - Status: Consistent (List or Error).
+
+12. get_webpage (Dict)
+    - Function: community_sentiment.get_webpage
+    - Returns: {"content": "..."} or {"error": "..."}.
+    - Status: Correct (single content block).
+
+13. get_user_wishlist (List[Dict] or Dict[Error])
+    - Function: game_intelligence.get_user_wishlist
+    - Returns: List of items or {"error": "..."}.
+    - Status: Consistent.
+
+14. search_by_vibe (List[Dict])
+    - Function: (Internal Logic)
+    - Returns: List of game objects.
+    - Status: Consistent.
+
+15. get_game_news (List[Dict] or Dict[Error]) [UPDATED]
+    - Function: community_sentiment.get_game_news
+    - Returns: Raw list of news items or {"error": "..."}.
+    - Old behavior: {"news": [...]} or {"content": "..."} (for error/empty).
+    - Status: Consistent (List or Error).
+
+16. get_friends_who_own (Dict)
+    - Function: game_intelligence.get_friends_who_own
+    - Returns: Complex Dict (stats + owners list) or {"error": "..."}.
+    - Status: Correct (complex data).
+
+Dependency Safety Check:
+- get_batch_game_details: Used in `agent_tools.py`. The agent will now receive a list instead of a dict. This is generally safer for iteration and aligns with other tools. No other programmatic dependencies found.
+- get_game_news: Used in `agent_tools.py`. Agent receives list. Safe.
+- web_search: Used in `agent_tools.py` (direct), `community_sentiment.scrape_reddit_search`, and `web_tools.get_hltb_search_scrape`.
+  - `scrape_reddit_search`: Updated to handle list return. Safe.
+  - `get_hltb_search_scrape`: Updated to handle list return. Safe.
