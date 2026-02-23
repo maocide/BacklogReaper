@@ -134,11 +134,13 @@ def calculate_simple_status(game):
 
 def format_time_ago(ts):
     if ts == 0: return "Never"
-    days = int((time.time() - ts) / 86400)
-    if days == 0: return  datetime.fromtimestamp(ts).strftime('Today %H:%M')
-    if days < 30: return f"{days} days ago"
-    if days < 365: return f"{int(days/30)} months ago"
-    return f"{int(days/365)} years ago"
+    # days = int((time.time() - ts) / 86400)
+    # if days == 0: return  datetime.fromtimestamp(ts).strftime('Today %H:%M')
+    # if days < 30: return f"{days} days ago"
+    # if days < 365: return f"{int(days/30)} months ago"
+    # return f"{int(days/365)} years ago"
+
+    return datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
 
 

@@ -435,7 +435,6 @@ def wrap_output(data, context=None, warning=None):
     Wraps raw data in a standard envelope for the Agent.
     Replaces the need for 'system_hint'.
     """
-    count = 1
     status = "success"
 
     # Check for error in dict data (from safe_tool)
@@ -446,20 +445,17 @@ def wrap_output(data, context=None, warning=None):
         if "error_type" in data:
             context += f" Type: {data['error_type']}"
 
-    if isinstance(data, list):
-        count = len(data)
-    elif isinstance(data, dict):
-        count = len(data.keys())
-
     payload = {
         "meta": {
             "status": status,
             "summary": context or "Data retrieved successfully.",
-            "count": count,
-            "timestamp": datetime.now().strftime("%H:%M")
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         },
         "data": data
     }
+
+    if isinstance(data, list):
+        payload["meta"]["count"] = len(data)
 
     if warning:
         payload["meta"]["warning"] = warning
