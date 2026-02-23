@@ -578,7 +578,7 @@ def get_global_game_info(game_name, appid=None):
 
 
 @safe_tool
-def get_batch_game_details(game_names: list[str]) -> dict:
+def get_batch_game_details(game_names: list[str]) -> list:
     """
     Retrieves details for multiple games simultaneously.
     Use this when the user mentions multiple games to save time.
@@ -587,11 +587,11 @@ def get_batch_game_details(game_names: list[str]) -> dict:
         game_names: A list of strings, e.g. ["Hades", "Bastion", "Pyre"]
 
     Returns:
-        Dict keyed by game name containing the info payload.
+        List of game info payloads.
     """
     print(f"--- BATCH FETCHING {len(game_names)} GAMES ---")
 
-    results = {}
+    results = []
 
     # We use a ThreadPool to run the heavy get_global_game_info function
     # (which ALREADY uses threads, so we are nesting threads, but it's fine for I/O)
@@ -606,10 +606,13 @@ def get_batch_game_details(game_names: list[str]) -> dict:
             name = future_to_name[future]
             try:
                 data = future.result()
-                results[name] = data
+                # Ensure the name is present if not already (get_global_game_info usually adds 'title')
+                if isinstance(data, dict) and "title" not in data:
+                    data["title"] = name
+                results.append(data)
             except Exception as e:
                 print(f"Batch error for {name}: {e}")
-                results[name] = {"error": str(e)}
+                results.append({"title": name, "error": str(e)})
 
     return results
 
