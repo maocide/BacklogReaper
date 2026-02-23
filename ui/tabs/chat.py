@@ -709,18 +709,22 @@ class ReaperChatView(ft.Container):
                         await ui.utils.smart_update(self.br_chat_list.current)
 
     async def delete_last_click(self, e):
-        # 1. Remove the action buttons row
+        # Remove the action buttons row
         await self.remove_message_actions(perform_update=False)
 
-        # 2. Pop AI and User messages, and grab the user's text
+        # Pop AI and User messages, and grab the user's text
         user_text = await self.remove_last_ai_response(including_user=True)
 
-        # 3. Put text back in the input box
+        # Put text back in the input box
         if user_text and self.br_input.current:
             self.br_input.current.value = user_text
             await ui.utils.smart_update(self.br_input.current)
 
-        # 4. Scroll and save
+        # Append actions again
+        if self.chat_history.messages and self.chat_history.messages[-1].get('role') == 'assistant':
+            self._append_message_actions()
+
+        # Scroll and save
         self.scroll_chat_to_bottom(forced=True, duration=0, delay_ms=50)
         self.chat_history.save()
         await self.update_buttons(False) # Ensure we are in "Ready" state
