@@ -99,3 +99,30 @@ def get_roast_asset(status_text):
 
     # Return the specific asset, or the Clean card if the Agent invents a new status
     return assets.get(key, "assets/cards/default.png")
+
+def mix_color(color1, color2, weight=0.5):
+    """
+    Mixes two hex colors.
+    :param color1: Hex string (e.g. "#RRGGBB")
+    :param color2: Hex string (e.g. "#RRGGBB")
+    :param weight: Float between 0.0 and 1.0 (weight of color1)
+    :return: Mixed hex string
+    """
+    def hex_to_rgb(hex_color):
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) == 3:
+            hex_color = ''.join([c*2 for c in hex_color])
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+    def rgb_to_hex(rgb):
+        return '#{:02x}{:02x}{:02x}'.format(*rgb)
+
+    rgb1 = hex_to_rgb(color1)
+    rgb2 = hex_to_rgb(color2)
+
+    mixed_rgb = tuple(
+        int(c1 * weight + c2 * (1 - weight))
+        for c1, c2 in zip(rgb1, rgb2)
+    )
+
+    return rgb_to_hex(mixed_rgb)

@@ -1,5 +1,6 @@
 import flet as ft
 import styles
+from ui.utils import mix_color
 
 class ReaperChatBubble(ft.Container):
     def __init__(self, avatar_name, content_control, is_user, reasoning_control=None, reasoning_title="Reasoning",
@@ -32,8 +33,8 @@ class ReaperChatBubble(ft.Container):
             center=ft.Alignment(-1.0, -1.0), # Top Left Corner
             radius=2, # Large radius to cover long text
             colors=[
-                "#1C2327", # ~25% Spirit Blue on Black
-                "#0C0F10", # ~8% Spirit Blue on Black
+                mix_color(styles.COLOR_SYSTEM_LOG, styles.COLOR_BACKGROUND, 0.25), # 25% Mix
+                mix_color(styles.COLOR_SYSTEM_LOG, styles.COLOR_BACKGROUND, 0.08), # 8% Mix
             ],
             stops=[0.2, 1.0]
         )

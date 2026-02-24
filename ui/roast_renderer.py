@@ -191,4 +191,16 @@ def generate_roast_image(game_data):
     # Branding / Footer
     # draw.text((PADDING, CARD_HEIGHT - 40), "Backlog Reaper", font=font_body, fill=(50, 50, 50))
 
+    # 5. Apply Rounded Corners (Masking)
+    # Create a mask image (L mode)
+    mask = Image.new("L", (CARD_WIDTH, CARD_HEIGHT), 0)
+    draw_mask = ImageDraw.Draw(mask)
+
+    # Draw white rounded rectangle on black mask
+    corner_radius = 50 # Matching roughly the 25.0 Flet radius scaled up
+    draw_mask.rounded_rectangle([(0, 0), (CARD_WIDTH, CARD_HEIGHT)], radius=corner_radius, fill=255)
+
+    # Apply mask to alpha channel of base image
+    base_img.putalpha(mask)
+
     return base_img
