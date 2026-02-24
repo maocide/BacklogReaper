@@ -162,6 +162,7 @@ class ChatHistory:
             json.dump(data, f, indent=4)
 
     def load(self, character):
+        self._load_character(character)  # Ensures we have name
         file_path = f"data/chats/{self.character_name.lower()}_history.json"
 
         try:
