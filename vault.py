@@ -56,6 +56,9 @@ def calculate_status(game):
 
     # Ratio Calculation (Playtime / Main Story)
     ratio = 0
+    # Ensure hltb_main is treated as 0 if None
+    if hltb_main is None: hltb_main = 0
+
     if hltb_main > 0:
         # Both are now in minutes
         ratio = playtime_min / hltb_main
@@ -610,17 +613,18 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         # Inject the calculated fields so the AI sees them
         game['status'] = game_status
         game['hours'] = game['playtime_forever']
-        game['hltb_main'] = game['hltb_main'] if game['hltb_main'] else 0
-        game['hltb_completionist'] = game['hltb_completionist'] if game['hltb_completionist'] else 0
+        game['hltb_main'] = game['hltb_main'] if game['hltb_main'] else None
+        game['hltb_completionist'] = game['hltb_completionist'] if game['hltb_completionist'] else None
         game['last_played'] = last_played_str
 
         results.append(game)
 
     # Final Sorting
     if sort_by == 'shortest':
-        results.sort(key=lambda x: x['hltb_main'] if x['hltb_main'] > 0 else float('inf')) # Makes the unknown 0 data go at the bottom with Infinity
+        # Safely handle None or 0 values
+        results.sort(key=lambda x: x['hltb_main'] if x.get('hltb_main') and x['hltb_main'] > 0 else float('inf'))
     elif sort_by == 'longest':
-        results.sort(key=lambda x: x['hltb_main'], reverse=True)
+        results.sort(key=lambda x: x.get('hltb_main') or 0, reverse=True)
     elif sort_by == 'name':
         results.sort(key=lambda x: x['name'])
     elif sort_by == 'recent':
@@ -637,8 +641,8 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         # TRANSFORMATIONS: 'field_name': 'rule'
         "transformations": {
             "hours": "minutes_to_hours",
-            "hltb_main": "minutes_to_hours",
-            "hltb_completionist": "minutes_to_hours",
+            "hltb_main": "minutes_to_hours_or_na",
+            "hltb_completionist": "minutes_to_hours_or_na",
         },
         # ALLOWLIST: Only keep these fields
         "keep_keys": [
@@ -649,7 +653,6 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
             "hltb_completionist",
             "review_score",
             "last_played",
-#            "status" We do not want this now, AI can work without.
         ]
     }
 

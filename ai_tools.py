@@ -74,8 +74,14 @@ def clean_json_for_ai(data, keep_keys=None, transformations=None, max_list_items
     def apply_transform(key, value):
         rule = transformations.get(key)
 
-        if not rule or value is None:
+        # Handle transformation logic
+        if not rule:
             return value
+
+        # If value is None and we have a rule, we might want to handle it (e.g. N/A)
+        if value is None:
+             if "or_na" in rule: return "N/A"
+             return value
 
         try:
             if rule == 'date':
@@ -89,6 +95,10 @@ def clean_json_for_ai(data, keep_keys=None, transformations=None, max_list_items
                 return dt.strftime("%Y-%m-%d %H:%M")
 
             elif rule == 'minutes_to_hours':
+                return f"{round(value / 60, 1)}h"
+
+            elif rule == 'minutes_to_hours_or_na':
+                if value == 0: return "N/A"
                 return f"{round(value / 60, 1)}h"
 
             elif rule == 'seconds_to_hours':
