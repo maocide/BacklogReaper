@@ -686,7 +686,8 @@ def generate_contextual_dna(game_name, limit=10):
             "name": g['name'],
             "appid": g['appid'],
             "match_score": f"{int(item['score'] * 100)}%",
-            "status": calculate_status(g),
+            "hltb_main_hours": round((g.get('hltb_main') or 0) / 60, 1),
+            "hltb_completionist_hours": round((g.get('hltb_completionist') or 0) / 60, 1),
             "hours": round(g.get('playtime_forever', 0) / 60, 1),
             "tags": g.get('tags', '').split(',')[:5]
         })

@@ -592,7 +592,8 @@ def execute_tool(tool_request):
                     "appid": game['appid'],
                     "vibe_match_score": game.get('vibe_match', 'N/A'),  # The engine adds this
                     "playtime": round(game['playtime_forever'] / 60, 1),
-                    "status": vault.calculate_status(game)  # Helper from your vault.py
+                    "hltb_main_hours": round((game.get('hltb_main') or 0) / 60, 1),
+                    "hltb_completionist_hours": round((game.get('hltb_completionist') or 0) / 60, 1)
                 })
 
             context_msg = f"Found {len(lean_results)} games matching that vibe via vector search."
