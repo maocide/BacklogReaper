@@ -248,7 +248,7 @@ class ReaperChatView(ft.Container):
         # If we are at the bottom, lock it.
         # If we scroll up significantly, unlock it.
         distance_from_bottom = e.max_scroll_extent - e.pixels
-        is_at_bottom = distance_from_bottom <= 30  # slightly tighter threshold for latching
+        is_at_bottom = distance_from_bottom <= 60  # increased threshold for easier re-latching
 
         if is_at_bottom:
             self.stick_to_bottom = True
