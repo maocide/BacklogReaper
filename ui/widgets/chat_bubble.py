@@ -47,7 +47,7 @@ class ReaperChatBubble(ft.Container):
             blur_radius=15,
             color=ft.Colors.with_opacity(0.4, styles.COLOR_BUBBLE_SHADOW),
             offset=ft.Offset(-4, 0), # Shifted left
-            blur_style=ft.BlurStyle.NORMAL, # Changed to NORMAL to avoid weird artifacts, or keep OUTER? Let's try NORMAL for a "glow" behind
+            blur_style=ft.BlurStyle.OUTER, # Back to OUTER to prevent internal glow/bleed
         )
 
         reaper_shadow = common_shadow
