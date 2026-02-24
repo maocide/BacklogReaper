@@ -54,7 +54,8 @@ class ReaperChatView(ft.Container):
 
         self.current_scroll_offset = 0
         self.max_scroll_extent = 0
-        self.scroll_buffer = 50
+        self.stick_to_bottom = True
+        self.last_scroll_pixels = 0
         self.max_chat_bubbles = 50  # Limit visible bubbles to prevent UI lag/leaks
 
         self.stream_active = False
@@ -236,8 +237,23 @@ class ReaperChatView(ft.Container):
         self.page.update()
 
     def handle_scroll(self, e: ft.OnScrollEvent):
+        # Calculate delta to detect direction
+        delta = e.pixels - self.last_scroll_pixels
+        self.last_scroll_pixels = e.pixels
+
         self.current_scroll_offset = e.pixels
         self.max_scroll_extent = e.max_scroll_extent
+
+        # Logic for "Stick to Bottom"
+        # If we are at the bottom, lock it.
+        # If we scroll up significantly, unlock it.
+        distance_from_bottom = e.max_scroll_extent - e.pixels
+        is_at_bottom = distance_from_bottom <= 30  # slightly tighter threshold for latching
+
+        if is_at_bottom:
+            self.stick_to_bottom = True
+        elif delta < -5: # User is scrolling up
+            self.stick_to_bottom = False
 
     def get_user_portrait_url(self):
         # Return cached URL if available, otherwise return None (default avatar will be used)
@@ -595,11 +611,8 @@ class ReaperChatView(ft.Container):
                 pass
 
     def scroll_chat_to_bottom(self, duration=700, delay_ms=0, forced=False):
-        # Distance for scroll
-        distance_from_bottom = self.max_scroll_extent - self.current_scroll_offset
-        safe_scroll = distance_from_bottom <= self.scroll_buffer
-
         if forced:
+            self.stick_to_bottom = True
             if self.br_chat_list.current and self.page:
                 try:
                     self.page.run_task(self._scroll_task, duration, delay_ms)
@@ -607,7 +620,8 @@ class ReaperChatView(ft.Container):
                     pass
             return
 
-        if safe_scroll:
+        # Only scroll if locked to bottom
+        if self.stick_to_bottom:
             if self.br_chat_list.current and self.page:
                 try:
                     self.page.run_task(self._scroll_task, duration, delay_ms)
