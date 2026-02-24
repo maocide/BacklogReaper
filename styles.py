@@ -7,7 +7,7 @@ COLOR_BUBBLE_USER= "#212121"  # User Chat Bubbles
 
 # Accents (The "Reaper" Theme)
 COLOR_BORDER_BRONZE = "#9d8159"  # Structural Borders (Muted Bronze)
-COLOR_TEXT_GOLD     = "#D4A237"  # Names & Titles (Metallic Gold)
+COLOR_TEXT_GOLD     = "#E67E22" # Names & Titles (Another tone of diablo legendary) "#D4A237"  # OLD Names & Titles (Metallic Gold)
 COLOR_ACCENT_DIM    = "#5e4b35"  # Dividers & Inactive Elements (Dark Rust)
 
 # Input Field Specifics

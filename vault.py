@@ -4,7 +4,6 @@ import random
 import difflib
 
 import requests
-from PIL.ImageChops import offset
 from steam_web_api import Steam
 
 import ai_tools
@@ -215,7 +214,6 @@ def fetch_game_details_worker(game):
 
     print(f"Fetching intel for: {name} ({appid})")
 
-    # 1. Init Data
     main_story = 0
     completionist = 0
     is_multiplayer = 0
@@ -229,7 +227,7 @@ def fetch_game_details_worker(game):
         "massively multiplayer", "cross-platform multiplayer"
     }
 
-    # 2. Fetch Store Data (Tags & Description)
+    # Fetch Store Data (Tags & Description)
     try:
         store_data = get_store_data(appid)
         description = store_data.get('description', '')
@@ -244,13 +242,13 @@ def fetch_game_details_worker(game):
     except Exception as e:
         print(f"Store scrape failed for {name}: {e}")
 
-    # 3. Fetch Reviews
+    # Fetch Reviews
     try:
         review_score = fetch_review_summary(appid)
     except Exception as e:
         print(f"Review fetch failed for {name}: {e}")
 
-    # 4. Fetch HLTB
+    # Fetch HLTB
     try:
         hltb_results = get_hltb_data(name)
         if hltb_results:
@@ -347,6 +345,16 @@ def update(username):
                 try:
                     data = future.result()
                     new_game_data.append(data)
+
+                    # YIELD THE PROGRESS TO THE UI
+                    yield {
+                        "status": "processing",
+                        "current": i + 1,
+                        "total": len(new_games),
+                        "game_name": data[1],
+                        "hours": data[2] / 60.0  # Assuming playtime is index 2
+                    }
+
                     print(f"[{i + 1}/{len(new_games)}] Processed {data[1]}")
                 except Exception as exc:
                     print(f"Worker generated an exception: {exc}")
@@ -641,7 +649,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
             "hltb_completionist",
             "review_score",
             "last_played",
-            "status"
+#            "status" We do not want this now, AI can work without.
         ]
     }
 

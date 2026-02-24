@@ -12,7 +12,7 @@ class ChatHistory:
         self.character_name = character_name
         self.max_user_turns = 10
 
-    def load_character(self, character):
+    def _load_character(self, character):
         """
         Loads the character's system prompt into the history.
         Updates the first message if it's a system prompt, or inserts it.
@@ -161,12 +161,13 @@ class ChatHistory:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
 
-    def load(self):
+    def load(self, character):
         file_path = f"data/chats/{self.character_name.lower()}_history.json"
 
         try:
             json_loaded = json.load(open(file_path))
             self.messages = json_loaded["messages"]
+            self._load_character(character) # Overwrites system prompt with current char
         except Exception as e:
             #traceback.print_exc()
             print(f"Failed to load data from {file_path}: {e}")

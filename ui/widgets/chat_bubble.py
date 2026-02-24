@@ -152,10 +152,10 @@ class ReaperChatBubble(ft.Container):
             gradient=bubble_gradient,
             border=bubble_border,
             border_radius=ft.border_radius.only(
-                top_left=0 if not self.is_user else 12,
-                top_right=12 if not self.is_user else 0,
-                bottom_left=12,
-                bottom_right=12
+                top_left=0 if not self.is_user else 18,
+                top_right=18 if not self.is_user else 0,
+                bottom_left=18,
+                bottom_right=18
             ),
             padding=20,  # More padding for "book page" feel
             shadow=bubble_shadow,

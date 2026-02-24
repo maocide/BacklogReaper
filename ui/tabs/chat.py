@@ -141,8 +141,7 @@ class ReaperChatView(ft.Container):
         self.character = CharacterManager.load_character(char_name)
         if not self.character:
              self.character = Character.default()
-        self.chat_history.load_character(self.character)
-        self.chat_history.load()
+        self.chat_history.load(self.character)
 
     def _prefetch_avatar(self):
         try:
@@ -218,7 +217,8 @@ class ReaperChatView(ft.Container):
         )
 
     def update_data_sources(self):
-        vault.update(settings.STEAM_USER)
+        for _ in vault.update(settings.STEAM_USER):
+            pass
         vibes = VibeEngine.get_instance()
         vibes.ingest_library()
 
@@ -844,7 +844,8 @@ class ReaperChatView(ft.Container):
     def _sync_data_sources_blocking(self):
         # This function runs in a separate thread
         try:
-            vault.update(settings.STEAM_USER)
+            for _ in vault.update(settings.STEAM_USER):
+                pass
             vibes = VibeEngine.get_instance()
             vibes.ingest_library()
         except Exception as e:

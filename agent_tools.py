@@ -481,7 +481,7 @@ def execute_tool(tool_request):
     print(f"Agent Calling: {tool_name} | Params: {clean_params}")
 
     try:
-        if tool_name == "vault_search":  #TODO: Example use
+        if tool_name == "vault_search":
             # Get Data
             results = vault.advanced_search(**clean_params)
 
@@ -505,7 +505,7 @@ def execute_tool(tool_request):
             context_msg = f"Found {count} games in batch search."
             tool_output_str = wrap_output(results, context=context_msg)
 
-        elif tool_name == "get_user_tags": #TODO: Example use
+        elif tool_name == "get_user_tags":
             tags_list = vault.get_all_tags(**clean_params)
 
             limit = clean_params.get('limit', 50)

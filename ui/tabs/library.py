@@ -223,10 +223,11 @@ class LibraryView(ft.Container):
         try:
             self.page.pubsub.send_all({"type": "update_status", "content": f"Syncing Vault for {username}..."})
 
-            # 1. Update Vault (API calls)
-            vault.update(username)
+            # Update Vault (API calls)
+            for _ in vault.update(username):
+                pass
 
-            # 2. Ingest into Vibe Engine (Vector DB)
+            # Ingest into Vibe Engine (Vector DB)
             vibes = VibeEngine.get_instance()
             vibes.ingest_library()
 
