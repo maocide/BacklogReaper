@@ -50,31 +50,38 @@ def generate_roast_image(game_data):
     bg_theme = game_data.get("bg_theme", "DEFAULT")
     bg_path = get_roast_asset(bg_theme)
 
+    # Create solid background first (matches UI card bgcolor)
+    final_bg = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), COLOR_SURFACE)
+
     try:
-        base_img = Image.open(bg_path).convert("RGBA")
+        asset_img = Image.open(bg_path).convert("RGBA")
 
         # Resize/Crop to fill
         target_ratio = CARD_WIDTH / CARD_HEIGHT
-        img_ratio = base_img.width / base_img.height
+        img_ratio = asset_img.width / asset_img.height
 
         if img_ratio > target_ratio:
             # Image is wider, crop width
             new_height = CARD_HEIGHT
             new_width = int(new_height * img_ratio)
-            base_img = base_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            asset_img = asset_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
             left = (new_width - CARD_WIDTH) // 2
-            base_img = base_img.crop((left, 0, left + CARD_WIDTH, CARD_HEIGHT))
+            asset_img = asset_img.crop((left, 0, left + CARD_WIDTH, CARD_HEIGHT))
         else:
             # Image is taller, crop height
             new_width = CARD_WIDTH
             new_height = int(new_width / img_ratio)
-            base_img = base_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            asset_img = asset_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
             top = (new_height - CARD_HEIGHT) // 2
-            base_img = base_img.crop((0, top, CARD_WIDTH, top + CARD_HEIGHT))
+            asset_img = asset_img.crop((0, top, CARD_WIDTH, top + CARD_HEIGHT))
+
+        # Composite asset onto solid background (handles transparency)
+        final_bg.alpha_composite(asset_img)
+        base_img = final_bg
 
     except IOError:
         # Fallback solid color
-        base_img = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), COLOR_SURFACE)
+        base_img = final_bg
 
     # 3. Gradient Overlay
     # Create a gradient from transparent to dark

@@ -184,14 +184,20 @@ class GameCard(ft.Card):
             img.save(save_path)
             print(f"Roast saved to {save_path}")
 
-            # 4. Show Feedback (Snackbar)
+            # 4. Show Feedback (Snackbar via show_dialog workaround)
             page = e.control.page
             if page:
-                page.snack_bar = ft.SnackBar(
+                # Use show_dialog as per user request for SnackBar functionality in this env
+                snack = ft.SnackBar(
                     content=ft.Text(f"Roast saved to {save_path}"),
-                    action="OK",
-                    open=True
+                    action="OK"
                 )
+                if hasattr(page, 'show_dialog'):
+                     page.show_dialog(snack)
+                else:
+                     # Fallback if method missing (though expected to be there)
+                     print("Warning: show_dialog not found, trying page.open")
+                     page.open(snack)
 
                 # Use smart_update logic
                 if hasattr(page, 'update_async'):
@@ -205,9 +211,16 @@ class GameCard(ft.Card):
             print(f"Error saving roast image: {ex}")
             # Try to show error snackbar if possible
             if e.control.page:
-                 e.control.page.snack_bar = ft.SnackBar(ft.Text(f"Error saving roast: {ex}"), bgcolor=styles.COLOR_ERROR)
-                 e.control.page.snack_bar.open = True
-                 e.control.page.update()
+                 err_snack = ft.SnackBar(ft.Text(f"Error saving roast: {ex}"), bgcolor=styles.COLOR_ERROR)
+                 if hasattr(e.control.page, 'show_dialog'):
+                     e.control.page.show_dialog(err_snack)
+                 else:
+                     e.control.page.open(err_snack)
+
+                 if hasattr(e.control.page, 'update_async'):
+                    await e.control.page.update_async()
+                 else:
+                    e.control.page.update()
 
     def _build_actions(self, appid):
         """Builds the action buttons (Save, Launch) if applicable."""
