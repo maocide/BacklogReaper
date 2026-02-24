@@ -42,7 +42,7 @@ COLOR_RARITY_SET_VAR       = "#81c784"  # Lighter Green
 COLOR_RARITY_JUNK_VAR      = "#a1887f"  # Lighter Brown
 
 COLOR_MANA_GLOW     = "#2979ff"  # Electric Azure (High Energy)
-COLOR_BUBBLE_SHADOW = COLOR_MANA_GLOW # Shared Glow Color
+COLOR_BUBBLE_SHADOW = COLOR_SYSTEM_LOG # Spirit Blue
 COLOR_CHART_VOID = "#2a2a2a" # Very dark grey for the Pie Chart "Backlog" slice
 
 # UI Elements

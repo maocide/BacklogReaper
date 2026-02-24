@@ -160,54 +160,67 @@ class GameCard(ft.Card):
 
         return controls_list
 
-    def _handle_save_roast(self, e):
+    async def _handle_save_roast(self, e):
         """
-        Generates the roast image and opens a FilePicker to save it.
+        Generates the roast image and uses FilePicker.save_file directly.
         """
         try:
             # 1. Generate Image
             img = generate_roast_image(self.game_data)
 
             # 2. Prepare FilePicker
-            def on_save_result(ev: ft.FilePickerResultEvent):
-                if ev.path:
-                    try:
-                        # Append .png if missing
-                        save_path = ev.path
-                        if not save_path.lower().endswith(".png"):
-                            save_path += ".png"
+            # Since we're using save_file which returns a path, we don't need on_result
+            file_picker = ft.FilePicker()
 
-                        img.save(save_path)
-                        print(f"Roast saved to {save_path}")
+            page = e.control.page
+            if not page:
+                print("Error: Page not found for FilePicker attachment.")
+                return
 
-                        # Optional: Show feedback (Snackbar)
-                        if ev.page:
-                            ev.page.snack_bar = ft.SnackBar(ft.Text(f"Roast card saved successfully!"))
-                            ev.page.snack_bar.open = True
-                            ev.page.update()
+            # 3. Add to Overlay and Update Page *BEFORE* calling save_file
+            if file_picker not in page.overlay:
+                page.overlay.append(file_picker)
 
-                    except Exception as ex:
-                        print(f"Error saving image: {ex}")
+            # Use smart_update helper if available or standard update
+            if hasattr(page, 'update_async'):
+                await page.update_async()
+            else:
+                page.update()
 
-                # Cleanup: Remove picker from overlay to prevent buildup
-                if ev.page and file_picker in ev.page.overlay:
-                     ev.page.overlay.remove(file_picker)
-                     ev.page.update()
-
-            file_picker = ft.FilePicker(on_result=on_save_result)
-
-            # 3. Add to Overlay and Open
-            # Note: We need access to 'page'. 'e.control.page' should work if the button is attached.
-            if e.control.page:
-                e.control.page.overlay.append(file_picker)
-                e.control.page.update()
-                file_picker.save_file(
+            # 4. Open Save Dialog and Await Result
+            try:
+                save_path = await file_picker.save_file(
                     dialog_title="Save Roast Card",
                     file_name=f"roast_{self.game_data.get('name', 'card').replace(' ', '_')}.png",
                     allowed_extensions=["png"]
                 )
-            else:
-                print("Error: Page not found for FilePicker attachment.")
+
+                if save_path:
+                    # Append .png if missing
+                    if not save_path.lower().endswith(".png"):
+                        save_path += ".png"
+
+                    img.save(save_path)
+                    print(f"Roast saved to {save_path}")
+
+                    # Optional: Show feedback (Snackbar)
+                    page.snack_bar = ft.SnackBar(ft.Text(f"Roast card saved successfully!"))
+                    page.snack_bar.open = True
+                    if hasattr(page, 'update_async'):
+                        await page.update_async()
+                    else:
+                        page.update()
+
+            except Exception as pick_ex:
+                print(f"Error during file picking: {pick_ex}")
+
+            # Cleanup: Remove picker from overlay
+            if file_picker in page.overlay:
+                 page.overlay.remove(file_picker)
+                 if hasattr(page, 'update_async'):
+                    await page.update_async()
+                 else:
+                    page.update()
 
         except Exception as ex:
             print(f"Error generating roast image: {ex}")
