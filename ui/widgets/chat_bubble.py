@@ -33,7 +33,7 @@ class ReaperChatBubble(ft.Container):
             radius=2, # Large radius to cover long text
             colors=[
                 ft.Colors.with_opacity(0.25, styles.COLOR_SYSTEM_LOG),
-                ft.Colors.with_opacity(0.08, styles.COLOR_SYSTEM_LOG),
+                styles.COLOR_BACKGROUND, # Replaced transparency with solid BG to fix shadow artifact
             ],
             stops=[0.2, 1.0]
         )

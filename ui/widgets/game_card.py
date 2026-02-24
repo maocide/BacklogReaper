@@ -162,68 +162,52 @@ class GameCard(ft.Card):
 
     async def _handle_save_roast(self, e):
         """
-        Generates the roast image and uses FilePicker.save_file directly.
+        Generates the roast image and saves it to an 'exports' folder with a timestamp.
         """
+        import os
+        from datetime import datetime
+
         try:
             # 1. Generate Image
             img = generate_roast_image(self.game_data)
 
-            # 2. Prepare FilePicker
-            # Since we're using save_file which returns a path, we don't need on_result
-            file_picker = ft.FilePicker()
+            # 2. Determine Save Path
+            export_dir = "exports"
+            if not os.path.exists(export_dir):
+                os.makedirs(export_dir)
 
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"roast_{timestamp}.png"
+            save_path = os.path.join(export_dir, filename)
+
+            # 3. Save Image
+            img.save(save_path)
+            print(f"Roast saved to {save_path}")
+
+            # 4. Show Feedback (Snackbar)
             page = e.control.page
-            if not page:
-                print("Error: Page not found for FilePicker attachment.")
-                return
-
-            # 3. Add to Overlay and Update Page *BEFORE* calling save_file
-            if file_picker not in page.overlay:
-                page.overlay.append(file_picker)
-
-            # Use smart_update helper if available or standard update
-            if hasattr(page, 'update_async'):
-                await page.update_async()
-            else:
-                page.update()
-
-            # 4. Open Save Dialog and Await Result
-            try:
-                save_path = await file_picker.save_file(
-                    dialog_title="Save Roast Card",
-                    file_name=f"roast_{self.game_data.get('name', 'card').replace(' ', '_')}.png",
-                    allowed_extensions=["png"]
+            if page:
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"Roast saved to {save_path}"),
+                    action="OK",
+                    open=True
                 )
 
-                if save_path:
-                    # Append .png if missing
-                    if not save_path.lower().endswith(".png"):
-                        save_path += ".png"
-
-                    img.save(save_path)
-                    print(f"Roast saved to {save_path}")
-
-                    # Optional: Show feedback (Snackbar)
-                    page.snack_bar = ft.SnackBar(ft.Text(f"Roast card saved successfully!"))
-                    page.snack_bar.open = True
-                    if hasattr(page, 'update_async'):
-                        await page.update_async()
-                    else:
-                        page.update()
-
-            except Exception as pick_ex:
-                print(f"Error during file picking: {pick_ex}")
-
-            # Cleanup: Remove picker from overlay
-            if file_picker in page.overlay:
-                 page.overlay.remove(file_picker)
-                 if hasattr(page, 'update_async'):
+                # Use smart_update logic
+                if hasattr(page, 'update_async'):
                     await page.update_async()
-                 else:
+                else:
                     page.update()
+            else:
+                print("Warning: Page object not found, skipping SnackBar.")
 
         except Exception as ex:
-            print(f"Error generating roast image: {ex}")
+            print(f"Error saving roast image: {ex}")
+            # Try to show error snackbar if possible
+            if e.control.page:
+                 e.control.page.snack_bar = ft.SnackBar(ft.Text(f"Error saving roast: {ex}"), bgcolor=styles.COLOR_ERROR)
+                 e.control.page.snack_bar.open = True
+                 e.control.page.update()
 
     def _build_actions(self, appid):
         """Builds the action buttons (Save, Launch) if applicable."""
