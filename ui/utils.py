@@ -1,6 +1,9 @@
 import flet as ft
 import webbrowser
+import os
 import styles
+import subprocess
+import platform
 
 async def smart_update(control):
     """
@@ -12,13 +15,34 @@ async def smart_update(control):
         control.update()
 
 def launch_game(appid):
-    """Launches the game using the steam protocol."""
+    """Launches the game using the steam protocol directly via OS commands."""
     try:
         url = f"steam://run/{appid}"
         print(f"Launching: {url}")
-        webbrowser.open(url)
+
+        system_name = platform.system()
+
+        if system_name == 'Windows':
+            if hasattr(os, 'startfile'):
+                 os.startfile(url)
+            else:
+                 # Windows fallback requires shell=True for 'start' to work with URLs
+                 subprocess.run(['start', url], shell=True)
+        elif system_name == 'Darwin': # macOS
+            subprocess.run(['open', url])
+        elif system_name == 'Linux':
+            subprocess.run(['xdg-open', url])
+        else:
+            # Fallback for unknown OS
+            webbrowser.open(url)
+
     except Exception as e:
-        print(f"Error launching game: {e}")
+        print(f"Error launching game via subprocess: {e}")
+        # Last resort fallback
+        try:
+            webbrowser.open(url)
+        except Exception as e2:
+            print(f"Error launching game via webbrowser: {e2}")
 
 def get_status_color(status):
     """Returns the color corresponding to a game status."""

@@ -3,6 +3,7 @@ import styles
 import vault
 from ui.utils import get_roast_asset, launch_game, get_status_color
 from ui.widgets.styled_inputs import GrimoireButton
+from ui.roast_renderer import generate_roast_image
 
 # TOGGLE: Set to False to disable the rarity-colored borders
 SHOW_RARITY_BORDER = False
@@ -159,6 +160,58 @@ class GameCard(ft.Card):
 
         return controls_list
 
+    def _handle_save_roast(self, e):
+        """
+        Generates the roast image and opens a FilePicker to save it.
+        """
+        try:
+            # 1. Generate Image
+            img = generate_roast_image(self.game_data)
+
+            # 2. Prepare FilePicker
+            def on_save_result(ev: ft.FilePickerResultEvent):
+                if ev.path:
+                    try:
+                        # Append .png if missing
+                        save_path = ev.path
+                        if not save_path.lower().endswith(".png"):
+                            save_path += ".png"
+
+                        img.save(save_path)
+                        print(f"Roast saved to {save_path}")
+
+                        # Optional: Show feedback (Snackbar)
+                        if ev.page:
+                            ev.page.snack_bar = ft.SnackBar(ft.Text(f"Roast card saved successfully!"))
+                            ev.page.snack_bar.open = True
+                            ev.page.update()
+
+                    except Exception as ex:
+                        print(f"Error saving image: {ex}")
+
+                # Cleanup: Remove picker from overlay to prevent buildup
+                if ev.page and file_picker in ev.page.overlay:
+                     ev.page.overlay.remove(file_picker)
+                     ev.page.update()
+
+            file_picker = ft.FilePicker(on_result=on_save_result)
+
+            # 3. Add to Overlay and Open
+            # Note: We need access to 'page'. 'e.control.page' should work if the button is attached.
+            if e.control.page:
+                e.control.page.overlay.append(file_picker)
+                e.control.page.update()
+                file_picker.save_file(
+                    dialog_title="Save Roast Card",
+                    file_name=f"roast_{self.game_data.get('name', 'card').replace(' ', '_')}.png",
+                    allowed_extensions=["png"]
+                )
+            else:
+                print("Error: Page not found for FilePicker attachment.")
+
+        except Exception as ex:
+            print(f"Error generating roast image: {ex}")
+
     def _build_actions(self, appid):
         """Builds the action buttons (Save, Launch) if applicable."""
         if appid == "ROAST":
@@ -169,7 +222,7 @@ class GameCard(ft.Card):
                         icon=ft.Icons.SAVE,
                         height=30,
                         style=styles.CARD_STYLE,
-                        on_click=lambda e: launch_game(appid) # Keeps original logic, though likely incorrect for 'Save'
+                        on_click=self._handle_save_roast
                     )
                 ],
                 alignment=ft.MainAxisAlignment.END,

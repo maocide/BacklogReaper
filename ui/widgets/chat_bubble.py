@@ -40,20 +40,24 @@ class ReaperChatBubble(ft.Container):
         reaper_name_color = styles.COLOR_TEXT_GOLD
         reaper_border_color = styles.COLOR_BORDER_BRONZE
         reaper_border = ft.border.all(width=1, color=reaper_border_color) # Muted Bronze
-        reaper_shadow = ft.BoxShadow(
-            spread_radius=0,
-            blur_radius=10,
-            color=ft.Colors.with_opacity(0.1, reaper_name_color),
+
+        # Shared Shadow Logic (Mana Glow)
+        common_shadow = ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=15,
+            color=ft.Colors.with_opacity(0.4, styles.COLOR_BUBBLE_SHADOW),
             offset=ft.Offset(0, 0),
             blur_style=ft.BlurStyle.OUTER,
         )
+
+        reaper_shadow = common_shadow
 
         # User Style
         user_bg = styles.COLOR_BUBBLE_USER
         user_name_color = styles.COLOR_TEXT_GOLD
         user_border_color = styles.COLOR_BORDER_BRONZE
         user_border = ft.border.all(width=1, color=user_border_color)
-        user_shadow = None
+        user_shadow = common_shadow
 
         # Select styles based on sender
         bubble_color = user_bg if self.is_user else reaper_bg
