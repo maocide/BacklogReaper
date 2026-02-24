@@ -32,8 +32,8 @@ class ReaperChatBubble(ft.Container):
             center=ft.Alignment(-1.0, -1.0), # Top Left Corner
             radius=2, # Large radius to cover long text
             colors=[
-                ft.Colors.with_opacity(0.25, styles.COLOR_SYSTEM_LOG),
-                styles.COLOR_BACKGROUND, # Replaced transparency with solid BG to fix shadow artifact
+                "#1C2327", # ~25% Spirit Blue on Black
+                "#0C0F10", # ~8% Spirit Blue on Black
             ],
             stops=[0.2, 1.0]
         )
@@ -46,7 +46,7 @@ class ReaperChatBubble(ft.Container):
             spread_radius=1,
             blur_radius=15,
             color=ft.Colors.with_opacity(0.4, styles.COLOR_BUBBLE_SHADOW),
-            offset=ft.Offset(-4, 0), # Shifted left
+            offset=ft.Offset(0, 0), # Centered glow
             blur_style=ft.BlurStyle.OUTER, # Back to OUTER to prevent internal glow/bleed
         )
 
