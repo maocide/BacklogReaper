@@ -100,10 +100,10 @@ class ReaperChatView(ft.Container):
                                 spacing=10,
                                 auto_scroll=False,
                                 scroll=ft.ScrollMode.AUTO,
-                                scroll_interval=100,
+                                scroll_interval=200,
                             ),
                             # Ensure SelectionArea fills the Stack to allow proper scrolling constraints
-                            left=0, right=0, top=0, bottom=0
+                            expand=True
                         )
                     ],
                     expand=True,
