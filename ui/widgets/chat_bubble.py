@@ -45,7 +45,7 @@ class ReaperChatBubble(ft.Container):
         # Shared Shadow Logic (Mana Glow)
         common_shadow = ft.BoxShadow(
             spread_radius=1,
-            blur_radius=15,
+            blur_radius=10,
             color=ft.Colors.with_opacity(0.65, styles.COLOR_BUBBLE_SHADOW),
             offset=ft.Offset(0, 0), # Centered glow
             blur_style=ft.BlurStyle.OUTER, # Back to OUTER to prevent internal glow/bleed
@@ -157,7 +157,7 @@ class ReaperChatBubble(ft.Container):
         if reasoning_section:
             bubble_interior.append(reasoning_section)
 
-        bubble_interior.append(ft.SelectionArea(content=self.content_control))
+        bubble_interior.append(self.content_control)
 
         # The main message bubble
         message_container = ft.Container(
@@ -216,4 +216,5 @@ class ReaperChatBubble(ft.Container):
         if hasattr(self, 'avatar_content') and self.avatar_content:
             src = ft.Image(src=self.avatar_src, fit=ft.BoxFit.COVER)
             self.avatar_content.content = src
-            self.avatar_content.update()
+            # Removed explicit update() to prevent synchronous network calls from threads
+            # and to allow batched updates by the caller.

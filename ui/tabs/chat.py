@@ -92,14 +92,18 @@ class ReaperChatView(ft.Container):
                         # Background
                         self._build_empty_state(),
                         # Chat List (Transparent overlay)
-                        ft.Column(
-                            ref=self.br_chat_list,
-                            on_scroll=self.handle_scroll,
-                            expand=True,
-                            spacing=10,
-                            auto_scroll=False,
-                            scroll=ft.ScrollMode.AUTO,
-                            scroll_interval=100,
+                        ft.SelectionArea(
+                            content=ft.Column(
+                                ref=self.br_chat_list,
+                                on_scroll=self.handle_scroll,
+                                expand=True,
+                                spacing=10,
+                                auto_scroll=False,
+                                scroll=ft.ScrollMode.AUTO,
+                                scroll_interval=100,
+                            ),
+                            # Ensure SelectionArea fills the Stack to allow proper scrolling constraints
+                            left=0, right=0, top=0, bottom=0
                         )
                     ],
                     expand=True,
@@ -157,10 +161,10 @@ class ReaperChatView(ft.Container):
                 if self.br_chat_list.current and self.br_chat_list.current.page:
                     for ctrl in self.br_chat_list.current.controls:
                         # Check if this control is a user chat bubble
-                        if getattr(ctrl, "is_user", False):
+                        if getattr(ctrl, "is_user", False) and hasattr(ctrl, "avatar_content"):
                             ctrl.set_avatar(url)
-                            # Safely update just the bubble
-                            self.page.run_task(ui.utils.smart_update, ctrl)
+                            # Safely update just the avatar container, not the whole bubble
+                            self.page.run_task(ui.utils.smart_update, ctrl.avatar_content)
 
         except Exception as e:
             print(f"Error fetching avatar: {e}")
