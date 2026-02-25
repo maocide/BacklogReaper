@@ -54,7 +54,7 @@ class GatekeeperView(ft.Container):
             border=ft.border.all(1, styles.COLOR_TEXT_GOLD),
             border_radius=12,
             padding=ft.padding.all(40),
-            backdrop_filter=ft.Blur(10, 10),  # Frosted glass over the background image
+            blur=ft.Blur(10, 10),  # Frosted glass over the background image
             shadow=ft.BoxShadow(
                 blur_radius=50,
                 color=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
