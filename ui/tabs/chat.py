@@ -8,6 +8,7 @@ import queue
 from warnings import catch_warnings
 
 import flet as ft
+from sympy import false
 
 import agent
 import character_manager
@@ -168,16 +169,42 @@ class ReaperChatView(ft.Container):
         if self.chat_history.get_chat_length():
             self.hide_background()
 
-            for message in self.chat_history.messages:
-                content = message.get('content', None)
-                if message.get('role') == 'assistant' and content:
+            last_role = ""
+            state = {"is_user": True, "avatar_path": None, "content": ""}
+
+            for i, message in enumerate(self.chat_history.messages):
+                role = message.get('role', "")
+                is_dialogue = role in ("assistant", "user")
+                new_content = message.get('content', "")
+
+                if (state["content"] and last_role and last_role != role) and is_dialogue:
                     self.br_chat_list.current.controls.append(
-                        self.parse_and_render_message(text=content, is_user=False, avatar_path=CharacterManager.get_character_image(self.character.name))
+                        self.parse_and_render_message(text=state["content"],
+                                                      is_user=state["is_user"],
+                                                      avatar_path=state["avatar_path"])
                     )
-                elif message.get('role') == 'user' and content:
+                    state["content"] = ""
+
+
+                if message.get('content', "") and is_dialogue:
+                    if message.get('role') == 'assistant' and new_content:
+                        state["is_user"] = False
+                        state["avatar_path"] = CharacterManager.get_character_image(self.character.name)
+                    elif message.get('role') == 'user' and new_content:
+                        state["is_user"] = True
+                        state["avatar_path"] = self.get_user_portrait_url()
+
+                    state["content"] += new_content
+
+                if i == len(self.chat_history.messages) - 1 and state["content"]:
                     self.br_chat_list.current.controls.append(
-                        self.parse_and_render_message(text=content, is_user=True, avatar_path=self.get_user_portrait_url())
+                        self.parse_and_render_message(text=state["content"],
+                                                      is_user=state["is_user"],
+                                                      avatar_path=state["avatar_path"])
                     )
+
+                if is_dialogue:
+                    last_role = role
 
             if self.chat_history.messages and self.chat_history.messages[-1].get('role') == 'assistant':
                 self._append_message_actions()

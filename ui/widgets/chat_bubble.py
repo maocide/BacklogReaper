@@ -46,7 +46,7 @@ class ReaperChatBubble(ft.Container):
         common_shadow = ft.BoxShadow(
             spread_radius=1,
             blur_radius=15,
-            color=ft.Colors.with_opacity(0.4, styles.COLOR_BUBBLE_SHADOW),
+            color=ft.Colors.with_opacity(0.65, styles.COLOR_BUBBLE_SHADOW),
             offset=ft.Offset(0, 0), # Centered glow
             blur_style=ft.BlurStyle.OUTER, # Back to OUTER to prevent internal glow/bleed
         )
@@ -55,6 +55,15 @@ class ReaperChatBubble(ft.Container):
 
         # User Style
         user_bg = styles.COLOR_BUBBLE_USER
+        user_gradient = ft.RadialGradient(
+            center=ft.Alignment(1.0, -1.0),  # Top Right Corner
+            radius=2,  # Large radius to cover long text
+            colors=[
+                mix_color(styles.COLOR_BUBBLE_USER, styles.COLOR_BACKGROUND, 1.00),
+                mix_color(styles.COLOR_BUBBLE_USER, styles.COLOR_BACKGROUND, 0.60),
+            ],
+            #stops=[0.75, 1.0]
+        )
         user_name_color = styles.COLOR_TEXT_GOLD
         user_border_color = styles.COLOR_BORDER_BRONZE
         user_border = ft.border.all(width=1, color=user_border_color)
@@ -62,7 +71,7 @@ class ReaperChatBubble(ft.Container):
 
         # Select styles based on sender
         bubble_color = user_bg if self.is_user else reaper_bg
-        bubble_gradient = reaper_gradient if not self.is_user else None
+        bubble_gradient = user_gradient if self.is_user else reaper_gradient
         bubble_border = user_border if self.is_user else reaper_border
         bubble_shadow = user_shadow if self.is_user else reaper_shadow
 
