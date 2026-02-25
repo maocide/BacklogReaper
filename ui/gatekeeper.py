@@ -167,7 +167,7 @@ class GatekeeperView(ft.Container):
         # Replaced threading with Flet's safe background task runner
         self.page.run_task(self._ritual_task)
 
-    def _ritual_task(self):
+    async def _ritual_task(self):
         try:
             # Pre-load existing wasted life from the vault stats
             stats = vault.get_vault_statistics()
