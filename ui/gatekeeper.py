@@ -1,4 +1,3 @@
-import threading
 import time
 import flet as ft
 import settings
@@ -11,8 +10,8 @@ class GatekeeperView(ft.Container):
         super().__init__()
         self.expand = True
         self.on_complete = on_complete
-        self.alignment = ft.Alignment.CENTER
-        self.bgcolor = styles.COLOR_BACKGROUND  # Fallback color
+        self.alignment = ft.alignment.center
+        self.bgcolor = styles.COLOR_BACKGROUND
 
         # --- STATE 1: THE CONTRACT (Inputs) ---
         self.tf_steam_id = GrimoireTextField(
@@ -34,7 +33,8 @@ class GatekeeperView(ft.Container):
             on_click=self._on_initiate_click
         )
 
-        self.container_contract = ft.Column(
+        # The inner content column
+        contract_content = ft.Column(
             controls=[
                 ft.Text("Sign the Ledger", size=40, font_family=styles.FONT_HEADING, color=styles.COLOR_TEXT_GOLD),
                 ft.Container(height=20),
@@ -45,17 +45,34 @@ class GatekeeperView(ft.Container):
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             alignment=ft.MainAxisAlignment.CENTER,
+        )
+
+        # The "Obsidian Plaque" Wrapper (Glassmorphism effect)
+        self.container_contract = ft.Container(
+            content=contract_content,
+            bgcolor=ft.Colors.with_opacity(0.85, styles.COLOR_SURFACE),
+            border=ft.border.all(1, styles.COLOR_TEXT_GOLD),
+            border_radius=12,
+            padding=ft.padding.all(40),
+            backdrop_filter=ft.Blur(10, 10),  # Frosted glass over the background image
+            shadow=ft.BoxShadow(
+                blur_radius=50,
+                color=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+                offset=ft.Offset(0, 10)
+            ),
             visible=True
         )
 
         # --- STATE 2: THE RITUAL (Sync) ---
-        self.txt_total_debt = ft.Text("Total Debt: 0 Hours", size=30, color=styles.COLOR_ERROR, weight=ft.FontWeight.BOLD)
+        # Changed to "Life Wasted" and swapped Red for Orange/Gold
+        self.txt_total_debt = ft.Text("Life Wasted: 0 Hours", size=30, color=styles.COLOR_TEXT_GOLD, weight=ft.FontWeight.BOLD)
         self.progress_bar = GrimoireProgressBar(width=400)
         self.log_lines = []
         self.txt_log = ft.Text(
             "> Awaiting invocation...",
             font_family=styles.STYLE_MONOSPACE,
-            color=styles.COLOR_SYSTEM_LOG,
+            # Fallback to grey if COLOR_SYSTEM_LOG isn't defined yet
+            color=getattr(styles, 'COLOR_SYSTEM_LOG', ft.Colors.GREY_500),
             size=12,
             text_align=ft.TextAlign.LEFT,
         )
@@ -68,8 +85,8 @@ class GatekeeperView(ft.Container):
                 ft.Container(height=10),
                 ft.Container(
                     content=self.txt_log,
-                    width=500, # Constrain width for log
-                    alignment=ft.Alignment.CENTER
+                    width=500,
+                    alignment=ft.alignment.center
                 )
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -78,33 +95,33 @@ class GatekeeperView(ft.Container):
         )
 
         # --- BACKGROUND ---
-        # Placeholder for the user's background image
         self.background_image = ft.Image(
-            src="assets/gatekeeper_bg.jpg", # Assuming a file might exist or fail gracefully
-            fit=ft.BoxFit.COVER,
-            opacity=0.3, # Darken it a bit
-            error_content=ft.Container(bgcolor=styles.COLOR_BACKGROUND) # Fallback
+            src="assets/gatekeeper_bg.jpg",
+            fit=ft.BoxFit.COVER, # Fixed the Flet 0.80+ ImageFit hallucination
+            opacity=0.3,
+            error_content=ft.Container(bgcolor=styles.COLOR_BACKGROUND)
         )
 
         # --- MAIN LAYOUT ---
-        # We use a Stack to layer the background behind the content
         self.content = ft.Stack(
             controls=[
                 self.background_image,
-                # Overlay to ensure text readability if image is bright
                 ft.Container(
-                    bgcolor=styles.COLOR_TRANSLUCENT,
+                    bgcolor=getattr(styles, 'COLOR_TRANSLUCENT', ft.Colors.TRANSPARENT),
                     expand=True
                 ),
-                # The Content Switcher
-                ft.Column(
-                    controls=[
-                        self.container_contract,
-                        self.container_ritual
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    expand=True
+                # The Centering Wrapper: Prevents the Stack from pinning content to top-left
+                ft.Container(
+                    expand=True,
+                    alignment=ft.alignment.center,
+                    content=ft.Column(
+                        controls=[
+                            self.container_contract,
+                            self.container_ritual
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    )
                 )
             ],
             expand=True
@@ -116,9 +133,6 @@ class GatekeeperView(ft.Container):
             self.tf_steam_id.value = settings.STEAM_USER
             self.tf_api_key.value = settings.STEAM_API_KEY
             self._start_ritual()
-        else:
-            # Stay in State 1
-            pass
 
     def _on_initiate_click(self, e):
         user = self.tf_steam_id.value.strip()
@@ -134,7 +148,6 @@ class GatekeeperView(ft.Container):
         settings.STEAM_API_KEY = key
 
         # Persist to Disk
-        # We need to reload the dict to ensure we have the latest, update it, and save.
         current_settings = settings.load_settings()
         current_settings["STEAM_USER"] = user
         current_settings["STEAM_API_KEY"] = key
@@ -151,19 +164,20 @@ class GatekeeperView(ft.Container):
         self.container_ritual.visible = True
         self.update()
 
-        # Start Background Task
-        # Using a thread to avoid blocking the UI
-        self.ritual_thread = threading.Thread(target=self._ritual_task, daemon=True)
-        self.ritual_thread.start()
+        # Replaced threading with Flet's safe background task runner
+        self.page.run_task(self._ritual_task)
 
     def _ritual_task(self):
         try:
-            total_debt = 0.0
+            # Pre-load existing wasted life from the vault stats
+            stats = vault.get_vault_statistics()
+            life_wasted = float(stats.get("total_hours", 0))
 
-            # Initial Status
+            # Update UI immediately before the loop starts
+            self.txt_total_debt.value = f"Life Wasted: {int(life_wasted)} Hours"
+            self.update()
+
             self._log("Opening the Vault...")
-
-            # Consume Generator
             generator = vault.update(settings.STEAM_USER)
 
             for status_update in generator:
@@ -172,16 +186,16 @@ class GatekeeperView(ft.Container):
                 current = status_update.get("current", 0)
                 total = status_update.get("total", 1)
 
-                total_debt += hours
+                # Add newly fetched hours to the total
+                life_wasted += hours
 
                 # Update UI elements
-                self.txt_total_debt.value = f"Total Debt: {int(total_debt)} Hours"
+                self.txt_total_debt.value = f"Life Wasted: {int(life_wasted)} Hours"
 
                 if total > 0:
                     self.progress_bar.internal_bar.value = current / total
 
                 self._log(f"> Reaping soul of: {game_name} ({int(hours)}h)...")
-
                 self.update()
 
             # Ritual Complete
@@ -198,10 +212,6 @@ class GatekeeperView(ft.Container):
             print(f"Ritual Failed: {e}")
             self._log(f"> CRITICAL FAILURE: {e}")
             self.txt_log.color = styles.COLOR_ERROR
-
-            # In case of error, maybe show the inputs again after a delay?
-            # Or just let them sit in shame.
-            # For now, let's just show the error.
             self.update()
 
     def _log(self, message):
