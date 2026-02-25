@@ -5,6 +5,7 @@ from ui.tabs.dashboard import DashboardView
 from ui.tabs.chat import ReaperChatView
 from ui.tabs.library import LibraryView
 from ui.tabs.settings import SettingsView
+from ui.gatekeeper import GatekeeperView
 
 def main(page: ft.Page):
     page.title = "Backlog Reaper"
@@ -38,14 +39,15 @@ def main(page: ft.Page):
     page.window.title_bar_hidden = False
     page.window.title_bar_buttons_hidden = False
 
-    # 0. GATEKEEPER CHECK
+    # 0. STARTUP CHECKS
+    # We still run checks for HLTB/DB, but Gatekeeper handles Steam Keys.
     is_ready, failures = startup.check_all()
     if not is_ready:
-        print("STARTUP CHECKS FAILED:")
+        print("STARTUP CHECKS WARNINGS:")
         for f in failures:
             print(f" - {f}")
-        page.show_dialog(ft.SnackBar(ft.Text("Chat history copied to clipboard!")))
-        page.update()
+        # We don't block execution here, as Gatekeeper might fix API keys,
+        # and HLTB/DB issues might be resolved later or are non-fatal.
 
     # Initialize Views
     view_dashboard = DashboardView()
@@ -109,17 +111,43 @@ def main(page: ft.Page):
         on_change=on_nav_change,
     )
 
+    # Main App Layout (Hidden Initially)
+    main_layout = ft.Row(
+        [
+            rail,
+            ft.VerticalDivider(width=1, color=styles.COLOR_BORDER_BRONZE),
+            view_dashboard,
+            view_chat,
+            view_library,
+            view_settings
+        ],
+        expand=True,
+        visible=False # Initially hidden until Gatekeeper ritual is complete
+    )
+
+    def on_ritual_complete():
+        # Transition: Hide Gatekeeper, Show Main App
+        gatekeeper.visible = False
+        main_layout.visible = True
+
+        # Refresh Dashboard Stats to reflect any new data from the ritual
+        view_dashboard.load_stats()
+
+        page.update()
+
+    # Initialize Gatekeeper
+    gatekeeper = GatekeeperView(on_complete=on_ritual_complete)
+
+    # Use a Stack to layer them (Gatekeeper on top implicitly by visibility, or explicitly)
+    # Since main_layout is visible=False, it won't render.
+    # Gatekeeper is visible=True by default.
     page.add(
-        ft.Row(
+        ft.Stack(
             [
-                rail,
-                ft.VerticalDivider(width=1, color=styles.COLOR_BORDER_BRONZE),
-                view_dashboard,
-                view_chat,
-                view_library,
-                view_settings
+                main_layout,
+                gatekeeper
             ],
-            expand=True,
+            expand=True
         )
     )
 
