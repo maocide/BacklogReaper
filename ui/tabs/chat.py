@@ -95,7 +95,7 @@ class ReaperChatView(ft.Container):
                         ft.SelectionArea(
                             content=ft.Column(
                                 ref=self.br_chat_list,
-                                on_scroll=self.handle_scroll,
+                                # on_scroll=self.handle_scroll, # Dynamically attached
                                 expand=True,
                                 spacing=10,
                                 auto_scroll=False,
@@ -546,6 +546,11 @@ class ReaperChatView(ft.Container):
         elif msg_type == "finish":
             self.stream_active = False # Signal loop to exit (after queue empty)
 
+            # UNWIRE SCROLL EVENT
+            if self.br_chat_list.current:
+                self.br_chat_list.current.on_scroll = None
+                await ui.utils.smart_update(self.br_chat_list.current)
+
             if not self.current_streaming_bubble:
                 return
 
@@ -603,6 +608,11 @@ class ReaperChatView(ft.Container):
         elif msg_type == "error":
             self.stream_active = False
 
+            # UNWIRE SCROLL EVENT
+            if self.br_chat_list.current:
+                self.br_chat_list.current.on_scroll = None
+                await ui.utils.smart_update(self.br_chat_list.current)
+
             # Clean chat UI and chat history
             self.br_input.current.value = await self.remove_last_ai_response(including_user=True)
 
@@ -616,6 +626,11 @@ class ReaperChatView(ft.Container):
 
         elif msg_type == "cancel":
             self.stream_active = False
+
+            # UNWIRE SCROLL EVENT
+            if self.br_chat_list.current:
+                self.br_chat_list.current.on_scroll = None
+                await ui.utils.smart_update(self.br_chat_list.current)
 
             # Clean chat UI and chat history
             self.br_input.current.value = await self.remove_last_ai_response(including_user=True)
@@ -695,6 +710,12 @@ class ReaperChatView(ft.Container):
 
         # Start background render loop
         self.stream_active = True
+
+        # WIRE SCROLL EVENT (Only during active streaming to prevent lag)
+        if self.br_chat_list.current:
+            self.br_chat_list.current.on_scroll = self.handle_scroll
+            self.br_chat_list.current.update()
+
         if hasattr(self.page, 'run_thread'):
             self.page.run_task(self._render_loop)
         else:
