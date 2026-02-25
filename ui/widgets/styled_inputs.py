@@ -19,27 +19,26 @@ class GrimoireTextField(ft.TextField):
 
 class GlowingChatInput(ft.Container):
     def __init__(self, on_submit=None, **kwargs):
-        # 1. Pop out the kwargs meant ONLY for the TextField
         hint_text = kwargs.pop("hint_text", "Consult the Reaper...")
         multiline = kwargs.pop("multiline", False)
         shift_enter = kwargs.pop("shift_enter", True)
-        label_style = kwargs.pop("label_style", ft.TextStyle(color=styles.COLOR_ACCENT_DIM))
-        expand_val = kwargs.pop("expand", False) # Extracted correctly!
+
+        # Changed to a bone white (WHITE70) for better visibility before typing
+        label_style = kwargs.pop("label_style", ft.TextStyle(color=styles.COLOR_TEXT_SECONDARY, italic=True))
+        expand_val = kwargs.pop("expand", False)
 
         self.input_field = ft.TextField(
-            border=ft.InputBorder.NONE,  # Hide the default border
+            border=ft.InputBorder.NONE,
             color=styles.COLOR_INPUT_TEXT,
             cursor_color=styles.COLOR_TEXT_GOLD,
             hint_text=hint_text,
-            hint_style=ft.TextStyle(color=styles.COLOR_ACCENT_DIM),
+            hint_style=label_style,  # Applied the bone white style here
             on_submit=on_submit,
             on_focus=self._animate_glow_in,
             on_blur=self._animate_glow_out,
             content_padding=ft.padding.all(15),
             multiline=multiline,
             shift_enter=shift_enter,
-            label_style=label_style,
-            # CRITICAL FIX FOR MULTILINE COLLAPSE:
             min_lines=1,
             max_lines=5,
         )
@@ -58,25 +57,55 @@ class GlowingChatInput(ft.Container):
             offset=ft.Offset(0, 0)
         )
 
+        # Focus state tracker so hover doesn't override the focus glow
+        self._is_focused = False
+
         super().__init__(
             content=self.input_field,
             bgcolor=styles.COLOR_SURFACE,
             border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
             border_radius=ft.border_radius.all(4),
+
+            # THE JITTER FIX: 1px of padding offsets the 1px border difference
+            padding=ft.padding.all(1),
+
             animate=ft.Animation(250, ft.AnimationCurve.FAST_OUT_SLOWIN),
             shadow=self.base_shadow,
-            expand=expand_val, # Pass the boolean here
-            **kwargs # Pass any remaining kwargs (like ref) straight to the Container
+            expand=expand_val,
+            on_hover=self._on_hover,  # Added the hover trigger
+            **kwargs
         )
 
+    def _on_hover(self, e):
+        # State Lock: If actively typing, ignore mouse movements
+        if self._is_focused:
+            return
+
+        # Toggle between slight white overlay and completely transparent
+        if e.data == "true":
+            self.input_field.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.WHITE)
+        else:
+            self.input_field.bgcolor = ft.Colors.TRANSPARENT  # The crucial fix!
+        self.update()
+
     def _animate_glow_in(self, e):
+        self._is_focused = True
         self.shadow = self.focus_glow
-        self.border = ft.border.all(1, styles.COLOR_TEXT_GOLD)
+        self.border = ft.border.all(2, styles.COLOR_TEXT_GOLD)
+        self.padding = ft.padding.all(0)
+
+        # Enforce the highlight
+        #self.input_field.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.WHITE)
         self.update()
 
     def _animate_glow_out(self, e):
+        self._is_focused = False
         self.shadow = self.base_shadow
         self.border = ft.border.all(1, styles.COLOR_BORDER_BRONZE)
+        self.padding = ft.padding.all(1)
+
+        # Reset to completely transparent
+        #self.input_field.bgcolor = ft.Colors.TRANSPARENT  # The crucial fix!
         self.update()
 
     @property
@@ -89,6 +118,7 @@ class GlowingChatInput(ft.Container):
 
     # Helper method: Flet often needs to refocus the text box after you send a message
     def focus(self):
+        #self.input_field.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.WHITE)
         self.input_field.focus()
 
 class GrimoireDropdown(ft.Dropdown):
