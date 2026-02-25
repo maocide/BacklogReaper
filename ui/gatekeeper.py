@@ -10,7 +10,7 @@ class GatekeeperView(ft.Container):
         super().__init__()
         self.expand = True
         self.on_complete = on_complete
-        self.alignment = ft.alignment.center
+        self.alignment = ft.Alignment.CENTER
         self.bgcolor = styles.COLOR_BACKGROUND
 
         # --- STATE 1: THE CONTRACT (Inputs) ---
@@ -86,7 +86,7 @@ class GatekeeperView(ft.Container):
                 ft.Container(
                     content=self.txt_log,
                     width=500,
-                    alignment=ft.alignment.center
+                    alignment=ft.Alignment.CENTER
                 )
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -113,7 +113,7 @@ class GatekeeperView(ft.Container):
                 # The Centering Wrapper: Prevents the Stack from pinning content to top-left
                 ft.Container(
                     expand=True,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     content=ft.Column(
                         controls=[
                             self.container_contract,
