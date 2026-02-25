@@ -23,7 +23,8 @@ from chat_history import ChatHistory
 import ui.utils
 from ui.widgets.chat_bubble import ReaperChatBubble
 from ui.widgets.game_card import GameCard
-from ui.widgets.styled_inputs import GrimoireTextField, GrimoireProgressBar
+from ui.widgets.styled_inputs import GrimoireTextField, GrimoireProgressBar, GlowingChatInput
+
 
 class ReaperChatView(ft.Container):
     def __init__(self):
@@ -106,7 +107,7 @@ class ReaperChatView(ft.Container):
             ),
             ft.Text(ref=self.br_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
             ft.Row([
-                GrimoireTextField(
+                GlowingChatInput(
                     ref=self.br_input,
                     hint_text="Consult the Reaper...",
                     expand=True,

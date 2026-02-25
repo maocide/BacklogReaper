@@ -1,4 +1,8 @@
 import flet as ft
+from PIL.ImageChops import offset
+from PIL.ImageOps import expand
+from networkx.algorithms.distance_measures import radius
+
 import styles
 
 class GrimoireTextField(ft.TextField):
@@ -12,6 +16,80 @@ class GrimoireTextField(ft.TextField):
         kwargs.setdefault("focused_border_width", 2)
         kwargs.setdefault("label_style", ft.TextStyle(color=styles.COLOR_ACCENT_DIM))
         super().__init__(**kwargs)
+
+class GlowingChatInput(ft.Container):
+    def __init__(self, on_submit=None, **kwargs):
+        # 1. Pop out the kwargs meant ONLY for the TextField
+        hint_text = kwargs.pop("hint_text", "Consult the Reaper...")
+        multiline = kwargs.pop("multiline", False)
+        shift_enter = kwargs.pop("shift_enter", True)
+        label_style = kwargs.pop("label_style", ft.TextStyle(color=styles.COLOR_ACCENT_DIM))
+        expand_val = kwargs.pop("expand", False) # Extracted correctly!
+
+        self.input_field = ft.TextField(
+            border=ft.InputBorder.NONE,  # Hide the default border
+            color=styles.COLOR_INPUT_TEXT,
+            cursor_color=styles.COLOR_TEXT_GOLD,
+            hint_text=hint_text,
+            hint_style=ft.TextStyle(color=styles.COLOR_ACCENT_DIM),
+            on_submit=on_submit,
+            on_focus=self._animate_glow_in,
+            on_blur=self._animate_glow_out,
+            content_padding=ft.padding.all(15),
+            multiline=multiline,
+            shift_enter=shift_enter,
+            label_style=label_style,
+            # CRITICAL FIX FOR MULTILINE COLLAPSE:
+            min_lines=1,
+            max_lines=5,
+        )
+
+        self.focus_glow = ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=15,
+            color=ft.Colors.with_opacity(0.4, styles.COLOR_TEXT_GOLD),
+            offset=ft.Offset(0, 0)
+        )
+
+        self.base_shadow = ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=0,
+            color=ft.Colors.TRANSPARENT,
+            offset=ft.Offset(0, 0)
+        )
+
+        super().__init__(
+            content=self.input_field,
+            bgcolor=styles.COLOR_SURFACE,
+            border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
+            border_radius=ft.border_radius.all(4),
+            animate=ft.Animation(250, ft.AnimationCurve.FAST_OUT_SLOWIN),
+            shadow=self.base_shadow,
+            expand=expand_val, # Pass the boolean here
+            **kwargs # Pass any remaining kwargs (like ref) straight to the Container
+        )
+
+    def _animate_glow_in(self, e):
+        self.shadow = self.focus_glow
+        self.border = ft.border.all(1, styles.COLOR_TEXT_GOLD)
+        self.update()
+
+    def _animate_glow_out(self, e):
+        self.shadow = self.base_shadow
+        self.border = ft.border.all(1, styles.COLOR_BORDER_BRONZE)
+        self.update()
+
+    @property
+    def value(self):
+        return self.input_field.value
+
+    @value.setter
+    def value(self, val):
+        self.input_field.value = val
+
+    # Helper method: Flet often needs to refocus the text box after you send a message
+    def focus(self):
+        self.input_field.focus()
 
 class GrimoireDropdown(ft.Dropdown):
     def __init__(self, **kwargs):
