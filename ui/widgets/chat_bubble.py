@@ -45,7 +45,7 @@ class ReaperChatBubble(ft.Container):
         # Shared Shadow Logic (Mana Glow)
         common_shadow = ft.BoxShadow(
             spread_radius=1,
-            blur_radius=10,
+            blur_radius=15,
             color=ft.Colors.with_opacity(0.65, styles.COLOR_BUBBLE_SHADOW),
             offset=ft.Offset(0, 0), # Centered glow
             blur_style=ft.BlurStyle.OUTER, # Back to OUTER to prevent internal glow/bleed
