@@ -11,7 +11,7 @@ class GatekeeperView(ft.Container):
         super().__init__()
         self.expand = True
         self.on_complete = on_complete
-        self.alignment = ft.alignment.center
+        self.alignment = ft.Alignment.CENTER
         self.bgcolor = styles.COLOR_BACKGROUND  # Fallback color
 
         # --- STATE 1: THE CONTRACT (Inputs) ---
@@ -69,7 +69,7 @@ class GatekeeperView(ft.Container):
                 ft.Container(
                     content=self.txt_log,
                     width=500, # Constrain width for log
-                    alignment=ft.alignment.center
+                    alignment=ft.Alignment.CENTER
                 )
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -81,7 +81,7 @@ class GatekeeperView(ft.Container):
         # Placeholder for the user's background image
         self.background_image = ft.Image(
             src="assets/gatekeeper_bg.jpg", # Assuming a file might exist or fail gracefully
-            fit=ft.ImageFit.COVER,
+            fit=ft.BoxFit.COVER,
             opacity=0.3, # Darken it a bit
             error_content=ft.Container(bgcolor=styles.COLOR_BACKGROUND) # Fallback
         )
