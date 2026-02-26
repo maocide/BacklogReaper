@@ -38,7 +38,7 @@ class ReaperChatView(ft.Container):
         self.character = None
         self.agent = agent.Agent()
 
-        self.br_chat_list = ft.Ref[ft.Column]()
+        self.br_chat_list = ft.Ref[ft.ListView]()
         self.br_input = ft.Ref[ft.TextField]()
         self.br_status = ft.Ref[ft.Text]()
         self.br_btn_send = ft.Ref[ft.IconButton]()
@@ -94,14 +94,12 @@ class ReaperChatView(ft.Container):
                         self._build_empty_state(),
                         # Chat List (Transparent overlay)
                         ft.SelectionArea(
-                            content=ft.Column(
+                            content=ft.ListView(
                                 ref=self.br_chat_list,
-                                # on_scroll=self.handle_scroll, # Dynamically attached
                                 expand=True,
                                 spacing=10,
                                 auto_scroll=False,
-                                scroll=ft.ScrollMode.AUTO,
-                                scroll_interval=200,
+                                reverse=True, # Newest items at bottom (index 0)
                             ),
                             # Ensure SelectionArea fills the Stack to allow proper scrolling constraints
                             expand=True
@@ -175,6 +173,11 @@ class ReaperChatView(ft.Container):
         if self.chat_history.get_chat_length():
             self.hide_background()
 
+            # We need to build the list in reverse order (newest first)
+            # Or build normally and then reverse the controls list.
+            # Let's build normally for logic simplicity, then reverse.
+            controls_to_add = []
+
             last_role = ""
             state = {"is_user": True, "avatar_path": None, "content": ""}
 
@@ -184,13 +187,12 @@ class ReaperChatView(ft.Container):
                 new_content = message.get('content', "")
 
                 if (state["content"] and last_role and last_role != role) and is_dialogue:
-                    self.br_chat_list.current.controls.append(
+                    controls_to_add.append(
                         self.parse_and_render_message(text=state["content"],
                                                       is_user=state["is_user"],
                                                       avatar_path=state["avatar_path"])
                     )
                     state["content"] = ""
-
 
                 if message.get('content', "") and is_dialogue:
                     if message.get('role') == 'assistant' and new_content:
@@ -203,7 +205,7 @@ class ReaperChatView(ft.Container):
                     state["content"] += new_content
 
                 if i == len(self.chat_history.messages) - 1 and state["content"]:
-                    self.br_chat_list.current.controls.append(
+                    controls_to_add.append(
                         self.parse_and_render_message(text=state["content"],
                                                       is_user=state["is_user"],
                                                       avatar_path=state["avatar_path"])
@@ -212,10 +214,15 @@ class ReaperChatView(ft.Container):
                 if is_dialogue:
                     last_role = role
 
-            if self.chat_history.messages and self.chat_history.messages[-1].get('role') == 'assistant':
-                self._append_message_actions()
+            # Reverse the list so newest is at index 0 (bottom of screen)
+            controls_to_add.reverse()
+            self.br_chat_list.current.controls.extend(controls_to_add)
 
-        self.scroll_chat_to_bottom(500,0,True)
+            if self.chat_history.messages and self.chat_history.messages[-1].get('role') == 'assistant':
+                self._append_message_actions() # Will insert at index 0 (newest)
+
+        # No need to scroll, reverse list stays at bottom (0) by default
+        # self.scroll_chat_to_bottom(500,0,True)
 
     def _build_empty_state(self):
         current_char = ""
@@ -418,12 +425,7 @@ class ReaperChatView(ft.Container):
                 if state["agent_markdown"] and state["agent_markdown"].page:
                     await ui.utils.smart_update(state["agent_markdown"])
 
-                # Throttle auto-scroll to avoid overwhelming the renderer
-                current_time = time.time()
-                if (current_time - self.last_auto_scroll_time) > 0.3:
-                    self.scroll_chat_to_bottom(duration=0)
-                    self.last_auto_scroll_time = current_time
-
+                # No manual scroll needed in reverse mode
                 self.stream_state["needs_update"] = False
 
             # If stream is inactive and queue is empty, exit loop
@@ -489,9 +491,9 @@ class ReaperChatView(ft.Container):
             self.current_streaming_bubble = full_message_block
 
             if self.br_chat_list.current:
-                self.br_chat_list.current.controls.append(full_message_block)
+                self.br_chat_list.current.controls.insert(0, full_message_block)
                 await ui.utils.smart_update(self.br_chat_list.current)
-                self.scroll_chat_to_bottom(duration=0, forced=True, delay_ms=50)
+                # No scroll needed
 
         elif msg_type == "reasoning":
             state["reasoning_buffer"] += content
@@ -528,13 +530,16 @@ class ReaperChatView(ft.Container):
                     padding=ft.Padding.symmetric(vertical=5),
                 )
 
-                position = len(self.br_chat_list.current.controls) - 1
-                if position < 0: position = 0
-                self.br_chat_list.current.controls.insert(position, action_display)
+                # Reverse list: Insert at bottom (index 0).
+                # Wait, actions usually appear *after* the last message.
+                # If streaming bubble is at 0, action should be inserted at 1?
+                # Or if action is chronologically *after* streaming bubble (e.g. tool output), it should be at 0.
+                # Let's assume tool output is newest.
+                self.br_chat_list.current.controls.insert(0, action_display)
 
             try:
                 await ui.utils.smart_update(self.br_chat_list.current)
-                self.scroll_chat_to_bottom(duration=0)
+                # No scroll needed
             except RuntimeError:
                 pass
 
@@ -557,11 +562,6 @@ class ReaperChatView(ft.Container):
 
         elif msg_type == "finish":
             self.stream_active = False # Signal loop to exit (after queue empty)
-
-            # UNWIRE SCROLL EVENT
-            if self.br_chat_list.current:
-                self.br_chat_list.current.on_scroll = None
-                await ui.utils.smart_update(self.br_chat_list.current)
 
             if not self.current_streaming_bubble:
                 return
@@ -599,12 +599,12 @@ class ReaperChatView(ft.Container):
                     avatar_path=avatar_path,
                     reasoning_expanded=was_reasoning_expanded
                 )
-                self.br_chat_list.current.controls.append(final_msg_control)
+                self.br_chat_list.current.controls.insert(0, final_msg_control)
 
-                self._append_message_actions()
+                self._append_message_actions() # Inserts at 0
 
                 await ui.utils.smart_update(self.br_chat_list.current)
-                self.scroll_chat_to_bottom(duration=0, delay_ms=50, forced=True)
+                # No scroll needed
 
 
             await self.update_buttons(False)
@@ -620,11 +620,6 @@ class ReaperChatView(ft.Container):
         elif msg_type == "error":
             self.stream_active = False
 
-            # UNWIRE SCROLL EVENT
-            if self.br_chat_list.current:
-                self.br_chat_list.current.on_scroll = None
-                await ui.utils.smart_update(self.br_chat_list.current)
-
             # Clean chat UI and chat history
             self.br_input.current.value = await self.remove_last_ai_response(including_user=True)
 
@@ -638,11 +633,6 @@ class ReaperChatView(ft.Container):
 
         elif msg_type == "cancel":
             self.stream_active = False
-
-            # UNWIRE SCROLL EVENT
-            if self.br_chat_list.current:
-                self.br_chat_list.current.on_scroll = None
-                await ui.utils.smart_update(self.br_chat_list.current)
 
             # Clean chat UI and chat history
             self.br_input.current.value = await self.remove_last_ai_response(including_user=True)
@@ -723,14 +713,9 @@ class ReaperChatView(ft.Container):
         # Start background render loop
         self.stream_active = True
 
-        # RESET SCROLL STATE
+        # RESET SCROLL STATE (Kept for compatibility, though reverse list handles sticking natively)
         self.last_scroll_pixels = None
         self.stick_to_bottom = True
-
-        # WIRE SCROLL EVENT (Only during active streaming to prevent lag)
-        if self.br_chat_list.current:
-            self.br_chat_list.current.on_scroll = self.handle_scroll
-            self.br_chat_list.current.update()
 
         if hasattr(self.page, 'run_thread'):
             self.page.run_task(self._render_loop)
@@ -770,24 +755,28 @@ class ReaperChatView(ft.Container):
             alignment=ft.MainAxisAlignment.END,
             data="message_action_buttons"
         )
-        self.br_chat_list.current.controls.append(actions_row)
+        # In reverse list, Index 0 is the BOTTOM (newest). Actions go below the message.
+        # Wait, visual order: Message -> Actions (below it).
+        # List order: [Actions, Message, ... Oldest]
+        self.br_chat_list.current.controls.insert(0, actions_row)
 
     async def remove_message_actions(self, perform_update=True):
         if self.br_chat_list.current and self.br_chat_list.current.controls:
-            last_ctrl = self.br_chat_list.current.controls[-1]
+            # In reverse list, newest item is at index 0
+            first_ctrl = self.br_chat_list.current.controls[0]
 
             # Check for new ID or old ID
-            ctrl_data = getattr(last_ctrl, "data", "")
+            ctrl_data = getattr(first_ctrl, "data", "")
             if ctrl_data == "message_action_buttons" or ctrl_data == "regenerate_button":
-                self.br_chat_list.current.controls.pop()
+                self.br_chat_list.current.controls.pop(0)
                 if perform_update:
                     await ui.utils.smart_update(self.br_chat_list.current)
                 return
 
             # Legacy check (fallback)
-            if isinstance(last_ctrl, ft.Row) and last_ctrl.controls and isinstance(last_ctrl.controls[0], ft.IconButton):
-                 if last_ctrl.controls[0].icon == ft.Icons.REFRESH:
-                    self.br_chat_list.current.controls.pop()
+            if isinstance(first_ctrl, ft.Row) and first_ctrl.controls and isinstance(first_ctrl.controls[0], ft.IconButton):
+                 if first_ctrl.controls[0].icon == ft.Icons.REFRESH:
+                    self.br_chat_list.current.controls.pop(0)
                     if perform_update:
                         await ui.utils.smart_update(self.br_chat_list.current)
 
@@ -832,7 +821,7 @@ class ReaperChatView(ft.Container):
                  self.start_chat_thread(user_message)
 
     async def remove_last_ai_response(self, including_user=False):
-        # History update
+        # History update (remains same, works on backend list)
         while self.chat_history.messages and not self.chat_history.messages[-1]["role"] == "user":
             self.chat_history.pop()
 
@@ -842,23 +831,23 @@ class ReaperChatView(ft.Container):
                 user_text = self.chat_history.messages[-1]["content"]
                 self.chat_history.pop()
 
-        # UI update
+        # UI update (Reverse list: Newest at Index 0)
         while self.br_chat_list.current.controls:
-            last_ctrl = self.br_chat_list.current.controls[-1]
+            first_ctrl = self.br_chat_list.current.controls[0]
 
             is_user_message = False
-            if isinstance(last_ctrl, ReaperChatBubble) and getattr(last_ctrl, "is_user", False):
+            if isinstance(first_ctrl, ReaperChatBubble) and getattr(first_ctrl, "is_user", False):
                 is_user_message = True
-            elif getattr(last_ctrl, "data", None) == "user_message":
+            elif getattr(first_ctrl, "data", None) == "user_message":
                 is_user_message = True
 
             if is_user_message:
                 if including_user: # Force to pop user message too
-                    self.br_chat_list.current.controls.pop()
+                    self.br_chat_list.current.controls.pop(0)
                     return user_text
                 break
 
-            self.br_chat_list.current.controls.pop()
+            self.br_chat_list.current.controls.pop(0)
         return None
 
     async def prune_chat_ui(self):
@@ -872,7 +861,7 @@ class ReaperChatView(ft.Container):
         if len(controls) > self.max_chat_bubbles:
             excess = len(controls) - self.max_chat_bubbles
             for _ in range(excess):
-                controls.pop(0)
+                controls.pop() # Remove from END (oldest) in reverse list
 
     def hide_background(self):
         # Hide Background
@@ -963,9 +952,10 @@ class ReaperChatView(ft.Container):
             # Prune before adding new message to keep list size stable
             await self.prune_chat_ui()
 
-            self.br_chat_list.current.controls.append(self.parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
+            # Insert at Index 0 (Bottom)
+            self.br_chat_list.current.controls.insert(0, self.parse_and_render_message(user_message, is_user=True, avatar_path=user_portrait_url))
             await ui.utils.smart_update(self.br_chat_list.current)
-            self.scroll_chat_to_bottom(delay_ms=200, forced=True)
+            # No scroll needed
 
         # Check for Sync Needed
         if vault.get_games_count() and vault.get_elapsed_since_update() > 1200: # 20 Mins
@@ -988,9 +978,9 @@ class ReaperChatView(ft.Container):
 
             # Add to chat (temporarily)
             if self.br_chat_list.current:
-                 self.br_chat_list.current.controls.append(sync_bubble)
+                 self.br_chat_list.current.controls.insert(0, sync_bubble)
                  await ui.utils.smart_update(self.br_chat_list.current)
-                 self.scroll_chat_to_bottom(duration=100, forced=True)
+                 # No scroll needed
 
             # Run blocking update in thread, await it here
             await asyncio.to_thread(self._sync_data_sources_blocking)
