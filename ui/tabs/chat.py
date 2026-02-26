@@ -281,15 +281,17 @@ class ReaperChatView(ft.Container):
         self.max_scroll_extent = e.max_scroll_extent
 
         # Logic for "Stick to Bottom"
-        # If we are at the bottom, lock it.
-        # If we scroll up significantly, unlock it.
+        # Using directional logic for better UX:
+        # - Easy to leave (scroll up)
+        # - Easy to return (scroll down near bottom)
         distance_from_bottom = e.max_scroll_extent - e.pixels
-        is_at_bottom = distance_from_bottom <= 60  # increased threshold for easier re-latching
 
-        if is_at_bottom:
-            self.stick_to_bottom = True
-        elif delta < -5: # User is scrolling up
+        if delta < -10:  # User is scrolling UP intentionally -> Detach
             self.stick_to_bottom = False
+        elif delta > 0 and distance_from_bottom <= 150: # User is scrolling DOWN and is CLOSE to bottom -> Re-attach
+            self.stick_to_bottom = True
+        elif distance_from_bottom <= 20: # Just resting at bottom -> Maintain
+            self.stick_to_bottom = True
 
     def get_user_portrait_url(self):
         # Return cached URL if available, otherwise return None (default avatar will be used)
