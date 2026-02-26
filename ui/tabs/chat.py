@@ -101,7 +101,7 @@ class ReaperChatView(ft.Container):
                                 spacing=10,
                                 auto_scroll=False,
                                 scroll=ft.ScrollMode.AUTO,
-                                scroll_interval=100,
+                                scroll_interval=200,
                             ),
                             # Ensure SelectionArea fills the Stack to allow proper scrolling constraints
                             expand=True
@@ -420,7 +420,7 @@ class ReaperChatView(ft.Container):
 
                 # Throttle auto-scroll to avoid overwhelming the renderer
                 current_time = time.time()
-                if (current_time - self.last_auto_scroll_time) > 0.1:
+                if (current_time - self.last_auto_scroll_time) > 0.3:
                     self.scroll_chat_to_bottom(duration=0)
                     self.last_auto_scroll_time = current_time
 
