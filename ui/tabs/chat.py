@@ -530,12 +530,17 @@ class ReaperChatView(ft.Container):
                     padding=ft.Padding.symmetric(vertical=5),
                 )
 
-                # Reverse list: Insert at bottom (index 0).
-                # Wait, actions usually appear *after* the last message.
-                # If streaming bubble is at 0, action should be inserted at 1?
-                # Or if action is chronologically *after* streaming bubble (e.g. tool output), it should be at 0.
-                # Let's assume tool output is newest.
-                self.br_chat_list.current.controls.insert(0, action_display)
+                # Reverse list order: [Streaming Bubble (0), Action (1), ...]
+                # We want Action to appear visually ABOVE the streaming bubble.
+                insert_index = 0
+                if self.current_streaming_bubble:
+                    try:
+                        idx = self.br_chat_list.current.controls.index(self.current_streaming_bubble)
+                        insert_index = idx + 1
+                    except ValueError:
+                        pass
+
+                self.br_chat_list.current.controls.insert(insert_index, action_display)
 
             try:
                 await ui.utils.smart_update(self.br_chat_list.current)
@@ -660,22 +665,9 @@ class ReaperChatView(ft.Container):
                 pass
 
     def scroll_chat_to_bottom(self, duration=700, delay_ms=0, forced=False):
-        if forced:
-            self.stick_to_bottom = True
-            if self.br_chat_list.current and self.page:
-                try:
-                    self.page.run_task(self._scroll_task, duration, delay_ms)
-                except Exception:
-                    pass
-            return
-
-        # Only scroll if locked to bottom
-        if self.stick_to_bottom:
-            if self.br_chat_list.current and self.page:
-                try:
-                    self.page.run_task(self._scroll_task, duration, delay_ms)
-                except Exception:
-                    pass
+        pass
+        # Deprecated: Reverse ListView handles this natively.
+        # Keeping method stub to prevent crashes if called by legacy code.
 
     def start_chat_thread(self, user_message):
         # Stop previous thread cleanly
