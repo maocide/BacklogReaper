@@ -58,6 +58,7 @@ class ReaperChatView(ft.Container):
         self.max_scroll_extent = 0
         self.stick_to_bottom = True
         self.last_scroll_pixels = None
+        self.last_auto_scroll_time = 0
         self.max_chat_bubbles = 50  # Limit visible bubbles to prevent UI lag/leaks
 
         self.stream_active = False
@@ -288,7 +289,7 @@ class ReaperChatView(ft.Container):
 
         if delta < -10:  # User is scrolling UP intentionally -> Detach
             self.stick_to_bottom = False
-        elif delta > 0 and distance_from_bottom <= 150: # User is scrolling DOWN and is CLOSE to bottom -> Re-attach
+        elif delta > 0 and distance_from_bottom <= 500: # User is scrolling DOWN and is CLOSE to bottom (generous for bursts) -> Re-attach
             self.stick_to_bottom = True
         elif distance_from_bottom <= 20: # Just resting at bottom -> Maintain
             self.stick_to_bottom = True
@@ -417,7 +418,12 @@ class ReaperChatView(ft.Container):
                 if state["agent_markdown"] and state["agent_markdown"].page:
                     await ui.utils.smart_update(state["agent_markdown"])
 
-                self.scroll_chat_to_bottom(duration=0)
+                # Throttle auto-scroll to avoid overwhelming the renderer
+                current_time = time.time()
+                if (current_time - self.last_auto_scroll_time) > 0.1:
+                    self.scroll_chat_to_bottom(duration=0)
+                    self.last_auto_scroll_time = current_time
+
                 self.stream_state["needs_update"] = False
 
             # If stream is inactive and queue is empty, exit loop
