@@ -57,7 +57,7 @@ class ReaperChatView(ft.Container):
         self.current_scroll_offset = 0
         self.max_scroll_extent = 0
         self.stick_to_bottom = True
-        self.last_scroll_pixels = 0
+        self.last_scroll_pixels = None
         self.max_chat_bubbles = 50  # Limit visible bubbles to prevent UI lag/leaks
 
         self.stream_active = False
@@ -269,6 +269,10 @@ class ReaperChatView(ft.Container):
         self.page.update()
 
     def handle_scroll(self, e: ft.OnScrollEvent):
+        if self.last_scroll_pixels is None:
+            self.last_scroll_pixels = e.pixels
+            return
+
         # Calculate delta to detect direction
         delta = e.pixels - self.last_scroll_pixels
         self.last_scroll_pixels = e.pixels
@@ -710,6 +714,10 @@ class ReaperChatView(ft.Container):
 
         # Start background render loop
         self.stream_active = True
+
+        # RESET SCROLL STATE
+        self.last_scroll_pixels = None
+        self.stick_to_bottom = True
 
         # WIRE SCROLL EVENT (Only during active streaming to prevent lag)
         if self.br_chat_list.current:
