@@ -100,7 +100,7 @@ class ReaperChatView(ft.Container):
                                 spacing=10,
                                 auto_scroll=False,
                                 scroll=ft.ScrollMode.AUTO,
-                                scroll_interval=200,
+                                scroll_interval=100,
                             ),
                             # Ensure SelectionArea fills the Stack to allow proper scrolling constraints
                             expand=True
@@ -415,7 +415,7 @@ class ReaperChatView(ft.Container):
                 if state["agent_markdown"] and state["agent_markdown"].page:
                     await ui.utils.smart_update(state["agent_markdown"])
 
-                self.scroll_chat_to_bottom(duration=50)
+                self.scroll_chat_to_bottom(duration=0)
                 self.stream_state["needs_update"] = False
 
             # If stream is inactive and queue is empty, exit loop
@@ -483,7 +483,7 @@ class ReaperChatView(ft.Container):
             if self.br_chat_list.current:
                 self.br_chat_list.current.controls.append(full_message_block)
                 await ui.utils.smart_update(self.br_chat_list.current)
-                self.scroll_chat_to_bottom(forced=True, delay_ms=600)
+                self.scroll_chat_to_bottom(duration=0, forced=True, delay_ms=50)
 
         elif msg_type == "reasoning":
             state["reasoning_buffer"] += content
@@ -526,7 +526,7 @@ class ReaperChatView(ft.Container):
 
             try:
                 await ui.utils.smart_update(self.br_chat_list.current)
-                self.scroll_chat_to_bottom(duration=50)
+                self.scroll_chat_to_bottom(duration=0)
             except RuntimeError:
                 pass
 
@@ -596,7 +596,7 @@ class ReaperChatView(ft.Container):
                 self._append_message_actions()
 
                 await ui.utils.smart_update(self.br_chat_list.current)
-                self.scroll_chat_to_bottom(delay_ms=100, forced=True)
+                self.scroll_chat_to_bottom(duration=0, delay_ms=50, forced=True)
 
 
             await self.update_buttons(False)
