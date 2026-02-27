@@ -278,13 +278,13 @@ def fetch_game_details_worker(game):
         review_score
     )
 
-def update(username):
+def update(username, stop_event=None):
     """
     Optimized Update:
     1. Batch updates existing games (Playtime/LastPlayed).
     2. Parallel fetches new games.
     """
-    print("--- OPENING THE VAULT (OPTIMIZED) ---")
+    print("OPENING THE VAULT...")
     init_db()
 
     steam = Steam(settings.STEAM_API_KEY)
@@ -318,7 +318,7 @@ def update(username):
         else:
             new_games.append(game)
 
-    # --- STEP 2: FAST BATCH UPDATE (Existing Games) ---
+    # FAST BATCH UPDATE (Existing Games) ---
     if existing_games:
         print(f"Syncing playtime for {len(existing_games)} known games...")
         with get_connection() as conn:
@@ -337,14 +337,23 @@ def update(username):
 
         new_game_data = []
 
-        # We use a ThreadPool to run multiple scrapers at once.
-
+        # ThreadPool to run multiple scrapers at once.
         worker_count = 2 if len(new_games) > 10 else 4
-        with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
-            # Submit all tasks
-            future_to_game = {executor.submit(fetch_game_details_worker, game): game for game in new_games}
 
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=worker_count)
+
+        # Submit all tasks
+        future_to_game = {executor.submit(fetch_game_details_worker, game): game for game in new_games}
+
+        try:
             for i, future in enumerate(concurrent.futures.as_completed(future_to_game)):
+
+                # CHECK THE KILL SWITCH
+                if stop_event and stop_event.is_set():
+                    print(f"Vault update: Kill switch received. Stopping NOW.")
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    return
+
                 try:
                     data = future.result()
                     new_game_data.append(data)
@@ -359,8 +368,13 @@ def update(username):
                     }
 
                     print(f"[{i + 1}/{len(new_games)}] Processed {data[1]}")
+
                 except Exception as exc:
                     print(f"Worker generated an exception: {exc}")
+
+        finally:
+            # CLEANUP
+            executor.shutdown(wait=False, cancel_futures=True)
 
         # BATCH INSERT (New Games)
         if new_game_data:
@@ -376,6 +390,9 @@ def update(username):
     global last_refreshed
     last_refreshed = time.time()
     print("Vault update complete.")
+
+def stop_update():
+    stop_update_bool = True
 
 def get_elapsed_since_update():
     return time.time() - last_refreshed
@@ -516,14 +533,17 @@ def is_game_owned(appid):
     """
     Returns True if the game is currently owned by the user's library.
     """
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT appid FROM games WHERE appid=?", (appid,))
-        rows = c.fetchall()
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute("SELECT appid FROM games WHERE appid=?", (appid,))
+            rows = c.fetchall()
 
-    if rows:
-        return True
-    else:
+        if rows:
+            return True
+        else:
+            return False
+    except sqlite3.OperationalError:
         return False
 
 

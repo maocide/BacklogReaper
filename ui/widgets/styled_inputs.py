@@ -85,7 +85,7 @@ class GlowingChatInput(ft.Container):
         if e.data == "true":
             self.input_field.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.WHITE)
         else:
-            self.input_field.bgcolor = ft.Colors.TRANSPARENT  # The crucial fix!
+            self.input_field.bgcolor = ft.Colors.TRANSPARENT
         self.update()
 
     def _animate_glow_in(self, e):
@@ -138,7 +138,7 @@ class GrimoireButton(ft.FilledButton):
             style = ft.ButtonStyle(
                 color=styles.COLOR_TEXT_GOLD,
                 bgcolor=styles.COLOR_SURFACE,
-                shape=ft.RoundedRectangleBorder(radius=5),
+                shape=ft.BeveledRectangleBorder(radius=3),
                 side=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE)
             )
         elif style == styles.CARD_STYLE:
@@ -172,7 +172,7 @@ class GrimoireProgressBar(ft.Container):
             value=None,  # Indeterminate by default
             color=ft.Colors.WHITE,
             bgcolor=ft.Colors.TRANSPARENT,
-            border_radius=ft.BorderRadius.all(4),
+            border_radius=ft.BorderRadius.all(0),
         )
 
         # 2. Define the magical gradient (Deep Blue -> Electric Azure -> Bright Cyan)
@@ -191,7 +191,7 @@ class GrimoireProgressBar(ft.Container):
             content=self.internal_bar,
             blend_mode=ft.BlendMode.SRC_IN,
             shader=self.mana_gradient,
-            border_radius=ft.BorderRadius.all(4),
+            border_radius=ft.BorderRadius.all(0),
             expand=True,  # Ensure the mask stretches correctly
         )
 
@@ -199,7 +199,7 @@ class GrimoireProgressBar(ft.Container):
             width=width,
             height=height,
             border=ft.Border.all(1, styles.COLOR_BORDER_BRONZE),
-            border_radius=ft.BorderRadius.all(6),  # Smooth glass tube edges
+            border_radius=ft.BorderRadius.all(0),  # edges
             padding=ft.Padding.symmetric(horizontal=3, vertical=3),  # "Glass thickness"
             bgcolor=styles.COLOR_BACKGROUND,  # The void behind the glass
             content=self.masked_bar,  # Use the masked version here!

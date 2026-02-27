@@ -25,7 +25,6 @@ from web_tools import get_hltb_data, get_store_data
 max_tags = 10
 steam_id = None
 
-@safe_tool
 def resolve_steam_id(username_or_id):
     """
     Resolves a Steam username, vanity URL, or ID into the mandatory 64-bit numeric SteamID.
@@ -39,7 +38,7 @@ def resolve_steam_id(username_or_id):
     steam = Steam(settings.STEAM_API_KEY)
 
     # Check if it's already a numeric ID
-    if username_or_id.isdigit() and len(username_or_id) == 17:
+    if username_or_id and username_or_id.isdigit() and len(username_or_id) == 17:
         return username_or_id
 
     # Try resolving as a Vanity URL (The most common case)

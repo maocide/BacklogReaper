@@ -39,7 +39,7 @@ def main(page: ft.Page):
     page.window.title_bar_hidden = False
     page.window.title_bar_buttons_hidden = False
 
-    # 0. STARTUP CHECKS
+    # STARTUP CHECKS
     # We still run checks for HLTB/DB, but Gatekeeper handles Steam Keys.
     is_ready, failures = startup.check_all()
     if not is_ready:
