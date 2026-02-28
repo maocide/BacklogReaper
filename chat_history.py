@@ -2,6 +2,7 @@ import json
 import copy
 import os
 import traceback
+import tiktoken
 
 from ai_tools import aiCall
 import agent_tools
@@ -10,7 +11,8 @@ class ChatHistory:
     def __init__(self, character_name="Reaper"):
         self.messages = []
         self.character_name = character_name
-        self.max_user_turns = 10
+        self.max_tokens = 24000
+        self.target_tokens = 18000
 
     def _load_character(self, character):
         """
@@ -39,7 +41,7 @@ class ChatHistory:
 
     def add_user_message(self, content):
         self.add_message("user", content)
-        self.clean_history()
+        return self.clean_history() # Gets token count for summarization back
 
     def get_history(self):
         return self.messages
@@ -59,33 +61,64 @@ class ChatHistory:
 
     def clean_history(self):
         """
-        Manages context window by summarizing old history.
+        Manages context window by summarizing old history based on tokens.
         """
         history = self.messages
-        if len(history) <= 2: return
+        if len(history) <= 2: return 0, 0
 
         working_history = copy.deepcopy(history)
         system_prompt = working_history[0]
         conversation = working_history[1:]  # Everything else
+        summary_output_tokens = 0
+        summary_input_tokens = 0
 
-        # Count user turns (actual interactions)
-        user_indices = [i for i, msg in enumerate(conversation) if msg.get('role') == 'user']
+        try:
+            encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception as e:
+            print(f"Error loading tiktoken encoding: {e}")
+            return 0, 0
 
-        # If max is 10, trigger_threshold becomes 15.
-        trigger_threshold = self.max_user_turns + (self.max_user_turns // 2)
+        # Count tokens for all messages
+        total_tokens = 0
+        for msg in working_history:
+            total_tokens += len(encoding.encode(json.dumps(msg), allowed_special="all"))
 
-        # If we haven't hit the 15-turn overflow, do nothing
-        if len(user_indices) <= trigger_threshold:
-            return
+        if total_tokens <= self.max_tokens:
+            return 0, 0
 
-        # Determine split point:
-        cutoff_index = user_indices[-self.max_user_turns]
+        # Need to truncate. Work backwards from the end to find the cutoff point
+        # that fits within target_tokens.
+        
+        # System prompt is always included, subtract its tokens from target
+        sys_tokens = len(encoding.encode(json.dumps(system_prompt), allowed_special="all"))
+        budget = self.target_tokens - sys_tokens
+        
+        cutoff_index = len(conversation)
+        accumulated_tokens = 0
+        
+        for i in range(len(conversation) - 1, -1, -1):
+            msg = conversation[i]
+            msg_tokens = len(encoding.encode(json.dumps(msg), allowed_special="all"))
+            
+            if accumulated_tokens + msg_tokens > budget:
+                # We've reached the limit
+                cutoff_index = i + 1
+                break
+            
+            accumulated_tokens += msg_tokens
+            cutoff_index = i
+            
+        # Ensure we don't cut everything if a single message is huge
+        if cutoff_index >= len(conversation):
+            cutoff_index = len(conversation) - 1
 
         # Initial rough slice
         recent_context = conversation[cutoff_index:]
         old_context = conversation[:cutoff_index]
 
         final_history = [system_prompt]
+
+
 
         # HEALING THE CUT
         while old_context:
@@ -130,13 +163,16 @@ class ChatHistory:
             )
 
             try:
-                print("--- TRIGGERING CONTEXT SUMMARIZATION ---")
+                print(f"Tokens: {total_tokens} --> TRIGGERED SUMMARIZATION")
                 new_summary = aiCall(summary_request, "You are a Summarizer.")
 
                 final_history.append({
                     "role": "system",
                     "content": f"[PREVIOUS CONVERSATION SUMMARY: {new_summary}]"
                 })
+
+                summary_output_tokens = len(encoding.encode(new_summary, allowed_special="all"))
+                summary_input_tokens = len(encoding.encode(summary_request, allowed_special="all"))
 
             except Exception as e:
                 print(f"Summarization failed: {e}")
@@ -146,6 +182,8 @@ class ChatHistory:
 
         final_history.extend(recent_context)
         self.messages = final_history
+
+        return summary_input_tokens, summary_output_tokens
 
     def save(self):
         # Ensure the data directory exists

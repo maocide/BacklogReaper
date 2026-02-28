@@ -16,3 +16,4 @@ trafilatura
 sentence_transformers
 numpy
 kagglehub
+tiktoken

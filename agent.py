@@ -13,10 +13,11 @@ class Agent:
         Generator that handles Native Tool Calling streaming.
         Accepts a ChatHistory object.
         """
+        token_costs = (0,0)
 
         # User input handling
         if user_input:
-            chat_history.add_user_message(user_input)
+            token_costs = chat_history.add_user_message(user_input)
 
         max_turns = 25
         turn = 0

@@ -365,6 +365,35 @@ class ReaperChatView(ft.Container):
             reasoning_expanded=reasoning_expanded
         )
 
+    async def add_action_display(self, description = "Using tool"):
+        if self.br_chat_list.current:
+            action_display = ft.Container(
+                content=ft.Row([
+                    ft.Icon(ft.Icons.TERMINAL, size=14, color=styles.COLOR_SYSTEM_LOG),
+                    ft.Text(f"> {description}", size=12, font_family=styles.STYLE_MONOSPACE, color=styles.COLOR_SYSTEM_LOG)
+                ], spacing=5, alignment=ft.MainAxisAlignment.CENTER),
+                padding=ft.Padding.symmetric(vertical=5),
+            )
+
+            # Reverse list order: [Streaming Bubble (0), Action (1), ...]
+            # We want Action to appear visually ABOVE the streaming bubble.
+            insert_index = 0
+            if self.current_streaming_bubble:
+                try:
+                    idx = self.br_chat_list.current.controls.index(self.current_streaming_bubble)
+                    insert_index = idx + 1
+                except ValueError:
+                    pass
+
+                self.br_chat_list.current.controls.insert(insert_index, action_display)
+            else:
+                self.br_chat_list.current.controls.append(action_display)
+            try:
+                await ui.utils.smart_update(self.br_chat_list.current)
+                # No scroll needed
+            except RuntimeError:
+                pass
+
     def run_backlog_reaping_thread(self, user_message, run_id, stop_event):
         try:
             if stop_event.is_set(): return
@@ -521,33 +550,7 @@ class ReaperChatView(ft.Container):
                     await ui.utils.smart_update(self.br_status.current)
 
         elif msg_type == "action":
-            if self.br_chat_list.current:
-                action_display = ft.Container(
-                    content=ft.Row([
-                        ft.Icon(ft.Icons.TERMINAL, size=14, color=styles.COLOR_SYSTEM_LOG),
-                        ft.Text(f"> {content}", size=12, font_family=styles.STYLE_MONOSPACE, color=styles.COLOR_SYSTEM_LOG)
-                    ], spacing=5, alignment=ft.MainAxisAlignment.CENTER),
-                    padding=ft.Padding.symmetric(vertical=5),
-                )
-
-                # Reverse list order: [Streaming Bubble (0), Action (1), ...]
-                # We want Action to appear visually ABOVE the streaming bubble.
-                insert_index = 0
-                if self.current_streaming_bubble:
-                    try:
-                        idx = self.br_chat_list.current.controls.index(self.current_streaming_bubble)
-                        insert_index = idx + 1
-                    except ValueError:
-                        pass
-
-                self.br_chat_list.current.controls.insert(insert_index, action_display)
-
-            try:
-                await ui.utils.smart_update(self.br_chat_list.current)
-                # No scroll needed
-            except RuntimeError:
-                pass
-
+            await self.add_action_display(content)
             state["previous_was_tool"] = True
 
         elif msg_type == "text":
