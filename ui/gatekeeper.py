@@ -5,6 +5,7 @@ import time
 import flet as ft
 from PIL.ImageOps import expand
 from flet import WindowEventType
+from steam_web_api import Steam
 
 import settings
 import styles
@@ -189,9 +190,65 @@ class GatekeeperView(ft.Container):
         user = self.tf_steam_id.value.strip()
         key = self.tf_api_key.value.strip()
 
+        # Reset highlights
+        self.tf_steam_id.border_color = styles.COLOR_BORDER_BRONZE
+        self.tf_api_key.border_color = styles.COLOR_BORDER_BRONZE
+        self.tf_steam_id.update()
+        self.tf_api_key.update()
+
         if not user or not key:
+            if not user:
+                self.tf_steam_id.border_color = styles.COLOR_ERROR
+                self.tf_steam_id.update()
+            if not key:
+                self.tf_api_key.border_color = styles.COLOR_ERROR
+                self.tf_api_key.update()
+                
             if self.page:
-                self.page.show_dialog(ft.SnackBar(ft.Text("The pact requires both a Name and a Key.")))
+                self.page.show_dialog(ft.SnackBar(ft.Text("The pact requires both a Name and a Key."), duration=5000))
+            return
+
+        # Disable button and show loading state
+        self.btn_initiate.disabled = True
+        self.btn_initiate.text = "Validating..."
+        self.btn_initiate.update()
+
+        # Synchronously validate Steam credentials
+        try:
+            steam = Steam(key)
+            
+            # Test key first: searching for an arbitrary user validates the key
+            # If the key is bad, the API typically throws a 403 exception immediately
+            try:
+                # We specifically check the key first so we can highlight the right field
+                steam.users.search_user("gabe") 
+            except Exception as e:
+                # If we fail here, the key itself is rejected
+                self.tf_api_key.border_color = styles.COLOR_ERROR
+                self.tf_api_key.update()
+                raise ValueError(f"The key you provided is cursed: {e}")
+            
+            # Now test the user
+            user_data = steam.users.search_user(user)
+            
+            # The Steam API wrapper might not throw an exception on invalid username,
+            # but instead return an unexpected string or dict without the user data.
+            # We must verify the payload structure before proceeding.
+            if not isinstance(user_data, dict) or 'player' not in user_data or 'steamid' not in user_data['player']:
+                self.tf_steam_id.border_color = styles.COLOR_ERROR
+                self.tf_steam_id.update()
+                raise ValueError("The true name you provided does not exist in the archives.")
+                
+        except Exception as error:
+            # Catch bad key/user
+            if self.page:
+                error_msg = f"Lord Gaben remains silent: {error}"
+                self.page.show_dialog(ft.SnackBar(ft.Text(error_msg), duration=6000))
+            
+            # Reset button state
+            self.btn_initiate.disabled = False
+            self.btn_initiate.text = "Initiate Ritual"
+            self.btn_initiate.update()
             return
 
         # Update Settings in Memory
@@ -254,7 +311,7 @@ class GatekeeperView(ft.Container):
         stats = vault.get_vault_statistics()
         life_wasted = float(stats.get("total_hours", 0))
 
-        self._log("Opening the Vault...")
+        self._log("> Opening game Vault...")
         self.txt_log.update()
 
         while True:
