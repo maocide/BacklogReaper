@@ -445,6 +445,10 @@ def wrap_output(data, context=None, warning=None):
         if "error_type" in data:
             context += f" Type: {data['error_type']}"
 
+    token_usage = None
+    if isinstance(data, dict) and "_tokens" in data:
+        token_usage = data.pop("_tokens")
+
     payload = {
         "meta": {
             "status": status,
@@ -453,6 +457,12 @@ def wrap_output(data, context=None, warning=None):
         },
         "data": data
     }
+
+    if token_usage:
+        # We store token usage in a dedicated top-level metadata object
+        # that the agent logic yields to the UI, but we delete it so the LLM doesn't waste tokens reading it.
+        # It's accessed directly during json.loads by the chat agent stream logic.
+        payload["_token_usage"] = token_usage
 
     if isinstance(data, list):
         payload["meta"]["count"] = len(data)

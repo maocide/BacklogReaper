@@ -81,11 +81,11 @@ Keep in mind the nature of the place 'steamcommunity.com' when making your uncen
 The JSON formatted TOPICS will follow."""
     json_forum_topics = json.dumps(results)
 
-    analysis = aiCall(json_forum_topics, ai_system_prompt)
+    analysis, in_tokens, out_tokens = aiCall(json_forum_topics, ai_system_prompt, return_tokens=True)
     print(f"\n{analysis}\n")
 
     # Standardized return
-    return {"analysis": analysis}
+    return {"analysis": analysis, "_tokens": {"in": in_tokens, "out": out_tokens}}
 
 @safe_tool
 def get_webpage(url):
@@ -133,10 +133,13 @@ def get_webpage(url):
 3. **Safety:** Do not sanitize the meaning, but condense the ranting."""
 
                 # Assuming aiCall signature is (user_message, system_message)
-                summary = aiCall(text, ai_system_prompt)
+                summary, in_tokens, out_tokens = aiCall(text, ai_system_prompt, return_tokens=True)
 
                 # OPTIONAL: Add a tag so the main agent knows this was summarized
-                return {"content": f"[SUMMARY OF WEBPAGE]:\n{summary}"}
+                return {
+                    "content": f"[SUMMARY OF WEBPAGE]:\n{summary}",
+                    "_tokens": {"in": in_tokens, "out": out_tokens}
+                }
 
             except Exception as e:
                 print(f"Error summarizing WEB PAGE: {e}")
@@ -331,12 +334,13 @@ def scrape_4chan_thread_with_ai(search: str) -> dict:
         ai_request += ai_question
         data = thread_contents
 
-        response = aiCall(data=data, system=ai_request)
+        response, in_tokens, out_tokens = aiCall(data=data, system=ai_request, return_tokens=True)
 
     else:
         response = "No results found."
+        in_tokens, out_tokens = 0, 0
 
-    return {"analysis": response}
+    return {"analysis": response, "_tokens": {"in": in_tokens, "out": out_tokens}}
 
 @safe_tool
 def get_community_sentiment(game_name: str) :
@@ -381,12 +385,24 @@ def get_community_sentiment(game_name: str) :
     chan_results = results.get("4chan") or {}
     reddit_results = results.get("reddit") or {}
     forums_results = results.get("forums") or {}
+    
+    # Collect tokens
+    total_in = 0
+    total_out = 0
+    for res in [chan_results, reddit_results, forums_results]:
+        if "_tokens" in res:
+            total_in += res["_tokens"].get("in", 0)
+            total_out += res["_tokens"].get("out", 0)
+            del res["_tokens"]
 
     result = {
         "4chan_opinion": chan_results,
         "reddit_opinion": reddit_results,
-        "steam_forums_opinion": forums_results
+        "steam_forums_opinion": forums_results,
     }
+    
+    if total_in > 0 or total_out > 0:
+        result["_tokens"] = {"in": total_in, "out": total_out}
 
     return result
 

@@ -41,6 +41,7 @@ class ReaperChatView(ft.Container):
         self.br_chat_list = ft.Ref[ft.ListView]()
         self.br_input = ft.Ref[ft.TextField]()
         self.br_status = ft.Ref[ft.Text]()
+        self.br_token_count = ft.Ref[ft.Text]()
         self.br_btn_send = ft.Ref[ft.IconButton]()
         self.br_btn_stop = ft.Ref[ft.IconButton]()
         self.br_empty_state = ft.Ref[ft.Container]()
@@ -64,6 +65,9 @@ class ReaperChatView(ft.Container):
         self.stream_active = False
 
         # State for streaming
+        self.session_input_tokens = 0
+        self.session_output_tokens = 0
+
         self.stream_state = {
             "status_text": None,
             "agent_markdown": None,
@@ -108,7 +112,13 @@ class ReaperChatView(ft.Container):
                     expand=True,
                 )
             ),
-            ft.Text(ref=self.br_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
+            ft.Row([
+                ft.Text(ref=self.br_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12, expand=True),
+                ft.Row([
+                    ft.Icon(ft.Icons.MEMORY, size=18, color=styles.COLOR_SYSTEM_LOG),
+                    ft.Text(ref=self.br_token_count, value="In: 0 Out: 0", color=styles.COLOR_SYSTEM_LOG, size=12, font_family=styles.STYLE_MONOSPACE)
+                ], spacing=4, alignment=ft.MainAxisAlignment.END)
+            ]),
             ft.Row([
                 GlowingChatInput(
                     ref=self.br_input,
@@ -256,12 +266,6 @@ class ReaperChatView(ft.Container):
             )
         )
 
-    def update_data_sources(self):
-        for _ in vault.update(settings.STEAM_USER):
-            pass
-        vibes = VibeEngine.get_instance()
-        vibes.ingest_library()
-
     def copy_chat_history(self, e):
         if not self.chat_history.messages: return
 
@@ -276,6 +280,10 @@ class ReaperChatView(ft.Container):
         self.page.show_dialog(ft.SnackBar(ft.Text("Chat history copied to clipboard!")))
         self.page.update()
 
+    """
+    DEPRECATED
+    was used to stick to bottom before reversed list
+    """
     def handle_scroll(self, e: ft.OnScrollEvent):
         if self.last_scroll_pixels is None:
             self.last_scroll_pixels = e.pixels
@@ -488,7 +496,7 @@ class ReaperChatView(ft.Container):
                     pass
                 self.current_streaming_bubble = None
 
-            state["status_text"] = ft.Text("Initializing...", italic=True, size=12, color=ft.Colors.GREY_500)
+            state["status_text"] = ft.Text("Awakening...", italic=True, size=12, color=ft.Colors.GREY_500)
             state["agent_markdown"] = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)
             state["reasoning_view"] = ft.Markdown("", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, visible=False, selectable=True)
             state["reasoning_buffer"] = ""
@@ -536,12 +544,13 @@ class ReaperChatView(ft.Container):
             state["needs_update"] = True
 
         elif msg_type == "status":
-            if state["status_text"]:
-                state["status_text"].value = content
-                try:
-                    await ui.utils.smart_update(state["status_text"])
-                except RuntimeError:
-                    pass
+            # No status in Bubble, just tool actions, status in status bar
+            # if state["status_text"]:
+            #     state["status_text"].value = content
+            #     try:
+            #         await ui.utils.smart_update(state["status_text"])
+            #     except RuntimeError:
+            #         pass
 
             if self.br_status.current:
                 self.br_status.current.value = content
@@ -550,8 +559,28 @@ class ReaperChatView(ft.Container):
                     await ui.utils.smart_update(self.br_status.current)
 
         elif msg_type == "action":
+            # Add action to chat history
             await self.add_action_display(content)
+
+            # Update status text in bubble
+            state["status_text"].value = content
+            try:
+                await ui.utils.smart_update(state["status_text"])
+            except RuntimeError:
+                pass
+
             state["previous_was_tool"] = True
+
+        elif msg_type == "tokens":
+            try:
+                self.session_input_tokens += int(content.get("in", 0))
+                self.session_output_tokens += int(content.get("out", 0))
+                if self.br_token_count.current:
+                    self.br_token_count.current.value = f"In: {self.session_input_tokens} Out: {self.session_output_tokens}"
+                    if self.br_token_count.current.page:
+                        await ui.utils.smart_update(self.br_token_count.current)
+            except Exception as e:
+                print(f"Error parsing tokens: {e}")
 
         elif msg_type == "text":
             # Update state synchronously first

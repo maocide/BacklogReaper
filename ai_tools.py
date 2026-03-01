@@ -2,16 +2,17 @@ from openai import OpenAI
 import settings
 import datetime
 
-def aiCall(data, system):
+def aiCall(data, system, return_tokens=False):
     """
     Calls the OpenAI API to analyze the provided data.
 
     Args:
         data: The data to be analyzed.
         system: The request to be sent to the AI.
+        return_tokens (bool): Whether to return a tuple containing the token usage.
 
     Returns:
-        The content of the AI's response.
+        The content of the AI's response, or a tuple containing (content, in_tokens, out_tokens) if return_tokens is True.
     """
 
     client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=240.0)
@@ -25,7 +26,14 @@ def aiCall(data, system):
         stream=False
     )
 
-    return(response.choices[0].message.content)
+    content = response.choices[0].message.content
+    
+    if return_tokens:
+        in_tokens = getattr(response.usage, 'prompt_tokens', 0) if hasattr(response, 'usage') else 0
+        out_tokens = getattr(response.usage, 'completion_tokens', 0) if hasattr(response, 'usage') else 0
+        return content, in_tokens, out_tokens
+
+    return content
 
 def aiCall_chat(chat_history=None):
 

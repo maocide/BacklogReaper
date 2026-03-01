@@ -15,9 +15,17 @@ class Agent:
         """
         token_costs = (0,0)
 
+        import tiktoken
+        try:
+            encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            encoding = None
+
         # User input handling
         if user_input:
             token_costs = chat_history.add_user_message(user_input)
+            if token_costs[0] > 0 or token_costs[1] > 0:
+                yield "tokens", {"in": token_costs[0], "out": token_costs[1]}
 
         max_turns = 25
         turn = 0
@@ -81,6 +89,20 @@ class Agent:
                         if tool_chunk.function.arguments:
                             tool_calls_buffer[idx]["args"] += tool_chunk.function.arguments
 
+            if encoding:
+                try:
+                    msgs_str = json.dumps(messages_payload)
+                    in_tokens = len(encoding.encode(msgs_str, allowed_special="all"))
+                    out_tokens = 0
+                    if full_content_buffer:
+                        out_tokens += len(encoding.encode(full_content_buffer, allowed_special="all"))
+                    if full_reasoning_buffer:
+                        out_tokens += len(encoding.encode(full_reasoning_buffer, allowed_special="all"))
+                    if in_tokens > 0 or out_tokens > 0:
+                        yield "tokens", {"in": in_tokens, "out": out_tokens}
+                except Exception as e:
+                    print(f"Token count error: {e}")
+
             # 3. End of Stream Logic
             if is_tool_call:
                 final_tool_calls = []
@@ -121,6 +143,18 @@ class Agent:
                     except Exception as e:
                         tool_result_str = f"Error executing tool: {str(e)}"
 
+                    # Will get token usage as prepared by the wrap_output after executing the tool
+                    try:
+                        parsed_res = json.loads(tool_result_str)
+                        if "_token_usage" in parsed_res:
+                            token_usage = parsed_res.pop("_token_usage")
+                            yield "tokens", token_usage
+                            # Repackage the JSON payload minus the _token_usage to save LLM context
+                            tool_result_str = json.dumps(parsed_res)
+                    except Exception as e:
+                        print(f"Token count error for tool: {e}")
+                        pass
+                        
                     chat_history.add_message("tool", tool_result_str, tool_call_id=call_id, name=func_name)
 
                 turn += 1
