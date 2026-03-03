@@ -13,6 +13,36 @@ from safe_tool import safe_tool
 from types import SimpleNamespace
 import kagglehub
 
+def get_steam_bypass():
+    """
+    Returns headers and cookies needed to bypass Steam age gates and language redirect.
+    Also injects a default referer.
+    """
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://store.steampowered.com/'
+    }
+
+    cookies = {
+        'birthtime': '568022401',  # General age check
+        'lastagecheckage': '1-0-1988',  # Redundancy
+        'wants_mature_content': '1',  # Store mature content
+        'mature_content': '1',  # Community mature content
+        'Steam_Language': 'english'  # Language redirect
+    }
+
+    return headers, cookies
+
+def get_steam_bypass_with_referer(appid):
+    """
+    Returns headers and cookies for Steam, with a specific AppID injected as the referer.
+    """
+    headers, cookies = get_steam_bypass()
+    headers['Referer'] = f'https://steamcommunity.com/app/{appid}'
+    return headers, cookies
+
+
 class HLTBManager:
     _instance = None
     _data = {}
@@ -192,7 +222,7 @@ def get_store_data(app_id, max_tags=10):
     Scrapes BOTH Tags and Description from the store page in one request.
     """
     url = f"https://store.steampowered.com/app/{app_id}/"
-    cookies = {'birthtime': '568022401', 'mature_content': '1'}
+    headers, cookies = get_steam_bypass_with_referer(app_id)
 
     data = {
         "tags": [],
@@ -200,7 +230,7 @@ def get_store_data(app_id, max_tags=10):
     }
 
     try:
-        response = requests.get(url, cookies=cookies, timeout=10)
+        response = requests.get(url, headers=headers, cookies=cookies, timeout=10)
         if response.status_code != 200:
             return data
 

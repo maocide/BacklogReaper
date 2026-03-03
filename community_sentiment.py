@@ -1,4 +1,3 @@
-
 import concurrent
 import concurrent.futures
 import difflib
@@ -13,8 +12,9 @@ from bs4 import BeautifulSoup
 
 from ai_tools import aiCall
 from safe_tool import safe_tool
-from web_tools import web_search
+from web_tools import web_search, get_steam_bypass, get_steam_bypass_with_referer
 import game_intelligence
+
 
 @safe_tool
 def scrape_steam_forums(appid, gamename):
@@ -24,20 +24,7 @@ def scrape_steam_forums(appid, gamename):
     """
     url = f"https://steamcommunity.com/app/{appid}/discussions/0/"  # /0/ is usually General
 
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': f'https://steamcommunity.com/app/{appid}'
-    }
-
-    # Steam bypass cookies
-    cookies = {
-        'birthtime': '568022401',  # General age check
-        'lastagecheckage': '1-0-1988',  # Redundancy
-        'wants_mature_content': '1',  # Store mature content
-        'mature_content': '1',  # Community mature content
-        'Steam_Language': 'english'  # Language redirect
-    }
+    headers, cookies = get_steam_bypass_with_referer(appid)
 
     response = requests.get(url, headers=headers, cookies=cookies, timeout=10)
     # Steam sometimes redirects to an age gate or main page if invalid
@@ -95,6 +82,7 @@ The JSON formatted TOPICS will follow."""
     # Standardized return
     return {"analysis": analysis, "_tokens": {"in": in_tokens, "out": out_tokens}}
 
+
 @safe_tool
 def get_webpage(url):
     """
@@ -108,7 +96,19 @@ def get_webpage(url):
     print(f"--- REAPER VISITING: {url} ---")
 
     try:
-        downloaded = trafilatura.fetch_url(url)
+        # If the URL is a Steam link, we should inject bypass headers and cookies.
+        # However, trafilatura.fetch_url does not easily accept cookies.
+        # We can use requests.get instead to fetch the HTML.
+        is_steam = 'steampowered.com' in url or 'steamcommunity.com' in url
+        if is_steam:
+            headers, cookies = get_steam_bypass()
+            resp = requests.get(url, headers=headers, cookies=cookies, timeout=10)
+            if resp.status_code != 200:
+                return {"error": "Could not retrieve the webpage (Network error)."}
+            downloaded = resp.text
+        else:
+            downloaded = trafilatura.fetch_url(url)
+
         if downloaded is None:
             return {"error": "Could not retrieve the webpage (Network error)."}
 
@@ -160,6 +160,7 @@ def get_webpage(url):
 
     except Exception as e:
         return {"error": f"Error processing page: {e}"}
+
 
 @safe_tool
 def scrape_reddit_search(game_name):
@@ -229,6 +230,7 @@ def scrape_reddit_search(game_name):
 
     return {"results": results}
 
+
 @safe_tool
 def scrape_4chan_thread(board_name: str, thread_id: int):
     board = Board(board_name)
@@ -249,7 +251,7 @@ def scrape_4chan_thread(board_name: str, thread_id: int):
                 "id": post.post_id,
                 "text": post.text_comment
             }
-            #thread_text += f"{post.post_id} {post.datetime}: {post.text_comment}\n\n"  # Replies
+            # thread_text += f"{post.post_id} {post.datetime}: {post.text_comment}\n\n"  # Replies
             thread_result["posts"].append(post_result)
 
     return thread_result
@@ -304,6 +306,7 @@ def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.4
 
     return []
 
+
 @safe_tool
 def scrape_4chan_thread_with_ai(search: str) -> dict:
     board = "v"
@@ -348,13 +351,13 @@ def scrape_4chan_thread_with_ai(search: str) -> dict:
         response = "No results found."
         in_tokens, out_tokens = 0, 0
 
-    #print(f"4chan Analysis:\n{response}\n")
-
+    # print(f"4chan Analysis:\n{response}\n")
 
     return {"analysis": response, "_tokens": {"in": in_tokens, "out": out_tokens}}
 
+
 @safe_tool
-def get_community_sentiment(game_name: str) :
+def get_community_sentiment(game_name: str):
     app = game_intelligence.get_steam_app_info(game_name)
 
     if not app:
@@ -370,7 +373,6 @@ def get_community_sentiment(game_name: str) :
 
     if appid:
         tasks["forums"] = (scrape_steam_forums, appid, game_name)
-
 
     results = {}
 
@@ -396,7 +398,7 @@ def get_community_sentiment(game_name: str) :
     chan_results = results.get("4chan") or {}
     reddit_results = results.get("reddit") or {}
     forums_results = results.get("forums") or {}
-    
+
     # Collect tokens
     total_in = 0
     total_out = 0
@@ -411,7 +413,7 @@ def get_community_sentiment(game_name: str) :
         "reddit_opinion": reddit_results,
         "steam_forums_opinion": forums_results,
     }
-    
+
     if total_in > 0 or total_out > 0:
         result["_tokens"] = {"in": total_in, "out": total_out}
 
@@ -438,7 +440,8 @@ def get_game_news(game_name: str, limit: int = 5):
     url = f"http://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid={appid}&count={limit}&maxlength=0&format=json"
 
     try:
-        resp = requests.get(url, timeout=10)
+        headers, cookies = get_steam_bypass_with_referer(appid)
+        resp = requests.get(url, headers=headers, cookies=cookies, timeout=10)
         data = resp.json()
 
         news_items = data.get('appnews', {}).get('newsitems', [])
@@ -471,7 +474,9 @@ def get_game_news(game_name: str, limit: int = 5):
         print(f"News API Error: {e}")
         return {"error": str(e)}
 
-if __name__ == "__main__":
-    #print(get_hltb_search_scrape("Akane"))
 
-    print(scrape_steam_forums(game_intelligence.get_steam_app_info("Cyberpunk 2077")["id"][0], gamename='Cyberpunk 2077'))
+if __name__ == "__main__":
+    # print(get_hltb_search_scrape("Akane"))
+
+    print(
+        scrape_steam_forums(game_intelligence.get_steam_app_info("Cyberpunk 2077")["id"][0], gamename='Cyberpunk 2077'))

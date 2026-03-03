@@ -20,7 +20,7 @@ from datetime import datetime
 from steam_web_api import Steam
 import settings
 from safe_tool import safe_tool
-from web_tools import get_hltb_data, get_store_data
+from web_tools import get_hltb_data, get_store_data, get_steam_bypass, get_steam_bypass_with_referer
 
 max_tags = 10
 steam_id = None
@@ -112,10 +112,9 @@ def search_steam_store(term, limit=10):
     encoded_term = urllib.parse.quote(term)
     url = f"https://store.steampowered.com/search/?term={encoded_term}&category1=998"  # 998 = Games only (no DLC)
 
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+    headers, cookies = get_steam_bypass()
 
-    response = requests.get(url, headers=headers, timeout=10)
+    response = requests.get(url, headers=headers, cookies=cookies, timeout=10)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     results = []
@@ -179,11 +178,10 @@ def get_similar_games(game_name):
 
     target_appid = app["id"][0]
 
-    # cookies to not get blocked by age gate
-    cookies = {'birthtime': '568022401', 'mature_content': '1'}
+    headers, cookies = get_steam_bypass_with_referer(target_appid)
     # This URL is what the Steam Client uses to populate the "More Like This" section
     url = f"https://store.steampowered.com/recommended/morelike/app/{target_appid}/"
-    response = requests.get(url, cookies=cookies, timeout=10)
+    response = requests.get(url, headers=headers, cookies=cookies, timeout=10)
 
     soup = BeautifulSoup(response.content, 'html.parser')
 
@@ -706,7 +704,8 @@ def get_reviews(appid, params={'json': 1}):
         A json object containing the reviews.
     """
     url = 'https://store.steampowered.com/appreviews/'
-    response = requests.get(url=url + str(appid), params=params, headers={'User-Agent': 'Mozilla/5.0'})
+    headers, cookies = get_steam_bypass_with_referer(appid)
+    response = requests.get(url=url + str(appid), params=params, headers=headers, cookies=cookies)
     # Print the final constructed URL
     print(response.url)
     return response.json()
@@ -994,10 +993,12 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
     if not steam_id: return {"error": "Could not resolve Steam ID."}
 
     try:
-        # 2. Fetch Data (Parallelize if possible, but sequential is fine for now)
-        # Fetch Schema for Descriptions (Crucial for AI context)
+        # Fetch Data
+        # Fetch Schema for Descriptions
         schema_url = f"http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={settings.STEAM_API_KEY}&appid={appid}"
-        schema_resp = requests.get(schema_url, timeout=5).json()
+        headers, cookies = get_steam_bypass_with_referer(appid)
+        schema_resp = requests.get(schema_url, headers=headers, cookies=cookies, timeout=5).json()
+
 
         # Build Map: API Name -> {Display Name, Description}
         ach_details = {}
@@ -1010,18 +1011,32 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
 
         # Fetch Global %
         global_url = f"http://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}&format=json"
-        global_resp = requests.get(global_url, timeout=5).json()
+        global_resp = requests.get(global_url, headers=headers, cookies=cookies, timeout=5).json()
         global_map = {a['name']: a['percent'] for a in
                       global_resp.get('achievementpercentages', {}).get('achievements', [])}
 
-        # Fetch User Progress
-        user_resp = steam.apps.get_user_achievements(steam_id, appid)
-        if 'playerstats' not in user_resp:
-            return {"error": "No stats found. Is profile private? Does he own the game?"}
+        user_ach_url = f"http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid={appid}&key={settings.STEAM_API_KEY}&steamid={steam_id}"
+        user_resp = requests.get(user_ach_url, timeout=5)
 
-        user_achievements = user_resp['playerstats'].get('achievements', [])
+        # Steam returns 403 if the game is unowned or unplayed
+        if user_resp.status_code == 403:
+            return {
+                "error": f"No achievement data found. The user likely does not own '{game_name}' or has 0 hours played."}
+        elif user_resp.status_code != 200:
+            return {"error": f"Steam API returned status code {user_resp.status_code}."}
 
-        # 3. Process Data
+        user_data = user_resp.json()
+
+        # Final safety check on the JSON structure
+        if 'playerstats' not in user_data or not user_data['playerstats'].get('success', False):
+            return {"error": "Could not parse player stats. Profile might actually be private."}
+
+        user_achievements = user_data['playerstats'].get('achievements', [])
+
+        if not user_achievements:
+            return {"error": "This game does not have Steam Achievements."}
+
+        # Process Data
         unlocked_list = []
         locked_list = []
 
@@ -1170,7 +1185,8 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
                 store_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=US"
                 # cc=US ensures dollar prices. Change if needed.
 
-                resp = requests.get(store_url, timeout=5).json()
+                headers, cookies = get_steam_bypass_with_referer(appid)
+                resp = requests.get(store_url, headers=headers, cookies=cookies, timeout=5).json()
 
                 if resp and str(appid) in resp and resp[str(appid)]['success']:
                     data = resp[str(appid)]['data']
@@ -1337,6 +1353,7 @@ def get_friends_who_own(game_name):
 
 
 if __name__ == "__main__":
-    print(get_friends_who_own(game_name="Helldivers 2"))
+    print(get_achievement_stats(-1, "akane"))
+    #print(get_friends_who_own(game_name="Helldivers 2"))
     #print(get_reviews_byname(game_name="Akane"))
 

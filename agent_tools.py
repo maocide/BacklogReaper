@@ -76,7 +76,6 @@ tools_schema = [
                     }
                 },
                 "required": ["action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -94,7 +93,6 @@ tools_schema = [
                     }
                 },
                 "required": ["action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -110,10 +108,13 @@ tools_schema = [
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of names to include (e.g. ['Doom', 'Tetris']). Ask for max 10 at a time."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
                 "required": ["game_names", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -135,7 +136,6 @@ tools_schema = [
                     }
                 },
                 "required": ["action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -157,7 +157,6 @@ tools_schema = [
                     }
                 },
                 "required": ["game_name", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -179,7 +178,6 @@ tools_schema = [
                     }
                 },
                 "required": ["query", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -202,7 +200,6 @@ tools_schema = [
                     }
                 },
                 "required": ["game_names", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -224,7 +221,6 @@ tools_schema = [
                     }
                 },
                 "required": ["search_term", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -246,7 +242,6 @@ tools_schema = [
                     }
                 },
                 "required": ["game_name", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -265,7 +260,6 @@ tools_schema = [
                     }
                 },
                 "required": ["game_name", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -284,7 +278,7 @@ tools_schema = [
                     },
                     "sort_by": {
                         "type": "string",
-                        "enum": ["priority", "cheapest", "recent", "cheapest", "discount", ],
+                        "enum": ["priority", "cheapest", "recent", "discount", ],
                         "description": "Sorting criteria. Default is 'shortest'."
                     },
                     "page": {
@@ -293,7 +287,6 @@ tools_schema = [
                     },
                 },
                 "required": ["game_name", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -312,7 +305,6 @@ tools_schema = [
                     }
                 },
                 "required": ["search", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -331,7 +323,6 @@ tools_schema = [
                     }
                 },
                 "required": ["url", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -357,7 +348,6 @@ tools_schema = [
                     }
                 },
                 "required": ["game_name", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -373,7 +363,6 @@ tools_schema = [
                     "action_description": {"type": "string"}
                 },
                 "required": ["game_name", "action_description"],
-                "additionalProperties": False
             }
         }
     },
@@ -395,7 +384,6 @@ tools_schema = [
                         }
                     },
                     "required": ["game_name", "action_description"],
-                    "additionalProperties": False
                 }
             }
     },

@@ -5,6 +5,7 @@ from networkx.algorithms.distance_measures import radius
 
 import styles
 
+
 class GrimoireTextField(ft.TextField):
     def __init__(self, **kwargs):
         # Override specific styles but allow kwargs to pass through
@@ -14,7 +15,9 @@ class GrimoireTextField(ft.TextField):
         kwargs.setdefault("border_color", styles.COLOR_BORDER_BRONZE)
         kwargs.setdefault("focused_border_color", styles.COLOR_TEXT_GOLD)
         kwargs.setdefault("focused_border_width", 2)
-        kwargs.setdefault("label_style", ft.TextStyle(color=styles.COLOR_ACCENT_DIM))
+        kwargs.setdefault("label_style", ft.TextStyle(color=styles.COLOR_ACCENT_DIM)) # Floating label
+        kwargs.setdefault("hint_style", ft.TextStyle(color=styles.COLOR_TEXT_SECONDARY, italic=True)) # Hint inside field
+
         super().__init__(**kwargs)
 
 class GlowingChatInput(ft.Container):

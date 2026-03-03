@@ -76,22 +76,33 @@ class Agent:
 
                 if delta.tool_calls:
                     is_tool_call = True
-                    for tool_chunk in delta.tool_calls:
-                        idx = tool_chunk.index
+                    for i, tool_chunk in enumerate(delta.tool_calls):
+                        # Fallback to the loop index 'i' if the API sends None
+                        idx = tool_chunk.index if tool_chunk.index is not None else i
+
+                        # --- GEMINI PARALLEL BUG FIX ---
+                        # If Google's API sends multiple tools but labels them all 'index=0',
+                        # we detect the collision if the chunk has a NEW id that doesn't match the buffer.
+                        if idx in tool_calls_buffer and getattr(tool_chunk, "id", None):
+                            if tool_calls_buffer[idx]["id"] and tool_calls_buffer[idx]["id"] != tool_chunk.id:
+                                # Force it into a new slot to prevent concatenation!
+                                idx = max(tool_calls_buffer.keys()) + 1
+
                         if idx not in tool_calls_buffer:
                             tool_calls_buffer[idx] = {"id": "", "name": "", "args": ""}
                             yield "status", "🧠 The Reaper is grabbing a tool..."
 
-                        if tool_chunk.id:
+                        if getattr(tool_chunk, "id", None):
                             tool_calls_buffer[idx]["id"] += tool_chunk.id
 
-                        if tool_chunk.function.name:
-                            tool_calls_buffer[idx]["name"] += tool_chunk.function.name
-                            friendly_name = agent_tools.get_friendly_status(tool_calls_buffer[idx]['name'])
-                            yield "status", f"{friendly_name}"
+                        if getattr(tool_chunk, "function", None):
+                            if getattr(tool_chunk.function, "name", None):
+                                tool_calls_buffer[idx]["name"] += tool_chunk.function.name
+                                friendly_name = agent_tools.get_friendly_status(tool_calls_buffer[idx]['name'])
+                                yield "status", f"{friendly_name}"
 
-                        if tool_chunk.function.arguments:
-                            tool_calls_buffer[idx]["args"] += tool_chunk.function.arguments
+                            if getattr(tool_chunk.function, "arguments", None):
+                                tool_calls_buffer[idx]["args"] += tool_chunk.function.arguments
 
             if encoding:
                 try:
@@ -139,19 +150,35 @@ class Agent:
                     friendly_status = agent_tools.get_friendly_status(func_name)
                     yield "status", f"{friendly_status} Working..."
                     print(f"Agent Calling: {func_name} | ID: {call_id}")
+                    print(f"Agent Calling: {func_name} | PARAMS: {func_args_str}")
 
+                    # SAFE JSON PARSING
                     try:
-                        params = json.loads(func_args_str)
-                        action_desc = params.get("action_description")
+                        # If string is empty, default to empty dictionary
+                        params = json.loads(func_args_str) if func_args_str else {}
+
+                        # Safely get the action description with a fallback
+                        action_desc = params.get("action_description", "Channeling the void...")
                         yield "action", action_desc
+
+                        # Execute
                         tool_result_str = agent_tools.execute_tool({"tool": func_name, "params": params})
+
+                    except json.JSONDecodeError:
+                        # Catch corrupted JSON from the model and return it AS JSON to the chat history
+                        print(f"CRITICAL: Model hallucinated bad JSON for {func_name}: {func_args_str}")
+                        yield "action", "Muttering incomprehensible dark incantations..."
+                        tool_result_str = json.dumps({"error": f"Invalid JSON arguments: {func_args_str}"})
+
                     except Exception as e:
-                        tool_result_str = f"Error executing tool: {str(e)}"
+                        # Catch execution errors and return AS JSON
+                        print(f"CRITICAL: Tool execution failed: {e}")
+                        tool_result_str = json.dumps({"error": f"Tool execution failed: {str(e)}"})
 
                     # Will get token usage as prepared by the wrap_output after executing the tool
                     try:
                         parsed_res = json.loads(tool_result_str)
-                        if "_token_usage" in parsed_res:
+                        if isinstance(parsed_res, dict) and "_token_usage" in parsed_res:
                             token_usage = parsed_res.pop("_token_usage")
                             yield "tokens", token_usage
                             # Repackage the JSON payload minus the _token_usage to save LLM context
