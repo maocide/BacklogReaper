@@ -12,6 +12,7 @@ from sympy import false
 
 import agent
 import character_manager
+import startup
 import vault
 import settings
 from character_manager import CharacterManager, Character
@@ -960,6 +961,12 @@ class ReaperChatView(ft.Container):
     async def send_message(self, e):
         user_message = self.br_input.current.value
         if not user_message:
+            return
+
+        ok_llm_keys, msg_llm_keys = startup.check_llm_keys()
+        if not ok_llm_keys:
+            self.page.show_dialog(ft.SnackBar(ft.Text(f"Please configure your LLM settings in the Settings tab: {msg_llm_keys}")))
+            self.page.update()
             return
 
         # Hide Background

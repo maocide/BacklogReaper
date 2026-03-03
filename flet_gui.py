@@ -7,6 +7,7 @@ from ui.tabs.library import LibraryView
 from ui.tabs.settings import SettingsView
 from ui.gatekeeper import GatekeeperView
 
+
 def main(page: ft.Page):
     page.title = "Backlog Reaper"
     page.theme_mode = ft.ThemeMode.DARK
@@ -66,6 +67,7 @@ def main(page: ft.Page):
         index = e.control.selected_index
 
         is_chat_tab = (index == 1)
+        is_settings_tab = (index == 3)
 
         view_dashboard.visible = (index == 0)
         view_chat.visible = (index == 1)
@@ -75,6 +77,9 @@ def main(page: ft.Page):
         # Refresh char selection and chat status
         if is_chat_tab:
             view_chat.refresh_state()
+
+        if is_settings_tab:
+            view_settings.refresh_state()
 
         page.update()
 
@@ -87,7 +92,7 @@ def main(page: ft.Page):
         bgcolor=styles.COLOR_SURFACE,
         indicator_color=styles.COLOR_TEXT_GOLD,
         destinations=[
-             ft.NavigationRailDestination(
+            ft.NavigationRailDestination(
                 icon=ft.Icons.PIE_CHART_OUTLINE,
                 selected_icon=ft.Icons.PIE_CHART,
                 label="Dashboard"
@@ -122,7 +127,7 @@ def main(page: ft.Page):
             view_settings
         ],
         expand=True,
-        visible=False # Initially hidden until Gatekeeper ritual is complete
+        visible=False  # Initially hidden until Gatekeeper ritual is complete
     )
 
     def on_ritual_complete():
@@ -151,5 +156,6 @@ def main(page: ft.Page):
         )
     )
 
+
 if __name__ == "__main__":
-    ft.run(main,  assets_dir="assets")
+    ft.run(main, assets_dir="assets")

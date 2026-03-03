@@ -832,16 +832,16 @@ def get_steam_app_info(game_name: str):
         title = app['name']
         title_clean = title.lower().strip()
 
-        # 1. THE GOLDEN TICKET: Exact Match
+        # Exact Match
         if title_clean == target_clean:
             print(f" -> EXACT MATCH FOUND: {title} ({app['id']})")
             return app
 
-        # 2. The "Close Enough" Metric (0.0 to 1.0)
+        # Close Enough Metric (0.0 to 1.0)
         # SequenceMatcher calculates how many edits it takes to turn A into B
         score = difflib.SequenceMatcher(None, target_clean, title_clean).ratio()
 
-        # Bonus: specific fix for "The" (e.g., "Witcher 3" vs "The Witcher 3")
+        # Specific fix for "The" ("Witcher 3" vs "The Witcher 3")
         if target_clean in title_clean:
             score += 0.1  # Boost partial contains
 
@@ -928,7 +928,7 @@ def get_steamspy_game_info(appid):
     return steamspypi.download(data_request)
 
 @safe_tool
-def get_reviews_byname(game_name, count=5):
+def get_reviews_byname(game_name, count=10):
     """
     Gets the reviews for a given game name.
 
@@ -975,90 +975,6 @@ def get_reviews_byname(game_name, count=5):
 
 
     return steam_reviews
-
-@safe_tool
-def get_reviews_byname_formatted(game_name, count=5):
-    """
-    Gets the reviews for a given game name.
-
-    Args:
-        game_name: The name of the game to get the reviews for.
-        count: The number of positive and negative reviews to get.
-
-    Returns:
-        A string containing the formatted reviews.
-    """
-    app = get_steam_app_info(game_name)
-
-    appid = app['id'][0]
-    price = app['price']
-
-    steam_reviews = get_steam_reviews(appid, count)
-    sleep(0.25) # Must be preserved to keep the api from chocking.
-    #gameinfo = get_steamspy_game_info(appid)
-
-    global_gameinfo = get_global_game_info(game_name, appid=appid)
-
-    return format_reviews_for_ai(price, steam_reviews, global_gameinfo)
-
-def format_reviews_for_ai(price, steam_reviews, gameinfo):
-    """
-    Formats the reviews and game info into a single string for the AI to analyze.
-
-    Args:
-        price: The price of the game.
-        steam_reviews: A dictionary containing the reviews, the review summary, and the number of positive and negative reviews.
-        gameinfo: A json object containing the game info from SteamSpy.
-
-    Returns:
-        A string containing the formatted reviews.
-    """
-    import textwrap
-    reviews = steam_reviews['reviews']
-    summary = steam_reviews['summary']
-    count_positive = steam_reviews['count_positive']
-    count_negative = steam_reviews['count_negative']
-
-    review_score = summary['review_score']
-    review_score_desc = summary['review_score_desc']
-    total_positive = summary['total_positive']
-    total_negative = summary['total_negative']
-
-    title = gameinfo.get('title')
-
-    human_reviews = f"""\
-    "{title}" data will follow:
-    ```json
-    {gameinfo}
-    ```
-
-    total positive reviews: {total_positive} total negative: {total_negative} score: {review_score} score description: {review_score_desc}
-    votes_up is how much a review is voted up, votes_funny is how much is voted funny.
-    Popular reviews, {count_positive} positive and {count_negative} negative as sample for {title} will follow:
-    ```
-    """
-
-    human_reviews = textwrap.dedent(human_reviews)
-
-    for review in reviews:
-        playtime_at_review = review.get('author').get('playtime_at_review')
-        num_games_owned = review.get('author').get('num_games_owned')
-        received_for_free = review.get('received_for_free')
-        voted_up = review.get('voted_up')
-        review_text = review.get('review')
-        votes_up = review.get('votes_up')
-        votes_funny = review.get('votes_funny')
-
-        human_reviews +=    ("---\nplaytime_at_review: {playtime_at_review}, num_games_owned: {num_games_owned}, received_for_free: {received_for_free}, positive: {voted_up}, votes_up: {votes_up}, votes_funny:{votes_funny}\ntext=\"\"\"\n{review_text}\n\"\"\"\n\n"
-                             .format(playtime_at_review=playtime_at_review, num_games_owned=num_games_owned, received_for_free=received_for_free, voted_up=voted_up, review_text=review_text, votes_up=votes_up, votes_funny=votes_funny))
-
-
-
-    human_reviews += """```"""
-
-
-    return human_reviews
-
 
 @safe_tool
 def get_achievement_stats(appid=-1, game_name="", page=None):
@@ -1195,7 +1111,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
     try:
         steam = Steam(settings.STEAM_API_KEY)
 
-        # 2. Get Raw List of AppIDs (Fast & Reliable)
+        # Get Raw List of AppIDs (Fast & Reliable)
         # Returns: [{'appid': 123, 'priority': 1, 'date_added': 12345}, ...]
         # This call bypasses the 'wishlistdata' URL redirect issue.
         raw_wishlist = steam.users.get_profile_wishlist(steam_id)
@@ -1205,7 +1121,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
         if not raw_wishlist:
             return {"error": "Wishlist is empty or private."}
 
-        # 3. Sort (Metadata)
+        # Sort (Metadata)
         # We sort by metadata *before* fetching details to save API calls.
         # Note: 'cheapest'/'discount' sorting is imperfect here because we don't have prices yet.
         # For those, we fetch the top 50 prioritized items and then sort them below.
@@ -1217,7 +1133,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
             # optimization: default to priority for the fetch batch
             raw_wishlist.sort(key=lambda x: x.get('priority', 999))
 
-        # 4. Pagination / Slicing
+        # Pagination / Slicing
         # If sorting by price, we fetch a larger batch (up to 50) to find deals.
         # Otherwise, we only fetch exactly what the page needs.
         items_to_process = []
@@ -1234,7 +1150,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
         if not items_to_process:
             return []  # End of list reached
 
-        # 5. Define Worker for Parallel Fetching
+        # Define Worker for Parallel Fetching
         def fetch_details_worker(item):
             appid = item['appid']
             # Default structure

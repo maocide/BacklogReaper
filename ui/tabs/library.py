@@ -1,6 +1,9 @@
 import threading
 import traceback
 import math
+import csv
+import os
+from datetime import datetime
 import flet as ft
 
 import vault
@@ -28,6 +31,7 @@ class LibraryView(ft.Container):
         self.gf_status = ft.Ref[ft.Text]()
         self.gf_progress = ft.Ref[ft.Container]() # Ref to the Container wrapping the bar
         self.gf_btn_update = ft.Ref[ft.FilledButton]()
+        self.gf_btn_export = ft.Ref[ft.FilledButton]()
         self.gf_page_info = ft.Ref[ft.Text]()
         self.gf_btn_prev = ft.Ref[ft.IconButton]()
         self.gf_btn_next = ft.Ref[ft.IconButton]()
@@ -35,6 +39,7 @@ class LibraryView(ft.Container):
         self.content = ft.Column([
             ft.Row([
                 ft.Text("Grimoire Library", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family=styles.FONT_HEADING),
+                GrimoireButton(ref=self.gf_btn_export, text="Export CSV", icon=ft.Icons.DOWNLOAD, on_click=self.export_csv_click),
                 GrimoireButton(ref=self.gf_btn_update, text="Update Library", icon=ft.Icons.REFRESH, on_click=self.start_update_click),
             ]),
             ft.Text(ref=self.gf_status, value="Ready", color=styles.COLOR_TEXT_SECONDARY, size=12),
@@ -262,6 +267,46 @@ class LibraryView(ft.Container):
         else:
              threading.Thread(target=self.run_update_thread, args=(username,), daemon=True).start()
 
+    # --- EXPORT THREAD ---
+
+    def run_export_thread(self):
+        try:
+            self.page.pubsub.send_all({"type": "update_status", "content": "Exporting Vault to CSV..."})
+
+            games = vault.get_all_games()
+
+            export_dir = "exports"
+            if not os.path.exists(export_dir):
+                os.makedirs(export_dir)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"backlog_export_{timestamp}.csv"
+            save_path = os.path.join(export_dir, filename)
+
+            if not games:
+                raise ValueError("Vault is empty, nothing to export.")
+
+            keys = games[0].keys()
+            with open(save_path, 'w', newline='', encoding='utf-8-sig') as output_file:
+                dict_writer = csv.DictWriter(output_file, fieldnames=keys)
+                dict_writer.writeheader()
+                dict_writer.writerows(games)
+
+            self.page.pubsub.send_all({"type": "export_complete", "content": save_path})
+
+        except Exception as e:
+            traceback.print_exc()
+            self.page.pubsub.send_all({"type": "update_error", "content": f"Export failed: {str(e)}"})
+
+    def export_csv_click(self, e):
+        self.gf_btn_export.current.disabled = True
+        self.gf_btn_export.current.update()
+
+        if hasattr(self.page, 'run_thread'):
+            self.page.run_thread(self.run_export_thread)
+        else:
+            threading.Thread(target=self.run_export_thread, daemon=True).start()
+
     def on_update_message(self, message):
         msg_type = message.get("type")
         content = message.get("content")
@@ -288,6 +333,31 @@ class LibraryView(ft.Container):
                 self.gf_progress.current.visible = False
                 self.gf_progress.current.update()
 
+        elif msg_type == "export_complete":
+            if self.gf_btn_export.current:
+                self.gf_btn_export.current.disabled = False
+                self.gf_btn_export.current.update()
+            if self.gf_status.current:
+                self.gf_status.current.value = f"Ready"
+                self.gf_status.current.color = styles.COLOR_TEXT_SECONDARY
+                self.gf_status.current.update()
+
+            # Show Feedback (Snackbar via show_dialog workaround)
+            save_path = content
+            snack = ft.SnackBar(
+                content=ft.Text(f"Export saved to {save_path}"),
+                action="OK"
+            )
+            if hasattr(self.page, 'show_dialog'):
+                 self.page.show_dialog(snack)
+            else:
+                 self.page.open(snack)
+
+            if hasattr(self.page, 'update_async'):
+                pass
+            else:
+                self.page.update()
+
         elif msg_type == "update_error":
             if self.gf_status.current:
                 self.gf_status.current.value = f"Error: {content}"
@@ -296,6 +366,9 @@ class LibraryView(ft.Container):
             if self.gf_btn_update.current:
                 self.gf_btn_update.current.disabled = False
                 self.gf_btn_update.current.update()
+            if self.gf_btn_export.current:
+                self.gf_btn_export.current.disabled = False
+                self.gf_btn_export.current.update()
 
             # Hide Progress
             if self.gf_progress.current:

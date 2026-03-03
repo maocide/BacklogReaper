@@ -167,7 +167,7 @@ class DashboardView(ft.Container):
             # Update Metrics
             if self.vs_metric_games.current: self.vs_metric_games.current.value = f"{stats['total_games']:,}"
             if self.vs_metric_hours.current: self.vs_metric_hours.current.value = f"{stats['total_hours']:,}h"
-            if self.vs_metric_backlog.current: self.vs_metric_backlog.current.value = f"{stats['backlog_hours']:,.2f}h"
+            if self.vs_metric_backlog.current: self.vs_metric_backlog.current.value = f"{stats['backlog_hours']:,}h"
 
             # Update Pie Chart
             status_counts = stats["status_counts"]

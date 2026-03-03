@@ -9,7 +9,10 @@ DEFAULT_SETTINGS = {
     "OPENAI_BASE_URL": "",
     "OPENAI_MODEL": "",
     "STEAM_USER": "",
-    "CHARACTER": "Reaper"
+    "CHARACTER": "Reaper",
+    "LLM_TEMPERATURE": 0.7,
+    "LLM_TOP_P": 1.0,
+    "LLM_PRESENCE_PENALTY": 0.0
 }
 
 def load_settings():
@@ -54,14 +57,20 @@ OPENAI_API_KEY = get_config("OPENAI_API_KEY")
 OPENAI_BASE_URL = get_config("OPENAI_BASE_URL")
 OPENAI_MODEL = get_config("OPENAI_MODEL")
 STEAM_USER = get_config("STEAM_USER")
+LLM_TEMPERATURE = float(get_config("LLM_TEMPERATURE") or 0.7)
+LLM_TOP_P = float(get_config("LLM_TOP_P") or 1.0)
+LLM_PRESENCE_PENALTY = float(get_config("LLM_PRESENCE_PENALTY") or 0.0)
 STEAM_PROFILE_PIC = None
 
 def reload():
     """Refreshes the config variables from the settings file."""
-    global STEAM_API_KEY, OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, STEAM_USER, _file_settings
+    global STEAM_API_KEY, OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, STEAM_USER, LLM_TEMPERATURE, LLM_TOP_P, LLM_PRESENCE_PENALTY, _file_settings
     _file_settings = load_settings()
     STEAM_API_KEY = get_config("STEAM_API_KEY")
     OPENAI_API_KEY = get_config("OPENAI_API_KEY")
     OPENAI_BASE_URL = get_config("OPENAI_BASE_URL")
     OPENAI_MODEL = get_config("OPENAI_MODEL")
     STEAM_USER = get_config("STEAM_USER")
+    LLM_TEMPERATURE = float(get_config("LLM_TEMPERATURE") or 0.7)
+    LLM_TOP_P = float(get_config("LLM_TOP_P") or 1.0)
+    LLM_PRESENCE_PENALTY = float(get_config("LLM_PRESENCE_PENALTY") or 0.0)

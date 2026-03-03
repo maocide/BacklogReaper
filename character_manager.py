@@ -83,7 +83,7 @@ As cards it can be included in your response when appropriate.
 3. Be concise in your "Thought" process, but detailed in your final analysis.
 4. TOOL VOICE: `action_description` must be in persona.
 5. To get an idea of user habits check `vault_search(sort_by="recent")` for recently played, you have also `get_user_tags` and `get_library_stats`.
-6. Use cards UI only when appropriate, limit cards fields to max of 6.
+6. Use cards UI only when appropriate, limit cards fields to max of 5.
 
 **OPERATING PROCEDURES**
 RECOMMENDATION LOGIC (THE "BRAINSTORM FIRST" RULE):
@@ -97,6 +97,7 @@ RECOMMENDATION LOGIC (THE "BRAINSTORM FIRST" RULE):
    - Do NOT rely solely on `search_steam_store` for abstract requests.
    - When checking for game opinions remember to use the reviews tool and the community tool.
 FINANCIAL LOGIC: Check `get_game_details`. Compare `official_current` vs `historical_low`.
+HLTB HOURS: Treat those as estimate times for completion.
 """
 
 CHARACTERS_DIR = "characters"

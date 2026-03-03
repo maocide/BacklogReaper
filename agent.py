@@ -4,6 +4,7 @@ from ai_tools import get_ai_client
 import settings
 import agent_tools
 
+
 class Agent:
     def __init__(self):
         pass
@@ -13,7 +14,7 @@ class Agent:
         Generator that handles Native Tool Calling streaming.
         Accepts a ChatHistory object.
         """
-        token_costs = (0,0)
+        token_costs = (0, 0)
 
         import tiktoken
         try:
@@ -41,7 +42,10 @@ class Agent:
                 model=settings.OPENAI_MODEL,
                 messages=messages_payload,
                 tools=agent_tools.tools_schema,
-                stream=True
+                stream=True,
+                temperature=settings.LLM_TEMPERATURE,
+                top_p=settings.LLM_TOP_P,
+                presence_penalty=settings.LLM_PRESENCE_PENALTY
             )
 
             full_content_buffer = ""
@@ -123,7 +127,8 @@ class Agent:
                 if full_reasoning_buffer:
                     assistant_msg_kwargs["reasoning_content"] = full_reasoning_buffer
 
-                chat_history.add_message("assistant", full_content_buffer if full_content_buffer else None, **assistant_msg_kwargs)
+                chat_history.add_message("assistant", full_content_buffer if full_content_buffer else None,
+                                         **assistant_msg_kwargs)
 
                 # 4. EXECUTE TOOLS
                 for tool_call in final_tool_calls:
@@ -154,7 +159,7 @@ class Agent:
                     except Exception as e:
                         print(f"Token count error for tool: {e}")
                         pass
-                        
+
                     chat_history.add_message("tool", tool_result_str, tool_call_id=call_id, name=func_name)
 
                 turn += 1

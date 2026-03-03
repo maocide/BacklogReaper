@@ -2,6 +2,7 @@ from openai import OpenAI
 import settings
 import datetime
 
+
 def aiCall(data, system, return_tokens=False):
     """
     Calls the OpenAI API to analyze the provided data.
@@ -23,11 +24,14 @@ def aiCall(data, system, return_tokens=False):
             {"role": "system", "content": system},
             {"role": "user", "content": data},
         ],
-        stream=False
+        stream=False,
+        temperature=settings.LLM_TEMPERATURE,
+        top_p=settings.LLM_TOP_P,
+        presence_penalty=settings.LLM_PRESENCE_PENALTY
     )
 
     content = response.choices[0].message.content
-    
+
     if return_tokens:
         in_tokens = getattr(response.usage, 'prompt_tokens', 0) if hasattr(response, 'usage') else 0
         out_tokens = getattr(response.usage, 'completion_tokens', 0) if hasattr(response, 'usage') else 0
@@ -35,8 +39,8 @@ def aiCall(data, system, return_tokens=False):
 
     return content
 
-def aiCall_chat(chat_history=None):
 
+def aiCall_chat(chat_history=None):
     if chat_history is None:
         chat_history = []
     client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=240.0)
@@ -44,25 +48,31 @@ def aiCall_chat(chat_history=None):
     response = client.chat.completions.create(
         model=settings.OPENAI_MODEL,
         messages=chat_history,
-        stream=False
+        stream=False,
+        temperature=settings.LLM_TEMPERATURE,
+        top_p=settings.LLM_TOP_P,
+        presence_penalty=settings.LLM_PRESENCE_PENALTY
     )
 
-    return(response.choices[0].message.content)
+    return (response.choices[0].message.content)
+
 
 def ai_chat_stream(chat_history=None):
     client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
     stream = client.chat.completions.create(
         model=settings.OPENAI_MODEL,
         messages=chat_history,
-        stream=True
+        stream=True,
+        temperature=settings.LLM_TEMPERATURE,
+        top_p=settings.LLM_TOP_P,
+        presence_penalty=settings.LLM_PRESENCE_PENALTY
     )
     return stream
 
+
 def get_ai_client():
     client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=240.0)
-    return(client)
-
-
+    return (client)
 
 
 def clean_json_for_ai(data, keep_keys=None, transformations=None, max_list_items=10):
@@ -88,8 +98,8 @@ def clean_json_for_ai(data, keep_keys=None, transformations=None, max_list_items
 
         # If value is None and we have a rule, we might want to handle it (e.g. N/A)
         if value is None:
-             if "or_na" in rule: return "N/A"
-             return value
+            if "or_na" in rule: return "N/A"
+            return value
 
         try:
             if rule == 'date':

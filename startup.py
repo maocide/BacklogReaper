@@ -18,6 +18,24 @@ def check_api_keys():
 
     return True, "API Keys configured."
 
+def check_llm_keys():
+    """
+    Checks if necessary LLM API keys and model configuration are present in config.
+    Returns: (bool, message)
+    """
+    missing = []
+    if not settings.OPENAI_API_KEY:
+        missing.append("OPENAI_API_KEY")
+    if not settings.OPENAI_BASE_URL:
+        missing.append("OPENAI_BASE_URL")
+    if not settings.OPENAI_MODEL:
+        missing.append("OPENAI_MODEL")
+
+    if missing:
+        return False, f"Missing LLM Configuration: {', '.join(missing)}"
+
+    return True, "LLM Keys configured."
+
 def check_database_populated():
     """
     Checks if the local vault has games.
@@ -51,6 +69,7 @@ def check_all():
     Returns: (bool, list of failures)
     """
     ok_keys, msg_keys = check_api_keys()
+    ok_llm_keys, msg_llm_keys = check_llm_keys()
 
     # HLTB check (Auto-download)
     ok_hltb, msg_hltb = check_hltb_dataset()
@@ -59,6 +78,7 @@ def check_all():
 
     failures = []
     if not ok_keys: failures.append(msg_keys)
+    if not ok_llm_keys: failures.append(msg_llm_keys)
     if not ok_hltb: failures.append(msg_hltb)
     # Database empty is not a critical failure preventing app start, but good to know
     if not ok_db: failures.append(msg_db)
@@ -68,6 +88,9 @@ def check_all():
     # Actually, let's keep the logic simple: if anything critical is missing, report it.
 
     critical_failures = []
+    # If LLM keys are missing it's not critical for startup (Gatekeeper only needs Steam keys),
+    # but check_api_keys includes OPENAI_API_KEY. However we don't block the app.
+    # Let's just collect it.
     if not ok_keys: critical_failures.append(msg_keys)
     if not ok_hltb: critical_failures.append(msg_hltb)
 
