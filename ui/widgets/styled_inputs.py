@@ -120,9 +120,9 @@ class GlowingChatInput(ft.Container):
         self.input_field.value = val
 
     # Helper method: Flet often needs to refocus the text box after you send a message
-    def focus(self):
+    async def focus(self):
         #self.input_field.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.WHITE)
-        self.input_field.focus()
+        await self.input_field.focus()
 
 class GrimoireDropdown(ft.Dropdown):
     def __init__(self, **kwargs):

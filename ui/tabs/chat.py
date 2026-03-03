@@ -1,3 +1,4 @@
+import random
 import time
 import json
 import threading
@@ -9,6 +10,7 @@ from warnings import catch_warnings
 
 import flet as ft
 from sympy import false
+from triton.experimental.gluon.language.amd.gfx1250.tdm import async_wait
 
 import agent
 import character_manager
@@ -24,7 +26,7 @@ from chat_history import ChatHistory
 import ui.utils
 from ui.widgets.chat_bubble import ReaperChatBubble
 from ui.widgets.game_card import GameCard
-from ui.widgets.styled_inputs import GrimoireTextField, GrimoireProgressBar, GlowingChatInput
+from ui.widgets.styled_inputs import GrimoireTextField, GrimoireProgressBar, GlowingChatInput, GrimoireButton
 
 
 class ReaperChatView(ft.Container):
@@ -80,6 +82,11 @@ class ReaperChatView(ft.Container):
             "needs_update": False
         }
 
+        self.prompt_chips_row = ft.Row(
+            alignment=ft.MainAxisAlignment.CENTER,
+            wrap=True
+        )
+
         self.content = ft.Column([
             ft.Row([
                 ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family=styles.FONT_HEADING),
@@ -95,8 +102,6 @@ class ReaperChatView(ft.Container):
                 padding=0,
                 content=ft.Stack(
                     controls=[
-                        # Background
-                        self._build_empty_state(),
                         # Chat List (Transparent overlay)
                         ft.SelectionArea(
                             content=ft.ListView(
@@ -108,7 +113,9 @@ class ReaperChatView(ft.Container):
                             ),
                             # Ensure SelectionArea fills the Stack to allow proper scrolling constraints
                             expand=True
-                        )
+                        ),
+                        # Empty state controls and bg
+                        self._build_empty_state(),
                     ],
                     expand=True,
                 )
@@ -235,6 +242,83 @@ class ReaperChatView(ft.Container):
         # No need to scroll, reverse list stays at bottom (0) by default
         # self.scroll_chat_to_bottom(500,0,True)
 
+    def _refresh_prompt_chips(self):
+        # Define prompt sets (Text, Icon)
+        prompt_sets = [
+            [
+                # Showcases: Stats aggregation + Roasting
+                ("Judge my library", ft.Icons.GAVEL),
+                # Showcases: Vector Vibe Search
+                ("Find a cozy game", ft.Icons.NIGHTLIGHT_ROUND),
+                # Showcases: Wishlist Tool + Pricing API
+                ("Any sales on my wishlist?", ft.Icons.ATTACH_MONEY),
+            ],
+            [
+                # Showcases: Stats aggregation + Roasting
+                ("What's my most shameful purchase?", ft.Icons.LOCAL_FIRE_DEPARTMENT),
+                # Showcases: Vector Vibe Search
+                ("Games for a rainy day", ft.Icons.WATER_DROP),
+                # Showcases: Vault Search
+                ("Pick a good game I barely played", ft.Icons.CASINO),
+            ],
+            [
+                # Showcases: Vault Search / General reasoning
+                ("What should I play next?", ft.Icons.VIDEOGAME_ASSET),
+                # Showcases: Steam Achievements API + Recent Games
+                ("Easiest achievements on my last game?", ft.Icons.EMOJI_EVENTS),
+                # Showcases: Steam Friends API + Recent Games
+                ("Are my friends playing my last game?", ft.Icons.PEOPLE),
+            ]
+        ]
+
+        # Pick a random set for this session
+        selected_prompts = random.choice(prompt_sets)
+
+        # Helper to create the styled Flet chips
+        def create_prompt_chip(text, icon):
+            async def chip_clicked(e):
+                # Fills the input field with the chip's text
+                self.br_input.current.value = text
+                self.br_input.current.update()
+
+                # Optional: Automatically focus the input field so they can just hit 'Enter'
+                # await self.br_input.current.focus()
+
+                await self.send_message(e)
+
+                # If you want it to auto-send instantly without them hitting Enter, you can call:
+                # self.send_message(None) # (or whatever your send function is named)
+
+            return GrimoireButton(
+                content=text,
+                icon=icon,
+                icon_color=styles.COLOR_TEXT_SECONDARY,  # Muted icon
+                color=styles.COLOR_TEXT_SECONDARY,
+                style=ft.ButtonStyle(
+                    color=styles.COLOR_TEXT_SECONDARY,
+                    bgcolor=ft.Colors.with_opacity(0.10, styles.COLOR_TEXT_PRIMARY),
+                    # Very faint background
+                    shape=ft.RoundedRectangleBorder(radius=8),
+                    # side=ft.BorderSide(1, styles.COLOR_BORDER_BRONZE),  Softer look
+                    padding=ft.padding.symmetric(horizontal=16, vertical=12),
+                ),
+                on_click=chip_clicked
+            )
+
+        # --- THE BULLETPROOF FLET FIX ---
+        # 1. Clear the existing controls in the exact Row object mounted in the UI
+        self.prompt_chips_row.controls.clear()
+
+        # 2. Append the new buttons directly into the existing list
+        for text, icon in selected_prompts:
+            self.prompt_chips_row.controls.append(create_prompt_chip(text, icon))
+
+        # 3. Safely update
+        try:
+            self.prompt_chips_row.update()
+        except Exception:
+            pass  # Ignores the error on initial boot
+
     def _build_empty_state(self):
         current_char = ""
         try:
@@ -244,6 +328,8 @@ class ReaperChatView(ft.Container):
                 current_char = "the Reaper"
         except Exception as e:
             print(f"Error loading settings: {e}")
+
+        self._refresh_prompt_chips()
 
         return ft.Container(
             ref=self.br_empty_state,  # We need a ref to hide it later
@@ -257,12 +343,16 @@ class ReaperChatView(ft.Container):
                         src="assets/summoning_circle.png",
                         width=450, height=450,
                         fit=ft.BoxFit.CONTAIN,
-                        opacity=0.12,  # Ghostly faint
-                        color_blend_mode=ft.BlendMode.MODULATE  # Optional blending
+                        opacity=0.12,
+                        color_blend_mode=ft.BlendMode.MODULATE
                     ),
                     ft.Text("The Ledger is Open", font_family=styles.FONT_HEADING, size=22, opacity=0.7),
                     ft.Text(f"Summon {current_char}...", font_family=styles.FONT_MONO, size=12, italic=True,
-                            color=styles.COLOR_TEXT_SECONDARY , ref=self.br_empty_state_name),
+                            color=styles.COLOR_TEXT_SECONDARY, ref=self.br_empty_state_name),
+
+                    # Chips
+                    ft.Container(height=15),
+                    self.prompt_chips_row
                 ]
             )
         )
@@ -826,6 +916,10 @@ class ReaperChatView(ft.Container):
         self.chat_history.save()
         await self.update_buttons(False) # Ensure we are in "Ready" state
 
+        # Force chat clear and shows empty state
+        if self.chat_history.get_chat_length() == 0:
+            self.execute_clear_chat(e=None)
+
     async def regenerate_click(self, e):
         await self.remove_message_actions(perform_update=False)
 
@@ -958,8 +1052,12 @@ class ReaperChatView(ft.Container):
             await ui.utils.smart_update(self.br_btn_stop.current)
 
 
-    async def send_message(self, e):
-        user_message = self.br_input.current.value
+    async def send_message(self, e, message=None):
+        if message:
+            user_message = message
+        else:
+            user_message = self.br_input.current.value
+
         if not user_message:
             return
 
@@ -1065,9 +1163,9 @@ class ReaperChatView(ft.Container):
             self.page.update()
 
     def execute_clear_chat(self, e):
-        """Performs the actual deletion after confirmation."""
+        """Performs the actual history deletion and chat ui clear."""
 
-        # Clear the backend data (Assuming you made a method that keeps the system prompt)
+        # Clear the backend data
         self.chat_history.reset_history()
         self.chat_history.save()
 
@@ -1075,11 +1173,15 @@ class ReaperChatView(ft.Container):
         if self.br_chat_list.current:
             self.br_chat_list.current.controls.clear()
 
+        # Force chips redraw
+        self._refresh_prompt_chips()
+
         # Bring back the Summoning Circle
         if self.br_empty_state.current:
             self.br_empty_state.current.visible = True
 
-        # close dialog
-        self.confirm_dialog.open = False
+        # Close dialog
+        if self.confirm_dialog:
+            self.confirm_dialog.open = False
 
         self.update()

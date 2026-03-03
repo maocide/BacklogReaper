@@ -1,14 +1,14 @@
-import os
 import styles
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 from ui.utils import get_roast_asset
+
 
 def generate_roast_image(game_data):
     """
     Generates a high-resolution image of the Roast Card using Pillow.
     Returns a PIL Image object.
     """
-    # 1. Configuration
+    # Configuration
     CARD_WIDTH = 600
     CARD_HEIGHT = 850
     PADDING = 40
@@ -46,7 +46,7 @@ def generate_roast_image(game_data):
         font_comment = font_heading
         print("Warning: DejaVu fonts not found, falling back.")
 
-    # 2. Base Image (Background)
+    # Base Image (Background)
     bg_theme = game_data.get("bg_theme", "DEFAULT")
     bg_path = get_roast_asset(bg_theme)
 
@@ -83,28 +83,28 @@ def generate_roast_image(game_data):
         # Fallback solid color
         base_img = final_bg
 
-    # 3. Gradient Overlay
+    # Gradient Overlay
     # Create a gradient from transparent to dark
-    overlay = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0,0,0,0))
+    overlay = Image.new("RGBA", (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
     draw_overlay = ImageDraw.Draw(overlay)
 
     # Simple vertical gradient
     for y in range(CARD_HEIGHT):
         progress = y / CARD_HEIGHT
         if progress < 0.4:
-             alpha = int(255 * 0.65)
+            alpha = int(255 * 0.65)
         elif progress < 0.7:
-             alpha = int(255 * 0.75)
+            alpha = int(255 * 0.75)
         else:
-             # Ramp up to 0.95
-             t = (progress - 0.7) / 0.3
-             alpha = int(255 * (0.75 + (0.20 * t)))
+            # Ramp up to 0.95
+            t = (progress - 0.7) / 0.3
+            alpha = int(255 * (0.75 + (0.20 * t)))
 
         draw_overlay.line([(0, y), (CARD_WIDTH, y)], fill=(17, 17, 17, alpha))
 
     base_img = Image.alpha_composite(base_img, overlay)
 
-    # 4. Draw Content
+    # Draw Content
     draw = ImageDraw.Draw(base_img)
 
     # Header (Title)
@@ -155,16 +155,50 @@ def generate_roast_image(game_data):
         # Color logic for status
         val_color = COLOR_TEXT_PRIMARY
         if title.lower() == "status":
-             val_color = COLOR_TEXT_GOLD
+            val_color = COLOR_TEXT_GOLD
 
         # Draw Label
         draw.text((PADDING, y_cursor), f"{label_text}: ", font=font_body_bold, fill=COLOR_TEXT_SECONDARY)
 
-        # Draw Value (offset x)
+        # Draw Value (offset x for first line)
         label_width = draw.textlength(f"{label_text}: ", font=font_body_bold)
-        draw.text((PADDING + label_width, y_cursor), content_text, font=font_body, fill=val_color)
 
+        # Wrap value if it's too long
+        value_words = content_text.split()
+        value_lines = []
+        current_value_line = []
+
+        first_line_available_width = CARD_WIDTH - PADDING - (PADDING + label_width)
+        subsequent_line_available_width = CARD_WIDTH - 2 * PADDING
+
+        for word in value_words:
+            test_line = ' '.join(current_value_line + [word])
+            # Check width based on whether it's the first line or not
+            w = draw.textlength(test_line, font=font_body)
+            available_w = first_line_available_width if not value_lines else subsequent_line_available_width
+
+            if w < available_w:
+                current_value_line.append(word)
+            else:
+                if current_value_line:
+                    value_lines.append(' '.join(current_value_line))
+                current_value_line = [word]
+
+        if current_value_line:
+            value_lines.append(' '.join(current_value_line))
+
+        # Handle empty content
+        if not value_lines:
+            value_lines = [""]
+
+        # Draw first line
+        draw.text((PADDING + label_width, y_cursor), value_lines[0], font=font_body, fill=val_color)
         y_cursor += 40
+
+        # Draw subsequent lines starting from PADDING
+        for line in value_lines[1:]:
+            draw.text((PADDING, y_cursor), line, font=font_body, fill=val_color)
+            y_cursor += 40
 
     # Spacer
     y_cursor += 20
@@ -193,18 +227,19 @@ def generate_roast_image(game_data):
             draw.text((PADDING, y_cursor), line, font=font_comment, fill=COLOR_BORDER_BRONZE)
             y_cursor += 35
 
-        draw.text((draw.textlength(lines[-1], font=font_comment) + PADDING + 5, y_cursor - 35), '"', font=font_comment, fill=COLOR_BORDER_BRONZE)
+        draw.text((draw.textlength(lines[-1], font=font_comment) + PADDING + 5, y_cursor - 35), '"', font=font_comment,
+                  fill=COLOR_BORDER_BRONZE)
 
     # Branding / Footer
     # draw.text((PADDING, CARD_HEIGHT - 40), "Backlog Reaper", font=font_body, fill=(50, 50, 50))
 
-    # 5. Apply Rounded Corners (Masking)
+    # Apply Rounded Corners (Masking)
     # Create a mask image (L mode)
     mask = Image.new("L", (CARD_WIDTH, CARD_HEIGHT), 0)
     draw_mask = ImageDraw.Draw(mask)
 
     # Draw white rounded rectangle on black mask
-    corner_radius = 50 # Matching roughly the 25.0 Flet radius scaled up
+    corner_radius = 50  # Matching roughly the 25.0 Flet radius scaled up
     draw_mask.rounded_rectangle([(0, 0), (CARD_WIDTH, CARD_HEIGHT)], radius=corner_radius, fill=255)
 
     # Apply mask to alpha channel of base image

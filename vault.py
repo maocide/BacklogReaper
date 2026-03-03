@@ -649,8 +649,10 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         results.sort(key=lambda x: x['name'])
     elif sort_by == 'recent':
         results.sort(key=lambda x: x['rtime_last_played'], reverse=True)
-    elif sort_by == 'review_score':
+    elif sort_by == 'score_best':
         results.sort(key=lambda x: x['review_score'], reverse=True)
+    elif sort_by == 'score_worst':
+        results.sort(key=lambda x: x['review_score'], reverse=False)
     elif sort_by == 'random':
         if seed is not None:
              random.Random(seed).shuffle(results)

@@ -59,7 +59,7 @@ tools_schema = [
                     },
                     "sort_by": {
                         "type": "string",
-                        "enum": ["random", "shortest", "longest", "recent", "name", "review_score"],
+                        "enum": ["random", "shortest", "longest", "recent", "name", "score_best", "score_worst"],
                         "description": "Sorting criteria. Default is 'shortest'."
                     },
                     "page": {
@@ -476,7 +476,7 @@ def execute_tool(tool_request):
     if "action_description" in clean_params:
         clean_params.pop("action_description")
 
-    print(f"Agent Calling: {tool_name} | Params: {clean_params}")
+    # print(f"Executing Tool")
 
     try:
         if tool_name == "vault_search":
