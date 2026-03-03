@@ -1017,7 +1017,7 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
         # Fetch User Progress
         user_resp = steam.apps.get_user_achievements(steam_id, appid)
         if 'playerstats' not in user_resp:
-            return {"error": "No stats found. Is profile private?"}
+            return {"error": "No stats found. Is profile private? Does he own the game?"}
 
         user_achievements = user_resp['playerstats'].get('achievements', [])
 
