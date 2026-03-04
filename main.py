@@ -10,6 +10,7 @@ from ui.gatekeeper import GatekeeperView
 
 def main(page: ft.Page):
     page.title = "Backlog Reaper"
+    page.window.icon = "reaper_icon.ico"
     page.theme_mode = ft.ThemeMode.DARK
     page.window.width = 1280
     page.window.height = 800
