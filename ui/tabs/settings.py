@@ -116,13 +116,13 @@ class SettingsView(ft.Container):
         header_row = ft.Row([
             ft.Text("Settings", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, font_family=styles.FONT_HEADING,
                     expand=True),
-            ft.Text(ref=self.set_status, value="", color=ft.Colors.GREY, italic=True),
             GrimoireButton(ref=self.btn_save, text="Save Settings", icon=ft.Icons.SAVE,
                            on_click=self.save_settings_click)
-        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+        ])
 
         self.content = ft.Column([
             header_row,
+            ft.Text(ref=self.set_status, value="", color=styles.COLOR_TEXT_SECONDARY, size=12),
             ft.Divider(color=styles.COLOR_ACCENT_DIM),
             ft.Container(
                 content=ft.Row([col_left, col_right], alignment=ft.MainAxisAlignment.START,
@@ -171,7 +171,7 @@ class SettingsView(ft.Container):
             self.set_status.current.update()
         if self.btn_save.current:
             self.btn_save.current.style.bgcolor = styles.COLOR_SURFACE
-            self.btn_save.current.style.color = styles.COLOR_TEXT_PRIMARY
+            self.btn_save.current.style.color = styles.COLOR_TEXT_GOLD
             self.btn_save.current.update()
 
     def _mark_unsaved(self, e):
@@ -208,7 +208,7 @@ class SettingsView(ft.Container):
             if self.btn_save.current:
                 # Revert save button style to default
                 self.btn_save.current.style.bgcolor = styles.COLOR_SURFACE
-                self.btn_save.current.style.color = styles.COLOR_TEXT_PRIMARY
+                self.btn_save.current.style.color = styles.COLOR_TEXT_GOLD
                 self.btn_save.current.update()
         else:
             self.set_status.current.value = "Error saving settings."
