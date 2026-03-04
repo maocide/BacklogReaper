@@ -104,10 +104,10 @@ class DashboardView(ft.Container):
                         value=fraction,
                         color=bar_color,
                         bgcolor=styles.COLOR_BACKGROUND,
-                        border_radius=ft.border_radius.all(6),
+                        border_radius=ft.border_radius.all(2),
                     ),
                     border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
-                    border_radius=ft.border_radius.all(6),
+                    border_radius=ft.border_radius.all(2),
                     padding=ft.padding.all(2),
                     bgcolor=styles.COLOR_SURFACE,
                     expand=True,  # Fills the middle space
