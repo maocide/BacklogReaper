@@ -87,63 +87,70 @@ The JSON formatted TOPICS will follow."""
 def get_webpage(url):
     """
     Visits a webpage and extracts content.
-    If content is long, it triggers a summarization step to save context tokens.
-
-    Args:
-        url (str): The URL to visit.
-        summary_agent_function (callable, optional): A function that takes text and returns a summary.
+    Includes special HTML parsing for Steam to avoid Trafilatura stripping the content.
     """
     print(f"--- REAPER VISITING: {url} ---")
 
     try:
-        # If the URL is a Steam link, we should inject bypass headers and cookies.
-        # However, trafilatura.fetch_url does not easily accept cookies.
-        # We can use requests.get instead to fetch the HTML.
         is_steam = 'steampowered.com' in url or 'steamcommunity.com' in url
+
         if is_steam:
+            print("   -> Steam URL detected. Using custom bypass and parser.")
             headers, cookies = get_steam_bypass()
+
+            # Bulletproof Trick: Force english via URL parameter just in case
+            if 'l=english' not in url:
+                separator = '&' if '?' in url else '?'
+                url = f"{url}{separator}l=english"
+
             resp = requests.get(url, headers=headers, cookies=cookies, timeout=10)
             if resp.status_code != 200:
-                return {"error": "Could not retrieve the webpage (Network error)."}
-            downloaded = resp.text
+                return {"error": f"Steam returned status {resp.status_code}."}
+
+            # STEAM EXTRACTION (Bypassing Trafilatura)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+
+            # Destroy the navigation, footer, and scripts so the LLM doesn't see the language menu
+            for junk in soup(["script", "style", "nav", "footer", "select"]):
+                junk.extract()
+
+            # Grab all remaining text
+            text = soup.get_text(separator='\n', strip=True)
+
+            # Clean up massive blank spaces
+            text = '\n'.join([line for line in text.split('\n') if line.strip()])
+
         else:
+            # STANDARD URLS (Let Trafilatura do its magic)
             downloaded = trafilatura.fetch_url(url)
+            if downloaded is None:
+                return {"error": "Could not retrieve the webpage (Network error)."}
 
-        if downloaded is None:
-            return {"error": "Could not retrieve the webpage (Network error)."}
-
-        # Extract Main Content
-        # output_format="markdown" preserves headers and bolding, which LLMs love.
-        text = trafilatura.extract(
-            downloaded,
-            include_comments=False,
-            include_tables=False,
-            include_links=True,
-            output_format="markdown"
-        )
+            text = trafilatura.extract(
+                downloaded,
+                include_comments=False,
+                include_tables=False,
+                include_links=True,
+                output_format="markdown"
+            )
 
         if not text:
             return {"error": "Page content was empty or unreadable."}
 
         # TOKEN SAFETY CHECK
-        # Approx 4 chars per token. 6000 chars is ~1500 tokens.
-        # If the text is massive, we must compress it before returning it to the main chat.
         raw_char_limit = 6000
 
         if len(text) > raw_char_limit:
             try:
                 print(f"--- CONTENT TOO LONG ({len(text)} chars). SUMMARIZING... ---")
 
-                # REFINED PROMPT
                 ai_system_prompt = """You are an uncensored web page analyzer for an AI agent assistant.
 1. **Objective:** Read the text (which may contain forum slang, NSFW language, or messy debates) and extract the core information to the main topic.
 2. **Format:** Do NOT use bolding or headers. Use ONLY newlines and dashes (-) to separate distinct points. Keep it dense but structured.
 3. **Safety:** Do not sanitize the meaning, but condense the ranting."""
 
-                # Assuming aiCall signature is (user_message, system_message)
                 summary, in_tokens, out_tokens = aiCall(text, ai_system_prompt, return_tokens=True)
 
-                # OPTIONAL: Add a tag so the main agent knows this was summarized
                 return {
                     "content": f"[SUMMARY OF WEBPAGE]:\n{summary}",
                     "_tokens": {"in": in_tokens, "out": out_tokens}
@@ -151,7 +158,6 @@ def get_webpage(url):
 
             except Exception as e:
                 print(f"Error summarizing WEB PAGE: {e}")
-                # Fallback: Head + Tail is the perfect strategy for reviews/forums
                 head = text[:3000]
                 tail = text[-2000:]
                 return {"content": f"{head}\n\n... [SECTION REMOVED FOR BREVITY] ...\n\n{tail}"}
@@ -477,6 +483,6 @@ def get_game_news(game_name: str, limit: int = 5):
 
 if __name__ == "__main__":
     # print(get_hltb_search_scrape("Akane"))
-
-    print(
-        scrape_steam_forums(game_intelligence.get_steam_app_info("Cyberpunk 2077")["id"][0], gamename='Cyberpunk 2077'))
+    print(get_webpage("https://store.steampowered.com/app/884260/Akane/"))
+    #print(
+    #    scrape_steam_forums(game_intelligence.get_steam_app_info("Cyberpunk 2077")["id"][0], gamename='Cyberpunk 2077'))
