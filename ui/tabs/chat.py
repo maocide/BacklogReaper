@@ -461,7 +461,8 @@ class ReaperChatView(ft.Container):
             reasoning_control=reasoning_control,
             reasoning_title="Dark Machinations...",
             avatar_src=avatar_path,
-            reasoning_expanded=reasoning_expanded
+            reasoning_expanded=reasoning_expanded,
+            markdown_text=text,
         )
 
     async def add_action_display(self, description = "Using tool"):

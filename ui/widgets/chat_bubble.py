@@ -4,7 +4,7 @@ from ui.utils import mix_color
 
 class ReaperChatBubble(ft.Container):
     def __init__(self, avatar_name, content_control, is_user, reasoning_control=None, reasoning_title="Reasoning",
-                 reasoning_ref=None, reasoning_visible=True, avatar_src=None, reasoning_expanded=False):
+                 reasoning_ref=None, reasoning_visible=True, avatar_src=None, reasoning_expanded=False, markdown_text="",):
         super().__init__()
         self.avatar_name = avatar_name
         self.content_control = content_control
@@ -16,6 +16,7 @@ class ReaperChatBubble(ft.Container):
         self.avatar_src = avatar_src
         self.reasoning_expanded = reasoning_expanded
         self.avatar_content = None
+        self.markdown_text = markdown_text
 
         # Tag for identifying message type in the list
         self.data = "user_message" if is_user else "assistant_message"
@@ -149,8 +150,41 @@ class ReaperChatBubble(ft.Container):
         # Combine reasoning (if any) and main content
         bubble_interior = []
 
+
+
+        def copy_bubble_text(e):
+            self.page.run_task(ft.Clipboard().set, self.markdown_text)
+            e.page.show_dialog(ft.SnackBar(ft.Text(f"Copied {self.avatar_name}'s words.")))
+            e.page.update()
+
+        is_copy_visible = markdown_text != ""
+
+        self.copy_button = ft.IconButton(
+                        icon=ft.Icons.COPY,
+                        tooltip="Copy this message",
+                        icon_color=styles.COLOR_TEXT_SECONDARY,
+                        icon_size=14,
+                        width=24,  # Force the button to be small
+                        height=24,  # Force the button to be small
+                        style=ft.ButtonStyle(
+                            padding=0,  # Kill the default Flet padding
+                            shape=ft.CircleBorder()
+                        ),
+                        on_click=copy_bubble_text,
+                        visible=is_copy_visible,
+                    )
+
         if not self.is_user:
-            bubble_interior.append(ft.Text(self.avatar_name, size=12, color=reaper_name_color, weight=ft.FontWeight.BOLD))
+            # Row for name and copy icon
+            header_row = ft.Row(
+                controls=[
+                    ft.Text(self.avatar_name, size=12, color=reaper_name_color, weight=ft.FontWeight.BOLD),
+                    self.copy_button,
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER
+            )
+            bubble_interior.append(header_row)
         else:
             bubble_interior.append(ft.Text(self.avatar_name, size=12, color=user_name_color, weight=ft.FontWeight.BOLD))
 
@@ -218,3 +252,10 @@ class ReaperChatBubble(ft.Container):
             self.avatar_content.content = src
             # Removed explicit update() to prevent synchronous network calls from threads
             # and to allow batched updates by the caller.
+
+
+    def update(self):
+        super.update()
+        is_copy_visible = self.markdown_text != ""
+        self.copy_button.is_visible = is_copy_visible
+        self.copy_button.update()

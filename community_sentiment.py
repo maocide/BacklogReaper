@@ -1,6 +1,5 @@
 import concurrent
 import concurrent.futures
-import difflib
 import json
 import re
 from datetime import datetime
@@ -14,7 +13,7 @@ from ai_tools import aiCall
 from safe_tool import safe_tool
 from web_tools import web_search, get_steam_bypass, get_steam_bypass_with_referer
 import game_intelligence
-
+from thefuzz import fuzz
 
 @safe_tool
 def scrape_steam_forums(appid, gamename):
@@ -264,7 +263,7 @@ def scrape_4chan_thread(board_name: str, thread_id: int):
 
 
 @safe_tool
-def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.4) -> list:
+def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.7) -> list:
     """
     Scans a 4chan board for threads matching the topic_search string.
     Returns list of thread IDs where similarity > threshold.
@@ -287,21 +286,36 @@ def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.4
         # Safety check: OP text can be None (image only)
         comment = (thread.posts[0].text_comment or "").lower()
 
-        # Check Subject (Title)
-        subj_ratio = 0
-        if subject:
-            subj_ratio = difflib.SequenceMatcher(None, search_lower, subject).ratio()
 
-        # Check Comment (Body) - give it slightly less weight? No, max is fine.
-        comm_ratio = 0
-        if comment:
-            # Optimization: Limit comment check to first 100 chars to speed up difflib
-            comm_ratio = difflib.SequenceMatcher(None, search_lower, comment[:100]).ratio()
+        # # Check Subject (Title)
+        # subj_ratio = 0
+        # if subject:
+        #     subj_ratio = difflib.SequenceMatcher(None, search_lower, subject).ratio()
+        #
+        # # Check Comment (Body) - give it slightly less weight? No, max is fine.
+        # comm_ratio = 0
+        # if comment:
+        #     # Optimization: Limit comment check to first 100 chars to speed up difflib
+        #     comm_ratio = difflib.SequenceMatcher(None, search_lower, comment[:100]).ratio()
+        #
+        # max_ratio = max(subj_ratio, comm_ratio)
+        #
+        #
+        # if max_ratio >= threshold:
+        #     thread_matches.append((max_ratio, thread.id))
+        #     print(f"Found with {max_ratio}. Topic: {topic_search},\n subject {subject},\n comment: {comment}\n")
 
-        max_ratio = max(subj_ratio, comm_ratio)
+        combined_text = f"{subject} {comment}"
 
-        if max_ratio >= threshold:
-            thread_matches.append((max_ratio, thread.id))
+        # partial_ratio returns a score from 0 to 100
+        score = fuzz.partial_ratio(search_lower, combined_text) / 100.0
+
+        if score >= threshold:
+            thread_matches.append((score, thread.id))
+            print(f"Found with {score}. Topic: {topic_search},\n subject {subject},\n comment: {comment}\n")
+
+
+
 
     # Sort by best match
     thread_matches.sort(key=lambda x: x[0], reverse=True)
@@ -316,13 +330,13 @@ def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.4
 @safe_tool
 def scrape_4chan_thread_with_ai(search: str) -> dict:
     board = "v"
-    thread_ids = find_4chan_thread(board, search, threshold=0.45)  # Stricter for main board
+    thread_ids = find_4chan_thread(board, search, threshold=0.7)  # Stricter for main board
 
     # Fallback to /vg/ if /v/ fails
     if not thread_ids:
         # print("No match on /v/, checking /vg/...")
         board = "vg"
-        thread_ids = find_4chan_thread(board, search, threshold=0.4)  # Slightly looser for generals
+        thread_ids = find_4chan_thread(board, search, threshold=0.68)  # Slightly looser for generals
 
     if not thread_ids:
         return {"analysis": "The Horde is silent. (No relevant 4chan threads found)."}
@@ -483,6 +497,7 @@ def get_game_news(game_name: str, limit: int = 5):
 
 if __name__ == "__main__":
     # print(get_hltb_search_scrape("Akane"))
-    print(get_webpage("https://store.steampowered.com/app/884260/Akane/"))
+    #print(get_webpage("https://store.steampowered.com/app/884260/Akane/"))
+    print(find_4chan_thread(topic_search="marathon", board_name="v", threshold=0.7))
     #print(
     #    scrape_steam_forums(game_intelligence.get_steam_app_info("Cyberpunk 2077")["id"][0], gamename='Cyberpunk 2077'))

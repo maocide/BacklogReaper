@@ -1,3 +1,4 @@
+thefuzz
 basc-py4chan
 ddgs
 beautifulsoup4

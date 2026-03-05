@@ -1,4 +1,6 @@
 import flet as ft
+import sys
+import os
 import startup
 import styles
 from ui.tabs.dashboard import DashboardView
@@ -10,7 +12,20 @@ from ui.gatekeeper import GatekeeperView
 
 def main(page: ft.Page):
     page.title = "Backlog Reaper"
-    page.window.icon = "reaper_icon.ico"
+
+    # Platform-specific icon handling
+    # Wayland/Linux prefers PNG. Windows prefers ICO.
+    if sys.platform == "win32":
+        page.window.icon = "reaper_icon.ico"
+    else:
+        # Use an absolute path for Linux/Wayland compatibility locally,
+        # fallback to just filename if running packaged or web.
+        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "reaper_icon.png"))
+        if os.path.exists(icon_path):
+            page.window.icon = icon_path
+        else:
+            page.window.icon = "reaper_icon.png"
+
     page.theme_mode = ft.ThemeMode.DARK
     page.window.width = 1280
     page.window.height = 800
