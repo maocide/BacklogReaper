@@ -38,15 +38,29 @@ class Agent:
             # Access the raw list for the API call
             messages_payload = chat_history.get_history()
 
-            stream = client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=messages_payload,
-                tools=agent_tools.tools_schema,
-                stream=True,
-                temperature=settings.LLM_TEMPERATURE,
-                top_p=settings.LLM_TOP_P,
-                presence_penalty=settings.LLM_PRESENCE_PENALTY
-            )
+            create_kwargs = {
+                "model": settings.OPENAI_MODEL,
+                "messages": messages_payload,
+                "tools": agent_tools.tools_schema,
+                "stream": True,
+                "temperature": settings.LLM_TEMPERATURE,
+                "top_p": settings.LLM_TOP_P,
+                "presence_penalty": settings.LLM_PRESENCE_PENALTY
+            }
+
+            # Request thinking/reasoning from the model
+            if "gemini" in settings.OPENAI_MODEL.lower():
+                create_kwargs["extra_body"] = {
+                    "extra_body": {
+                        "google": {
+                            "thinking_config": {
+                                "include_thoughts": True
+                            }
+                        }
+                    }
+                }
+
+            stream = client.chat.completions.create(**create_kwargs)
 
             full_content_buffer = ""
             full_reasoning_buffer = ""
@@ -56,23 +70,61 @@ class Agent:
             has_started_reasoning = False
             has_finished_reasoning = False
 
+            is_gemini_thinking_tag = False
+
             yield "status", "🤔 Thinking..."
 
             # 2. Process the Stream
             for chunk in stream:
+                if not chunk.choices:
+                    continue
+
                 delta = chunk.choices[0].delta
 
-                if hasattr(delta, "reasoning_content") and delta.reasoning_content:
+                # Extract reasoning content (Deepseek format)
+                reasoning_chunk = getattr(delta, "reasoning_content", None)
+
+                if reasoning_chunk:
                     if not has_started_reasoning:
                         has_started_reasoning = True
-                    yield "reasoning", delta.reasoning_content
-                    full_reasoning_buffer += delta.reasoning_content
+                    yield "reasoning", reasoning_chunk
+                    full_reasoning_buffer += reasoning_chunk
 
                 if delta.content:
-                    if has_started_reasoning and not has_finished_reasoning:
-                        has_finished_reasoning = True
-                    yield "text", delta.content
-                    full_content_buffer += delta.content
+                    text_chunk = delta.content
+
+                    # Intercept Gemini's nested <thought> tags from the main content stream
+                    if "<thought>" in text_chunk:
+                        is_gemini_thinking_tag = True
+                        text_chunk = text_chunk.replace("<thought>", "")
+
+                    if "</thought>" in text_chunk:
+                        is_gemini_thinking_tag = False
+                        parts = text_chunk.split("</thought>")
+                        # Yield the last bit of reasoning before the tag closes
+                        if parts[0]:
+                            if not has_started_reasoning:
+                                has_started_reasoning = True
+                            yield "reasoning", parts[0]
+                            full_reasoning_buffer += parts[0]
+
+                        # And any standard text that comes after
+                        if len(parts) > 1 and parts[1]:
+                            if has_started_reasoning and not has_finished_reasoning:
+                                has_finished_reasoning = True
+                            yield "text", parts[1]
+                            full_content_buffer += parts[1]
+
+                    elif is_gemini_thinking_tag:
+                        if not has_started_reasoning:
+                            has_started_reasoning = True
+                        yield "reasoning", text_chunk
+                        full_reasoning_buffer += text_chunk
+                    else:
+                        if has_started_reasoning and not has_finished_reasoning:
+                            has_finished_reasoning = True
+                        yield "text", text_chunk
+                        full_content_buffer += text_chunk
 
                 if delta.tool_calls:
                     is_tool_call = True
@@ -89,11 +141,24 @@ class Agent:
                                 idx = max(tool_calls_buffer.keys()) + 1
 
                         if idx not in tool_calls_buffer:
-                            tool_calls_buffer[idx] = {"id": "", "name": "", "args": ""}
+                            tool_calls_buffer[idx] = {"id": "", "name": "", "args": "", "thought_signature": ""}
                             yield "status", "🧠 The Reaper is grabbing a tool..."
 
                         if getattr(tool_chunk, "id", None):
                             tool_calls_buffer[idx]["id"] += tool_chunk.id
+
+                        # Correctly extract thought_signature from the tool_call root extra_content as per Google's OpenAI compatibility schema
+                        if hasattr(tool_chunk, "model_dump"):
+                            try:
+                                chunk_dict = tool_chunk.model_dump()
+                                google_data = chunk_dict.get("google", {})
+                                if not google_data and "extra_content" in chunk_dict and chunk_dict["extra_content"]:
+                                    google_data = chunk_dict["extra_content"].get("google", {})
+
+                                if "thought_signature" in google_data and google_data["thought_signature"]:
+                                    tool_calls_buffer[idx]["thought_signature"] += google_data["thought_signature"]
+                            except Exception:
+                                pass
 
                         if getattr(tool_chunk, "function", None):
                             if getattr(tool_chunk.function, "name", None):
@@ -123,14 +188,25 @@ class Agent:
                 final_tool_calls = []
                 for idx in sorted(tool_calls_buffer.keys()):
                     tool_data = tool_calls_buffer[idx]
-                    final_tool_calls.append({
+                    tc = {
                         "id": tool_data["id"],
                         "type": "function",
                         "function": {
                             "name": tool_data["name"],
                             "arguments": tool_data["args"]
                         }
-                    })
+                    }
+                    # Place thought_signature inside the root extra_content object as required by the API schema
+                    if tool_data.get("thought_signature"):
+                        tc["extra_content"] = {
+                            "google": {
+                                "thought_signature": tool_data["thought_signature"]
+                            }
+                        }
+                        # Also place it in function directly for robust proxy fallback
+                        tc["function"]["thought_signature"] = tool_data["thought_signature"]
+
+                    final_tool_calls.append(tc)
 
                 assistant_msg_kwargs = {
                     "tool_calls": final_tool_calls
