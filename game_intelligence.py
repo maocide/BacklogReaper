@@ -1,8 +1,10 @@
 
 import difflib
+import platform
 import re
 import urllib
 import urllib.parse
+from pprint import pprint
 from time import sleep
 from typing import Any
 from urllib.parse import unquote
@@ -691,6 +693,26 @@ def generate_contextual_dna(game_name, limit=10):
 
     return results
 
+
+def get_current_os_for_steam():
+    """
+    Detects the local operating system and maps it to the
+    Steam API's expected 'os' parameter format.
+    """
+    sys_name = platform.system().lower()
+
+    if sys_name == "linux":
+        # This catches standard Linux desktop and SteamOS (Steam Deck)
+        return "linux"
+    elif sys_name == "darwin":
+        # Python registers macOS as 'darwin'
+        return "mac"
+    elif sys_name == "windows":
+        return "windows"
+    else:
+        # Fallback for unsupported/other OS types
+        return "all"
+
 @safe_tool
 def get_reviews(appid, params={'json': 1}):
     """
@@ -738,7 +760,7 @@ def get_reviews_summary(appid):
 
 
 @safe_tool
-def get_n_reviews(appid, n, review_type="all"):
+def get_n_reviews(appid, n, review_type="all", filter_os=True):
     reviews = []
     # Use a set for O(1) duplicate lookups
     seen_ids = set()
@@ -750,8 +772,13 @@ def get_n_reviews(appid, n, review_type="all"):
         'language': 'english',  # Usually safer to specify, or Steam defaults to user's IP locale
         'review_type': review_type,
         'purchase_type': 'all',
-        'num_per_page': 100
+        'filter_offtopic_activity': 1,
+        'num_per_page': 100,
+
     }
+
+    if filter_os:
+        params['os'] = get_current_os_for_steam()
 
     last_cursor = ""
 
@@ -888,17 +915,32 @@ def get_steam_app_details(appid: int) -> Any:
 @safe_tool
 def get_steam_reviews(appid, count):
     """
-    Gets the reviews for a given appid from the Steam store.
-
-    Args:
-        appid: The id of the app to get the reviews for.
-        count: The number of positive and negative reviews to get.
-
-    Returns:
-        A dictionary containing the reviews, the review summary, and the number of positive and negative reviews.
+    Gets a hybrid mix of OS-specific and general reviews for a given appid.
     """
-    positive = get_n_reviews(appid, count, "positive")
-    negative = get_n_reviews(appid, count, "negative")
+    # Split the requested count in half
+    os_count = count // 2
+    all_count = count - os_count
+
+    # Fetch OS-specific reviews (Tech perspective)
+    pos_os = get_n_reviews(appid, os_count, "positive", filter_os=True)
+    neg_os = get_n_reviews(appid, os_count, "negative", filter_os=True)
+
+    # Fetch General reviews (Big picture perspective)
+    pos_all = get_n_reviews(appid, all_count, "positive", filter_os=False)
+    neg_all = get_n_reviews(appid, all_count, "negative", filter_os=False)
+
+    # Helper function to merge and deduplicate by recommendationid
+    def merge_and_dedupe(list1, list2):
+        merged = {}
+        for review in list1 + list2:
+            rid = review.get('recommendationid')
+            if rid not in merged:
+                merged[rid] = review
+        return list(merged.values())
+
+    # Combine the lists
+    positive = merge_and_dedupe(pos_os, pos_all)
+    negative = merge_and_dedupe(neg_os, neg_all)
 
     reviews = positive + negative
 
@@ -906,9 +948,14 @@ def get_steam_reviews(appid, count):
     count_negative = len(negative)
 
     summary = get_reviews_summary(appid)
-    summary["num_reviews"] = None # Not needed
+    summary = clean_json_for_ai(summary, ['review_score', 'review_score_desc', 'total_negative', 'total_positive', 'total_reviews'])
 
-    return {'reviews': reviews, 'summary': summary, 'fetch_positive': count_positive, 'fetch_negative': count_negative}
+    return {
+        'reviews': reviews,
+        'summary': summary,
+        'fetch_positive': count_positive,
+        'fetch_negative': count_negative
+    }
 
 @safe_tool
 def get_steamspy_game_info(appid):
@@ -952,6 +999,8 @@ def get_reviews_byname(game_name, count=10):
             "review",
             "author",
             "playtime_at_review",
+            "voted_up",
+            "refunded",
             "votes_funny",
             "votes_up",
             "timestamp_created",
@@ -970,8 +1019,6 @@ def get_reviews_byname(game_name, count=10):
     steam_reviews["reviews"] = clean_json_for_ai(steam_reviews['reviews'],
                                       transformations=review_schema["transformations"],
                                       keep_keys=review_schema["keep_keys"])
-
-
 
     return steam_reviews
 
@@ -1353,7 +1400,7 @@ def get_friends_who_own(game_name):
 
 
 if __name__ == "__main__":
-    print(get_achievement_stats(-1, "akane"))
+    #print(get_achievement_stats(-1, "akane"))
     #print(get_friends_who_own(game_name="Helldivers 2"))
-    #print(get_reviews_byname(game_name="Akane"))
+    pprint(get_reviews_byname(game_name="Marathon"))
 

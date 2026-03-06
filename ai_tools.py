@@ -75,7 +75,7 @@ def get_ai_client():
     return (client)
 
 
-def clean_json_for_ai(data, keep_keys=None, transformations=None, max_list_items=10):
+def clean_json_for_ai(data, keep_keys=None, transformations=None):
     """
     Recursively optimizes JSON data for AI ingestion.
 
@@ -83,7 +83,6 @@ def clean_json_for_ai(data, keep_keys=None, transformations=None, max_list_items
     :param keep_keys: A list of strings. If provided, ONLY these keys are kept in dicts.
     :param transformations: A dict mapping 'key_name' -> 'type_of_conversion'.
                             Types: 'date', 'minutes_to_hours', 'seconds_to_hours', 'round_2'.
-    :param max_list_items: Truncate lists longer than this to save tokens.
     """
     if transformations is None:
         transformations = {}
@@ -142,7 +141,7 @@ def clean_json_for_ai(data, keep_keys=None, transformations=None, max_list_items
                 continue
 
             # 2. Transform: Recursive call
-            new_val = clean_json_for_ai(v, keep_keys, transformations, max_list_items)
+            new_val = clean_json_for_ai(v, keep_keys, transformations)
 
             # 3. Value Conversion: Apply formatting rule based on key name
             final_val = apply_transform(k, new_val)
@@ -151,9 +150,7 @@ def clean_json_for_ai(data, keep_keys=None, transformations=None, max_list_items
         return new_dict
 
     elif isinstance(data, list):
-        # Truncate list if too long
-        sliced_list = data[:max_list_items]
-        return [clean_json_for_ai(item, keep_keys, transformations, max_list_items) for item in sliced_list]
+        return [clean_json_for_ai(item, keep_keys, transformations) for item in data]
 
     else:
         # Base case (int, str, bool, etc.)
