@@ -10,9 +10,10 @@ import ai_tools
 import settings
 from web_tools import get_store_data
 from web_tools import get_hltb_data
+import paths
 
 # Config
-DB_NAME = 'backlog_vault.db'
+DB_NAME = str(paths.get_base_dir() / "backlog_vault.db")
 
 import time
 from datetime import datetime
@@ -177,6 +178,7 @@ def get_connection():
     check_same_thread=False allows basic multi-threaded usage,
     but it's safer to just open/close per function.
     """
+    paths.ensure_dirs()  # Ensure directory exists before creating DB
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     conn.row_factory = sqlite3.Row  # Allows dict-like access (row['name'])
     return conn

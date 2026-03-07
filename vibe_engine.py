@@ -4,6 +4,7 @@ import os
 import json
 import vault
 import threading
+import paths
 
 class VibeEngine:
     _instance = None
@@ -16,9 +17,12 @@ class VibeEngine:
                 cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, cache_file="vibe_cache.json"):
+    def __init__(self, cache_file=None):
         if self._initialized:
             return
+
+        if cache_file is None:
+            cache_file = str(paths.get_base_dir() / "vibe_cache.json")
 
         self.model_name = 'all-MiniLM-L6-v2'
         self.cache_file = cache_file
@@ -49,6 +53,7 @@ class VibeEngine:
                         raise e
 
     def load_cache(self):
+        paths.ensure_dirs()
         if os.path.exists(self.cache_file):
             try:
                 with open(self.cache_file, 'r') as f:

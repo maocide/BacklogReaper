@@ -1,6 +1,7 @@
 import styles
 from PIL import Image, ImageDraw, ImageFont
 from ui.utils import get_roast_asset
+import paths
 
 
 def generate_roast_image(game_data):
@@ -22,7 +23,7 @@ def generate_roast_image(game_data):
 
     # Fonts
     # Attempt to load Cinzel for headers
-    font_path_heading = "assets/fonts/Cinzel-VariableFont_wght.ttf"
+    font_path_heading = str(paths.get_asset_path("assets", "fonts", "Cinzel-VariableFont_wght.ttf"))
     try:
         font_heading = ImageFont.truetype(font_path_heading, 52)
     except IOError:

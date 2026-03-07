@@ -4,6 +4,9 @@ import vault
 from ui.utils import get_roast_asset, launch_game, get_status_color
 from ui.widgets.styled_inputs import GrimoireButton
 from ui.roast_renderer import generate_roast_image
+import paths
+from datetime import datetime
+import os
 
 # TOGGLE: Set to False to disable the rarity-colored borders
 SHOW_RARITY_BORDER = False
@@ -172,13 +175,12 @@ class GameCard(ft.Card):
             img = generate_roast_image(self.game_data)
 
             # 2. Determine Save Path
-            export_dir = "exports"
-            if not os.path.exists(export_dir):
-                os.makedirs(export_dir)
+            paths.ensure_dirs()
+            export_dir = paths.get_base_dir() / "exports"
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"roast_{timestamp}.png"
-            save_path = os.path.join(export_dir, filename)
+            save_path = export_dir / filename
 
             # 3. Save Image
             img.save(save_path)

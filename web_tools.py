@@ -12,6 +12,7 @@ from duckduckgo_search.exceptions import DuckDuckGoSearchException, TimeoutExcep
 from safe_tool import safe_tool
 from types import SimpleNamespace
 import kagglehub
+import paths
 
 def get_steam_bypass():
     """
@@ -61,6 +62,9 @@ class HLTBManager:
         """
         try:
             print("   [HLTB] Ensuring dataset availability...")
+            paths.ensure_dirs()
+            # Set the cache directory for kagglehub to be inside the base dir
+            os.environ["KAGGLEHUB_CACHE"] = str(paths.get_base_dir() / "data" / "kagglehub_cache")
             path = kagglehub.dataset_download("b4n4n4p0wer/how-long-to-beat-video-game-playtime-dataset")
             # Look for the main csv
             csv_path = os.path.join(path, "hltb_dataset.csv")

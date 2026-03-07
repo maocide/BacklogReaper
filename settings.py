@@ -1,7 +1,8 @@
 import json
 import os
+import paths
 
-SETTINGS_FILE = 'settings.json'
+SETTINGS_FILE = str(paths.get_base_dir() / "settings.json")
 
 DEFAULT_SETTINGS = {
     "STEAM_API_KEY": "",
@@ -18,6 +19,7 @@ DEFAULT_SETTINGS = {
 def load_settings():
     """Loads settings from the JSON file, or returns defaults if not found."""
     if not os.path.exists(SETTINGS_FILE):
+        paths.ensure_dirs()  # Ensure directories exist on first run
         return DEFAULT_SETTINGS.copy()
 
     try:

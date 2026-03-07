@@ -3,6 +3,7 @@ import copy
 import os
 import traceback
 import tiktoken
+import paths
 
 from ai_tools import aiCall
 import agent_tools
@@ -187,9 +188,9 @@ class ChatHistory:
 
     def save(self):
         # Ensure the data directory exists
-        os.makedirs("data/chats", exist_ok=True)
+        paths.ensure_dirs()
 
-        file_path = f"data/chats/{self.character_name.lower()}_history.json"
+        file_path = str(paths.get_data_dir() / "data" / "chats" / f"{self.character_name.lower()}_history.json")
 
         data = {
             "character": self.character_name,
@@ -201,7 +202,7 @@ class ChatHistory:
 
     def load(self, character):
         self._load_character(character)  # Ensures we have name
-        file_path = f"data/chats/{self.character_name.lower()}_history.json"
+        file_path = str(paths.get_data_dir() / "data" / "chats" / f"{self.character_name.lower()}_history.json")
 
         try:
             json_loaded = json.load(open(file_path))

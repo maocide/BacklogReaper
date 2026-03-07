@@ -2,6 +2,7 @@ import flet as ft
 import sys
 import os
 import startup
+import paths
 import styles
 from ui.tabs.dashboard import DashboardView
 from ui.tabs.chat import ReaperChatView
@@ -14,15 +15,13 @@ def main(page: ft.Page):
     page.title = "Backlog Reaper"
 
     # Platform-specific icon handling
-    # Wayland/Linux prefers PNG. Windows prefers ICO.
     if sys.platform == "win32":
         page.window.icon = "reaper_icon.ico"
     else:
-        # Use an absolute path for Linux/Wayland compatibility locally,
-        # fallback to just filename if running packaged or web.
-        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "reaper_icon.png"))
-        if os.path.exists(icon_path):
-            page.window.icon = icon_path
+        # Use path resolution for bundled assets
+        icon_path = paths.get_asset_path("assets", "reaper_icon.png")
+        if icon_path.exists():
+            page.window.icon = str(icon_path)
         else:
             page.window.icon = "reaper_icon.png"
 
@@ -58,6 +57,7 @@ def main(page: ft.Page):
 
     # STARTUP CHECKS
     # We still run checks for HLTB/DB, but Gatekeeper handles Steam Keys.
+    paths.ensure_dirs()  # Ensure directories exist
     is_ready, failures = startup.check_all()
     if not is_ready:
         print("STARTUP CHECKS WARNINGS:")

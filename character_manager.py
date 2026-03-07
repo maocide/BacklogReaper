@@ -4,6 +4,7 @@ import base64
 from datetime import datetime
 from PIL import Image
 import settings
+import paths
 
 AGENT_SYSTEM_PROMPT_TEMPLATE = """
 You have access to the user's "Vault" (local database of games populated via steam api) and external game data tools.
@@ -100,7 +101,7 @@ FINANCIAL LOGIC: Check `get_game_details`. Compare `official_current` vs `histor
 HLTB HOURS: Treat those as estimate times for completion.
 """
 
-CHARACTERS_DIR = "characters"
+CHARACTERS_DIR = str(paths.get_base_dir() / "characters")
 
 class Character:
     def __init__(self, name, description="", personality="", scenario="", first_mes="", mes_example=""):
@@ -173,14 +174,9 @@ Use the current time and date to contextualize data received.
 
 class CharacterManager:
     @staticmethod
-    def ensure_characters_dir():
-        if not os.path.exists(CHARACTERS_DIR):
-            os.makedirs(CHARACTERS_DIR)
-
-    @staticmethod
     def get_available_characters():
         """Returns a list of available character names (filenames without extension)."""
-        CharacterManager.ensure_characters_dir()
+        paths.ensure_dirs()
         chars = []
         if os.path.exists(CHARACTERS_DIR):
             for f in os.listdir(CHARACTERS_DIR):
@@ -200,7 +196,7 @@ class CharacterManager:
 
     @staticmethod
     def get_character_image(name):
-        CharacterManager.ensure_characters_dir()
+        paths.ensure_dirs()
         png_path = os.path.join(CHARACTERS_DIR, f"{name}.png")
         if os.path.exists(png_path):
             return png_path
@@ -213,7 +209,7 @@ class CharacterManager:
         Prioritizes .json, then .png.
         Returns a Character object.
         """
-        CharacterManager.ensure_characters_dir()
+        paths.ensure_dirs()
 
         data = None
         # Try JSON first

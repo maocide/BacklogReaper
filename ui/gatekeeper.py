@@ -13,6 +13,7 @@ import ui.utils
 import vault
 from ui.widgets.styled_inputs import GrimoireButton, GrimoireTextField, GrimoireProgressBar
 from vibe_engine import VibeEngine
+import paths
 
 
 class GatekeeperView(ft.Container):
@@ -129,7 +130,7 @@ class GatekeeperView(ft.Container):
 
         # BACKGROUND
         self.background_image = ft.Image(
-            src="assets/gatekeeper_bg.png",
+            src=str(paths.get_asset_path("assets", "gatekeeper_bg.png")),
             fit=ft.BoxFit.COVER, # Flet 0.80+
             opacity=0.3,
             error_content=ft.Container(bgcolor=styles.COLOR_BACKGROUND)

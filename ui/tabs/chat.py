@@ -18,6 +18,7 @@ import startup
 import vault
 import settings
 from character_manager import CharacterManager, Character
+import paths
 import game_intelligence
 from vibe_engine import VibeEngine
 import styles
@@ -340,7 +341,7 @@ class ReaperChatView(ft.Container):
                 spacing=10,
                 controls=[
                     ft.Image(
-                        src="assets/summoning_circle.png",
+                        src=str(paths.get_asset_path("assets", "summoning_circle.png")),
                         width=450, height=450,
                         fit=ft.BoxFit.CONTAIN,
                         opacity=0.12,

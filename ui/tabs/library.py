@@ -12,6 +12,7 @@ import styles
 from ui.utils import get_status_color
 from vibe_engine import VibeEngine
 from ui.widgets.styled_inputs import GrimoireButton, GrimoireProgressBar
+import paths
 
 class LibraryView(ft.Container):
     def __init__(self):
@@ -275,13 +276,12 @@ class LibraryView(ft.Container):
 
             games = vault.get_all_games()
 
-            export_dir = "exports"
-            if not os.path.exists(export_dir):
-                os.makedirs(export_dir)
+            paths.ensure_dirs()
+            export_dir = paths.get_base_dir() / "exports"
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"backlog_export_{timestamp}.csv"
-            save_path = os.path.join(export_dir, filename)
+            save_path = export_dir / filename
 
             if not games:
                 raise ValueError("Vault is empty, nothing to export.")

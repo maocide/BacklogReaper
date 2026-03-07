@@ -4,6 +4,7 @@ import os
 import styles
 import subprocess
 import platform
+import paths
 
 async def smart_update(control):
     """
@@ -89,16 +90,16 @@ def get_roast_asset(status_text):
 
     # Define the strict mapping
     assets = {
-        "HOARDER": "assets/cards/hoarder.png",
-        "CASUAL": "assets/cards/casual.png",
-        "BROKE": "assets/cards/broke.png",
-        "HARDCORE": "assets/cards/hardcore.png",
-        "ROASTED": "assets/cards/roasted.png",
-        "DEFAULT": "assets/cards/default.png"
+        "HOARDER": str(paths.get_asset_path("assets", "cards", "hoarder.png")),
+        "CASUAL": str(paths.get_asset_path("assets", "cards", "casual.png")),
+        "BROKE": str(paths.get_asset_path("assets", "cards", "broke.png")),
+        "HARDCORE": str(paths.get_asset_path("assets", "cards", "hardcore.png")),
+        "ROASTED": str(paths.get_asset_path("assets", "cards", "roasted.png")),
+        "DEFAULT": str(paths.get_asset_path("assets", "cards", "default.png"))
     }
 
     # Return the specific asset, or the Clean card if the Agent invents a new status
-    return assets.get(key, "assets/cards/default.png")
+    return assets.get(key, str(paths.get_asset_path("assets", "cards", "default.png")))
 
 def mix_color(color1, color2, weight=0.5):
     """
