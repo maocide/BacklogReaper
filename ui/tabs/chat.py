@@ -282,7 +282,7 @@ class ReaperChatView(ft.Container):
                 self.br_input.current.value = text
                 self.br_input.current.update()
 
-                # Optional: Automatically focus the input field so they can just hit 'Enter'
+                # Automatically focus the input field
                 # await self.br_input.current.focus()
 
                 await self.send_message(e)
@@ -872,9 +872,7 @@ class ReaperChatView(ft.Container):
             alignment=ft.MainAxisAlignment.END,
             data="message_action_buttons"
         )
-        # In reverse list, Index 0 is the BOTTOM (newest). Actions go below the message.
-        # Wait, visual order: Message -> Actions (below it).
-        # List order: [Actions, Message, ... Oldest]
+        # In reverse list, Index 0 is the BOTTOM (newest).
         self.br_chat_list.current.controls.insert(0, actions_row)
 
     async def remove_message_actions(self, perform_update=True):

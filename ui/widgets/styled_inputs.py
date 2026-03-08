@@ -69,13 +69,13 @@ class GlowingChatInput(ft.Container):
             border=ft.border.all(1, styles.COLOR_BORDER_BRONZE),
             border_radius=ft.border_radius.all(4),
 
-            # THE JITTER FIX: 1px of padding offsets the 1px border difference
+            # 1px of padding offsets the 1px border difference to prevent jitter on hoover
             padding=ft.padding.all(1),
 
             animate=ft.Animation(250, ft.AnimationCurve.FAST_OUT_SLOWIN),
             shadow=self.base_shadow,
             expand=expand_val,
-            on_hover=self._on_hover,  # Added the hover trigger
+            on_hover=self._on_hover,  # Hoover trigger
             **kwargs
         )
 
@@ -97,8 +97,6 @@ class GlowingChatInput(ft.Container):
         self.border = ft.border.all(2, styles.COLOR_TEXT_GOLD)
         self.padding = ft.padding.all(0)
 
-        # Enforce the highlight
-        #self.input_field.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.WHITE)
         self.update()
 
     def _animate_glow_out(self, e):
@@ -107,8 +105,6 @@ class GlowingChatInput(ft.Container):
         self.border = ft.border.all(1, styles.COLOR_BORDER_BRONZE)
         self.padding = ft.padding.all(1)
 
-        # Reset to completely transparent
-        #self.input_field.bgcolor = ft.Colors.TRANSPARENT  # The crucial fix!
         self.update()
 
     @property
@@ -121,7 +117,6 @@ class GlowingChatInput(ft.Container):
 
     # Helper method: Flet often needs to refocus the text box after you send a message
     async def focus(self):
-        #self.input_field.bgcolor = ft.Colors.with_opacity(0.05, ft.Colors.WHITE)
         await self.input_field.focus()
 
 class GrimoireDropdown(ft.Dropdown):
@@ -154,7 +149,6 @@ class GrimoireButton(ft.FilledButton):
 
         # FilledButton in older versions might not support 'text' param directly if using 'content'
         # But 'text' usually maps to setting content=ft.Text(text)
-        # Checking introspection, __init__ has 'content' but not 'text'.
         content = None
         if text:
             content = ft.Text(text)
@@ -170,7 +164,7 @@ class GrimoireProgressBar(ft.Container):
     """
 
     def __init__(self, width=300, height=12, **kwargs):
-        # 1. The actual bar must be WHITE and TRANSPARENT so the shader applies correctly
+        # The actual bar must be WHITE and TRANSPARENT so the shader applies correctly
         self.internal_bar = ft.ProgressBar(
             value=None,  # Indeterminate by default
             color=ft.Colors.WHITE,
@@ -178,7 +172,7 @@ class GrimoireProgressBar(ft.Container):
             border_radius=ft.BorderRadius.all(0),
         )
 
-        # 2. Define the magical gradient (Deep Blue -> Electric Azure -> Bright Cyan)
+        # Define the gradient (Deep Blue -> Electric Azure -> Bright Cyan)
         self.mana_gradient = ft.LinearGradient(
             begin=ft.Alignment.CENTER_LEFT,
             end=ft.Alignment.CENTER_RIGHT,
@@ -189,13 +183,13 @@ class GrimoireProgressBar(ft.Container):
             ],
         )
 
-        # 3. Wrap the bar in the ShaderMask
+        # Wrap the bar in the ShaderMask
         self.masked_bar = ft.ShaderMask(
             content=self.internal_bar,
             blend_mode=ft.BlendMode.SRC_IN,
             shader=self.mana_gradient,
             border_radius=ft.BorderRadius.all(0),
-            expand=True,  # Ensure the mask stretches correctly
+            expand=True,
         )
 
         super().__init__(
@@ -203,8 +197,8 @@ class GrimoireProgressBar(ft.Container):
             height=height,
             border=ft.Border.all(1, styles.COLOR_BORDER_BRONZE),
             border_radius=ft.BorderRadius.all(0),  # edges
-            padding=ft.Padding.symmetric(horizontal=3, vertical=3),  # "Glass thickness"
-            bgcolor=styles.COLOR_BACKGROUND,  # The void behind the glass
-            content=self.masked_bar,  # Use the masked version here!
+            padding=ft.Padding.symmetric(horizontal=3, vertical=3),  # Glass thickness
+            bgcolor=styles.COLOR_BACKGROUND,  # Bg behind the glass
+            content=self.masked_bar,
             **kwargs
         )

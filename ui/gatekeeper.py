@@ -28,7 +28,7 @@ class GatekeeperView(ft.Container):
         self.stop_event = threading.Event()
 
 
-        # STATE 1: THE CONTRACT (Inputs)
+        # Inputs
         self.tf_steam_id = GrimoireTextField(
             label="Steam Username",
             hint_text="e.g. 'GabeNewell69'",

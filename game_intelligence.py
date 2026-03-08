@@ -46,13 +46,9 @@ def resolve_steam_id(username_or_id):
     # Try resolving as a Vanity URL (The most common case)
     # This hits: http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/
     try:
-        # The library might expose this, but sometimes it's hidden.
-        # If steam.users.resolve_vanity_url(username_or_id) exists, use that.
-        # Otherwise, 'search_user' usually does the trick.
-
         user_data = steam.users.search_user(username_or_id)
 
-        # search_user returns a payload like: {'player': {'steamid': '765...', ...}}
+        # search_user: {'player': {'steamid': '765...', ...}}
         if 'player' in user_data and 'steamid' in user_data['player']:
             return user_data['player']['steamid']
 
@@ -173,7 +169,7 @@ def get_similar_games(game_name):
     Returns:
         :return: the game details and a max of 9 similar games details according to steam
     """
-    # get app info from api
+    # Get app info from api
     app = get_steam_app_info(game_name)
     if not app:
         return {"error": f"Game '{game_name}' not found on Steam."}
@@ -187,11 +183,11 @@ def get_similar_games(game_name):
 
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    # 1. Target the specific grid container.
+    # Target the specific grid container.
     # The main "Similar Items" list usually has the id="released" in this specific view.
     container = soup.find('div', id="released")
 
-    # 2. Find all the "capsules" (the clickable game images)
+    # Find all the "capsules" (the clickable game images)
     # We limit to the first 5 for this example, remove [:5] to get them all
     items = container.find_all('a', class_='similar_grid_capsule')[:9]
 
@@ -200,7 +196,7 @@ def get_similar_games(game_name):
     for item in items:
         url = item.get('href')
 
-        # 3. Extract the title from the URL
+        # Extract the title from the URL
         # URL format: https://store.steampowered.com/app/ID/GAME_NAME/?snr=...
         try:
             # Use urllib to robustly parse the URL path
@@ -225,7 +221,6 @@ def get_similar_games(game_name):
         except (IndexError, ValueError):
             continue
 
-    # Output results
     print(f"Found {len(games_found)} games:")
     similar_games = []
 
@@ -277,7 +272,7 @@ def get_game_deals(title, appid):
                     return None
         return None
 
-    # --- STEP 1: Find the Game ---
+    # Find the Game
     search_url = "https://www.cheapshark.com/api/1.0/games"
     search_params = {
         "title": title,
@@ -307,7 +302,7 @@ def get_game_deals(title, appid):
     print(f"   Found: {game_name}")
     print(f"   Deal ID: {deal_id}")
 
-    # --- STEP 2: Use the ID for the Second Request ---
+    # Use the ID for the Second Request
     deal_url = "https://www.cheapshark.com/api/1.0/deals"
     deal_params = {
         "id": deal_id
@@ -370,8 +365,7 @@ def get_global_game_info(game_name, appid=None):
         dict: A dictionary containing aggregated game information
     """
 
-    # CRITICAL We must get the AppID first.
-    # We can't parallelize this because other calls need the ID.
+    # Must get the AppID first
     if appid is None:
         app_info = get_steam_app_info(game_name)
         if not app_info:
@@ -495,19 +489,19 @@ def get_global_game_info(game_name, appid=None):
     if positive is not None and negative is not None and positive + negative != 0:
         approval = round(positive / (positive + negative), 2)
 
-    # --- PRICE PER HOUR CALCULATION ---
+    # PRICE PER HOUR CALCULATION
     price_per_hour = "N/A (No Data)"
     price_per_hour_low = "N/A (No Data)"
     user_price_per_hour = "N/A (Not Owned)"
 
     try:
-        # 1. Get Main Story Hours
+        # Get Main Story Hours
         main_hours = 0
         if how_long_to_beat and len(how_long_to_beat) > 0:
             main_hours = float(how_long_to_beat[0].main_story)
 
         if main_hours > 0:
-            # 2. Calculate for Official Steam Price
+            # Calculate for Official Steam Price
             # game_info['price'] is usually in Cents (e.g. 1999 for $19.99)
             steam_price_cents = game_info.get('price')
             if steam_price_cents is not None:
@@ -515,7 +509,7 @@ def get_global_game_info(game_name, appid=None):
                 pph = steam_price / main_hours
                 price_per_hour = f"${pph:.2f}/h"
 
-            # 3. Calculate for Lowest Found Price (CheapShark)
+            # Calculate for Lowest Found Price (CheapShark)
             if best_deal and isinstance(best_deal, dict) and 'price' in best_deal:
                 # best_deal['price'] is usually a string "14.99"
                 deal_price = float(best_deal['price'])
@@ -526,7 +520,7 @@ def get_global_game_info(game_name, appid=None):
             price_per_hour = "N/A (No HLTB Data)"
             price_per_hour_low = "N/A (No HLTB Data)"
 
-        # 4. User Cost Per Hour (Your Cost / Your Playtime)
+        # User Cost Per Hour (Your Cost / Your Playtime)
         # Use Current Store Price as proxy for "Your Cost" since we don't have purchase history
         game_in_vault = vault.get_game_by_appid(appid)
         if game_in_vault:
@@ -588,7 +582,7 @@ def get_batch_game_details(game_names: list[str]) -> list:
     Returns:
         List of game info payloads.
     """
-    print(f"--- BATCH FETCHING {len(game_names)} GAMES ---")
+    print(f"BATCH FETCHING {len(game_names)} GAMES")
 
     results = []
 
@@ -728,8 +722,8 @@ def get_reviews(appid, params={'json': 1}):
     url = 'https://store.steampowered.com/appreviews/'
     headers, cookies = get_steam_bypass_with_referer(appid)
     response = requests.get(url=url + str(appid), params=params, headers=headers, cookies=cookies)
-    # Print the final constructed URL
-    print(response.url)
+
+    # print(response.url)
     return response.json()
 
 @safe_tool
@@ -1029,7 +1023,7 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
     Default: Returns a "Dashboard" summary (Stats + Top 3 Easiest Locked).
     If 'page' is set (int), returns a list of locked achievements for browsing.
     """
-    # 1. Resolve ID (Keep your existing logic)
+    # Resolve ID
     steam = Steam(settings.STEAM_API_KEY)
     if appid == -1 and game_name:
         app_info = get_steam_app_info(game_name)
@@ -1040,7 +1034,6 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
     if not steam_id: return {"error": "Could not resolve Steam ID."}
 
     try:
-        # Fetch Data
         # Fetch Schema for Descriptions
         schema_url = f"http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={settings.STEAM_API_KEY}&appid={appid}"
         headers, cookies = get_steam_bypass_with_referer(appid)
@@ -1111,9 +1104,9 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
         count = len(unlocked_list)
         percent_complete = int((count / total) * 100) if total > 0 else 0
 
-        # 4. Mode Selection: Pagination vs Dashboard
+        # Mode Selection: Pagination vs Dashboard
 
-        # PAGINATION MODE (Only if agent asks for specific page of missing items)
+        # PAGINATION MODE
         if page is not None:
             # Sort locked by most common (easiest) first
             locked_list.sort(key=lambda x: x['rarity'], reverse=True)
@@ -1178,14 +1171,14 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
         # This call bypasses the 'wishlistdata' URL redirect issue.
         raw_wishlist = steam.users.get_profile_wishlist(steam_id)
 
-        #print(raw_wishlist)
+        # print(raw_wishlist)
 
         if not raw_wishlist:
             return {"error": "Wishlist is empty or private."}
 
         # Sort (Metadata)
-        # We sort by metadata *before* fetching details to save API calls.
-        # Note: 'cheapest'/'discount' sorting is imperfect here because we don't have prices yet.
+        # Sort by metadata *before* fetching details to save API calls.
+        # cheapest/discount sorting is imperfect here because we don't have prices yet.
         # For those, we fetch the top 50 prioritized items and then sort them below.
         if sort_by == 'priority':
             raw_wishlist.sort(key=lambda x: x.get('priority', 999))
@@ -1196,8 +1189,7 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
             raw_wishlist.sort(key=lambda x: x.get('priority', 999))
 
         # Pagination / Slicing
-        # If sorting by price, we fetch a larger batch (up to 50) to find deals.
-        # Otherwise, we only fetch exactly what the page needs.
+        # If sorting by price, fetch a larger batch (up to 50) to find deals
         items_to_process = []
         is_price_sort = sort_by in ['cheapest', 'discount']
 
@@ -1226,11 +1218,9 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
             }
 
             try:
-                # Fetch details from Store API (handles Name, Price, Discount)
-                # We use the store API explicitly as it's cleaner for prices than get_app_details sometimes
-                # But to keep it simple, we reuse the standard method you likely have, or raw request:
+                # Fetch details from Store API
                 store_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=US"
-                # cc=US ensures dollar prices. Change if needed.
+                # cc=US ensures dollar prices. Might one day include localization
 
                 headers, cookies = get_steam_bypass_with_referer(appid)
                 resp = requests.get(store_url, headers=headers, cookies=cookies, timeout=5).json()
@@ -1254,12 +1244,12 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 
             return res
 
-        # 6. Execute Parallel Fetch
+        # Execute Parallel Fetch
         enriched_results = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             enriched_results = list(executor.map(fetch_details_worker, items_to_process))
 
-        # 7. Post-Fetch Sorting (If Price/Discount was requested)
+        # Post-Fetch Sorting (If Price/Discount was requested)
         if is_price_sort:
             def get_price_float(item):
                 p = item['price']
@@ -1332,7 +1322,7 @@ def get_friends_who_own(game_name):
     Checks which of the user's friends own a specific game.
     WARNING: API Heavy. Requires fetching every friend's library.
     """
-    # 1. Resolve Game
+    # Resolve Game
     app = get_steam_app_info(game_name)
     if not app:
         return {"error": f"Game '{game_name}' not found."}
@@ -1342,7 +1332,7 @@ def get_friends_who_own(game_name):
 
     print(f"Scanning friends for '{target_name}' ({target_appid})...")
 
-    # 2. Get Friend List
+    # Get Friend List
     steam = Steam(settings.STEAM_API_KEY)
     user_id = resolve_steam_id(settings.STEAM_USER)
 
@@ -1360,7 +1350,7 @@ def get_friends_who_own(game_name):
 
     friends_to_scan = process_friends_list(friends_to_scan)[:50]
 
-    # 3. Define the Worker Function
+    # Define the Worker Function
     def check_friend_library(friend):
         f_id = friend['steamid']
         try:
@@ -1380,7 +1370,7 @@ def get_friends_who_own(game_name):
             pass
         return None
 
-    # 4. Execute Parallel Scan
+    # Execute Parallel Scan
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(check_friend_library, friends_to_scan))
 

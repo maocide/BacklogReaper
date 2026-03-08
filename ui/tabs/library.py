@@ -123,7 +123,7 @@ class LibraryView(ft.Container):
             self.update_pagination_controls(0)
             return
 
-        # 1. Sort
+        # Sort
         def get_sort_key(game):
             # Columns: 0=AppID, 1=Name, 2=Playtime, 3=Main, 4=Comp, 5=Status
             try:
@@ -139,7 +139,7 @@ class LibraryView(ft.Container):
 
         self.all_games_data.sort(key=get_sort_key, reverse=not self.sort_ascending)
 
-        # 2. Slice
+        # Slice
         total_items = len(self.all_games_data)
         total_pages = math.ceil(total_items / self.page_size)
         if total_pages == 0: total_pages = 1
@@ -152,7 +152,7 @@ class LibraryView(ft.Container):
         end_idx = start_idx + self.page_size
         slice_data = self.all_games_data[start_idx:end_idx]
 
-        # 3. Build Rows
+        # Build Rows
         rows = []
         for game in slice_data:
             status = vault.calculate_status(game)
@@ -223,7 +223,7 @@ class LibraryView(ft.Container):
             self.current_page += 1
             self.render_table()
 
-    # --- UPDATE THREAD ---
+    # UPDATE THREAD
 
     def run_update_thread(self, username):
         try:
@@ -268,7 +268,7 @@ class LibraryView(ft.Container):
         else:
              threading.Thread(target=self.run_update_thread, args=(username,), daemon=True).start()
 
-    # --- EXPORT THREAD ---
+    # EXPORT THREAD
 
     def run_export_thread(self):
         try:

@@ -250,8 +250,7 @@ class ReaperChatBubble(ft.Container):
         if hasattr(self, 'avatar_content') and self.avatar_content:
             src = ft.Image(src=self.avatar_src, fit=ft.BoxFit.COVER)
             self.avatar_content.content = src
-            # Removed explicit update() to prevent synchronous network calls from threads
-            # and to allow batched updates by the caller.
+            # update() removed to prevent synchronous network calls from threads
 
 
     def update(self):

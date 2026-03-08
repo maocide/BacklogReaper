@@ -35,10 +35,10 @@ class GameCard(ft.Card):
         appid = game_data.get("appid")
         is_roast = (appid == "ROAST" or not appid)
 
-        # 1. Get Background Image
+        # Get Background Image
         bg_image = self._get_bg_image(appid, is_roast, game_data)
 
-        # 2. Build Content Column (Header, Info Rows, Actions)
+        # Build Content Column (Header, Info Rows, Actions)
         content_column = ft.Column(spacing=4)
 
         # Header
@@ -57,7 +57,7 @@ class GameCard(ft.Card):
         if actions:
             content_column.controls.append(actions)
 
-        # 3. Build the Visual Stack (Background + Content)
+        # Build the Visual Stack (Background + Content)
         return self._build_stack(bg_image, content_column)
 
     def _get_bg_image(self, appid, is_roast, game_data):
@@ -171,10 +171,10 @@ class GameCard(ft.Card):
         from datetime import datetime
 
         try:
-            # 1. Generate Image
+            # Generate Image
             img = generate_roast_image(self.game_data)
 
-            # 2. Determine Save Path
+            # Determine Save Path
             paths.ensure_dirs()
             export_dir = paths.get_base_dir() / "exports"
 
@@ -182,11 +182,11 @@ class GameCard(ft.Card):
             filename = f"roast_{timestamp}.png"
             save_path = export_dir / filename
 
-            # 3. Save Image
+            # Save Image
             img.save(save_path)
             print(f"Roast saved to {save_path}")
 
-            # 4. Show Feedback (Snackbar via show_dialog workaround)
+            # Show Feedback (Snackbar via show_dialog workaround)
             page = e.control.page
             if page:
                 # Use show_dialog as per user request for SnackBar functionality in this env

@@ -158,7 +158,7 @@ def get_hltb_data(game_name):
     1. Checks Local Pre-seeded Database (Kaggle).
     2. Falls back to Web Search & Scrape if not found.
     """
-    # 1. Try Local Lookup
+    # Try Local Lookup
     manager = HLTBManager.get_instance()
     local_data = manager.get_game(game_name)
 
@@ -173,7 +173,7 @@ def get_hltb_data(game_name):
             completionist=local_data['completionist']
         )]
 
-    # 2. Fallback to Web Scrape
+    # Fallback to Web Scrape
     # print(f"   [HLTB] '{game_name}' not in local DB. Scraping...")
     return get_hltb_search_scrape(game_name)
 
@@ -192,22 +192,21 @@ def web_search(query, max_results=10):
         results = DDGS().text(query, max_results=max_results)
 
     except TimeoutException:
-        # 2. Handle Connection Timeouts (The error you just saw)
+        # Handle Connection Timeouts (The error you just saw)
         print(f"   [DDG] ⚠️ TIMEOUT for: '{query}' (Skipping)")
         return {'error': 'Search timed out.'}
 
     except DuckDuckGoSearchException:
-        # 3. Handle "No results found" or other API logic errors
-        # (This silences the "ddgs.exceptions.DDGSException" you saw earlier)
+        # Handle "No results found" or other API logic errors
         # print(f"   [DDG] No results for: '{query}'")
         return {'error': 'No results found.'}
 
     except Exception as e:
-        # 4. Catch-all for anything else (DNS issues, etc.)
+        # Catch-all for anything else (DNS issues, etc.)
         print(f"   [DDG] Unexpected Error: {e}")
         return {'error': f'Error: {e}'}
 
-    # 5. Process success
+    # Process success
     if not results:
         return {'error': 'No results found.'}
 
@@ -240,12 +239,12 @@ def get_store_data(app_id, max_tags=10):
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # 1. Get Tags
+        # Get Tags
         tags_div = soup.find("div", {"class": "glance_tags popular_tags"})
         if tags_div:
             data["tags"] = [tag.text.strip() for tag in tags_div.find_all("a", {"class": "app_tag"})][:max_tags]
 
-        # 2. Get Description Snippet (Best for Vibes)
+        # Get Description Snippet (Best for Vibes)
         desc_div = soup.find("div", {"class": "game_description_snippet"})
         if desc_div:
             data["description"] = desc_div.text.strip()
@@ -302,7 +301,7 @@ def get_hltb_search_scrape(game_name):
         print(f"   [HLTB] Giving up on '{game_name}' after {max_attempts} attempts.")
         return []
 
-    # --- STEP 1: Find Best Candidate URL ---
+    # Find Best Candidate URL
     best_candidate = None
     highest_score = 0.0
 
@@ -317,12 +316,12 @@ def get_hltb_search_scrape(game_name):
             continue
 
         # Turn "howlongtobeat.com/game/61746/reviews/latest/1" -> "howlongtobeat.com/game/61746"
-        # 1. Split by 'game/'
+        # Split by 'game/'
         parts = url.split('/game/')
         if len(parts) > 1:
-            # 2. Get the ID part (e.g. "61746/reviews/...")
+            # Get the ID part (e.g. "61746/reviews/...")
             id_part = parts[1].split('/')[0]  # Take only "61746"
-            # 3. Reconstruct
+            # Reconstruct
             url = f"https://howlongtobeat.com/game/{id_part}"
 
         # Clean the title (Remove " - HowLongToBeat" and other noise)
@@ -345,7 +344,7 @@ def get_hltb_search_scrape(game_name):
         print(f"   [HLTB] No close match found for '{game_name}' (Best: {highest_score:.2f}). Skipping.")
         return []
 
-    # --- STEP 2: Scrape the Winner ---
+    # Scrape the Winner
     print(f"   -> HLTB: Best Match ({highest_score:.2f}) -> {best_candidate}")
 
     headers = {

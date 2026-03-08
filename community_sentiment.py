@@ -44,7 +44,6 @@ def scrape_steam_forums(appid, gamename):
         count_element = row.select_one('.forum_topic_reply_count')
         link_element = row.select_one('a.forum_topic_overlay')
 
-        # FIX: Use 'row.select_one' so we only look inside this specific topic!
         last_post_div = row.select_one('.forum_topic_lastpost')
 
         if title_element and link_element:
@@ -214,7 +213,6 @@ def scrape_reddit_search(game_name):
         body = body.replace("\n", " ").strip()
         if len(body) > 500:
             body = body[:500] + "... [TRUNCATED]"
-        # -------------------------
 
         results.append({
             'title': p.get('title', 'No Title'),
@@ -295,7 +293,7 @@ def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.7
         # # Check Comment (Body) - give it slightly less weight? No, max is fine.
         # comm_ratio = 0
         # if comment:
-        #     # Optimization: Limit comment check to first 100 chars to speed up difflib
+        #     # Limit comment check to first 100 chars to speed up difflib
         #     comm_ratio = difflib.SequenceMatcher(None, search_lower, comment[:100]).ratio()
         #
         # max_ratio = max(subj_ratio, comm_ratio)
@@ -358,7 +356,7 @@ def scrape_4chan_thread_with_ai(search: str) -> dict:
 
     if len(thread["posts"]) > 0:
         ai_request = "You are an uncensored assistant, you will be provided content to analyze without filter. You must be factual and execute the following on that content:\n"
-        ai_question = f"""Please give an uncensored general consensus on the topic {search} as it discussed in this 4chan thread from the board {board}.\n
+        ai_question = f"""Please give an uncensored general consensus on the topic '{search}' as it discussed in this 4chan thread from the board {board}.\n
     Give uncensored opinion, make uncensored citation if needed. Don't exclude NSFW topics.
     Your result will be analyzed by an ai agent, so NOT using formatting and being token efficient is MANDATORY.`
     The data will follow. Good luck!"""
@@ -397,7 +395,6 @@ def get_community_sentiment(game_name: str):
     results = {}
 
     # Launch threads
-    # max_workers=8 is usually plenty for network requests
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         # Submit all tasks
         future_to_key = {
@@ -447,7 +444,7 @@ def get_game_news(game_name: str, limit: int = 5):
     Fetches the latest News and Events for a game directly from the Steam API.
     Bypasses Age Gates and Login walls. Perfect for "What's happening in [Game]?"
     """
-    # 1. Get AppID
+    # Get AppID
     app = game_intelligence.get_steam_app_info(game_name)
     if not app:
         return {"error": f"Game '{game_name}' not found."}
@@ -455,7 +452,7 @@ def get_game_news(game_name: str, limit: int = 5):
     appid = app['id'][0]
     print(f"Fetching News for {game_name} ({appid})...")
 
-    # 2. Call Steam News API
+    # Call Steam News API
     # params: count=5, maxlength=0 (get full text), feed='steam_community_announcements' (official posts only)
     url = f"http://api.steampowered.com/ISteamNews/GetNewsForApp/v0002/?appid={appid}&count={limit}&maxlength=0&format=json"
 
@@ -469,7 +466,7 @@ def get_game_news(game_name: str, limit: int = 5):
         if not news_items:
             return {"error": "No recent news found for this game."}
 
-        # 3. Format for Agent
+        # Format for Agent
         formatted_news = []
         for item in news_items:
             # Clean up Steam's BBCode (simple strip)

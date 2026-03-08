@@ -74,7 +74,7 @@ class Agent:
 
             yield "status", "🤔 Thinking..."
 
-            # 2. Process the Stream
+            # Process the Stream
             for chunk in stream:
                 if not chunk.choices:
                     continue
@@ -132,7 +132,7 @@ class Agent:
                         # Fallback to the loop index 'i' if the API sends None
                         idx = tool_chunk.index if tool_chunk.index is not None else i
 
-                        # --- GEMINI PARALLEL BUG FIX ---
+                        # GEMINI PARALLEL CALLS HANDLED
                         # If Google's API sends multiple tools but labels them all 'index=0',
                         # we detect the collision if the chunk has a NEW id that doesn't match the buffer.
                         if idx in tool_calls_buffer and getattr(tool_chunk, "id", None):
@@ -183,7 +183,7 @@ class Agent:
                 except Exception as e:
                     print(f"Token count error: {e}")
 
-            # 3. End of Stream Logic
+            # End of Stream Logic
             if is_tool_call:
                 final_tool_calls = []
                 for idx in sorted(tool_calls_buffer.keys()):
@@ -217,7 +217,7 @@ class Agent:
                 chat_history.add_message("assistant", full_content_buffer if full_content_buffer else None,
                                          **assistant_msg_kwargs)
 
-                # 4. EXECUTE TOOLS
+                # EXECUTE TOOLS
                 for tool_call in final_tool_calls:
                     call_id = tool_call["id"]
                     func_name = tool_call["function"]["name"]

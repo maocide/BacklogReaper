@@ -126,7 +126,7 @@ class VibeEngine:
         if not self.model: return []
 
         try:
-            # 1. Turn user query into numbers (e.g., "Sad dystopian cyberpunk")
+            # Turn user query into numbers (e.g., "Sad dystopian cyberpunk")
             query_vector = self.model.encode(user_query)
 
             results = []
@@ -141,10 +141,10 @@ class VibeEngine:
                 except Exception:
                     continue
 
-            # 3. Sort by best match
+            # Sort by best match
             results.sort(key=lambda x: x[1], reverse=True)
 
-            # 4. Fetch actual game data for the top K
+            # Fetch actual game data for the top K
             final_picks = []
             for appid, score in results[:top_k]:
                 game = vault.get_game_by_appid(int(appid))

@@ -466,7 +466,7 @@ def execute_tool(tool_request):
     #action_desc = tool_request.get("action_description", f"Calling tool: {tool_name}...")
     action_desc = params.get("action_description")
 
-    # --- EXECUTE TOOL ---
+    # EXECUTE TOOL
     tool_output_str = ""
     # result_limit = 30 # Removed in favor of pagination
     reviews_limit = 10
@@ -573,16 +573,16 @@ def execute_tool(tool_request):
             # Get the Engine
             vibe = vibe_engine.VibeEngine.get_instance()
 
-            # (Ideally, you run vibe.ingest_library() at app startup,
-            # but checking here ensures we don't crash on an empty vector cache)
+            # Ideally, run vibe.ingest_library() at startup,
+            # but checking here ensures no crash on an empty vector cache
             if not vibe.cache:
                 vibe.ingest_library()
 
-            # 3. Search
+            # Search
             query = clean_params.get('query')
             results = vibe.search(query, top_k=10)
 
-            # We strip heavy data, just giving the Agent the name and the "Match Confidence"
+            # Strip heavy data, just giving the Agent the name and the "Match Confidence"
             lean_results = []
             for game in results:
                 lean_results.append({

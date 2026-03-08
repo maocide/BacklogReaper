@@ -12,7 +12,6 @@ from web_tools import get_store_data
 from web_tools import get_hltb_data
 import paths
 
-# Config
 DB_NAME = str(paths.get_base_dir() / "backlog_vault.db")
 
 import time
@@ -50,7 +49,7 @@ def calculate_status(game):
     # Days since last launch
     days_since_played = (time.time() - last_played_ts) / 86400 if last_played_ts > 0 else 9999
 
-    # 1. UNPLAYED
+    # UNPLAYED
     # Increased threshold to 10 minutes as requested
     if playtime_min < 10:
         return "Unplayed"
@@ -64,21 +63,21 @@ def calculate_status(game):
         # Both are now in minutes
         ratio = playtime_min / hltb_main
 
-    # 2. FINISHED / COMPLETIONIST (Overrides "Bounced" for short games)
+    # FINISHED / COMPLETIONIST (Overrides "Bounced" for short games)
     if hltb_main > 0:
         if ratio > 1.3:
             return "Completionist"
         if ratio >= 1.0:
             return "Invested"
 
-    # 3. EARLY GAME (Bounced vs Testing)
+    # EARLY GAME (Bounced vs Testing)
     # If played less than 2 hours (and didn't finish it per above)
     if playtime_min < 120:
         if days_since_played > 14:
             return "Bounced"
         return "Testing"  # Recent purchase/install
 
-    # 4. MID-GAME (Story Progress)
+    # MID-GAME (Story Progress)
     if hltb_main > 0:
         # 50% - 100%
         if ratio >= 0.5:
@@ -94,7 +93,7 @@ def calculate_status(game):
             else:
                 return "Abandoned"
 
-    # 5. MULTIPLAYER / ENDLESS
+    # MULTIPLAYER / ENDLESS
     # Check DB flag OR keywords
     is_mp_tag = "multiplayer" in tags or "mmo" in tags or "co-op" in tags or "online" in tags
 
@@ -105,7 +104,7 @@ def calculate_status(game):
         else:
             return "Mastered"
 
-    # 6. FALLBACK
+    # FALLBACK
     return "Played"
 
 def calculate_simple_status(game):
@@ -155,7 +154,7 @@ def fetch_review_summary(appid):
     """
     url = f"https://store.steampowered.com/appreviews/{appid}?json=1&num_per_page=0&purchase_type=all"
     try:
-        # No sleep needed for Store API usually, but be mindful if loop is tight.
+        # No sleep needed for Store API usually, but be mindful if loop is tight
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
@@ -320,7 +319,7 @@ def update(username, stop_event=None):
         else:
             new_games.append(game)
 
-    # FAST BATCH UPDATE (Existing Games) ---
+    # FAST BATCH UPDATE (Existing Games)
     if existing_games:
         print(f"Syncing playtime for {len(existing_games)} known games...")
         with get_connection() as conn:
@@ -562,8 +561,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     ex_tags = {t.lower() for t in exclude_tags}
     req_status = {s.lower() for s in status}
 
-    # The AI often sends 0 when it means "unlimited" or "don't care".
-    # We must convert 0 to None so the logic below skips the check.
+    # The AI often sends 0 when it means "unlimited" or "don't care", must convert it
     if min_playtime == 0: min_playtime = None
     if max_playtime == 0: max_playtime = None
     if hltb_max == 0: hltb_max = None
@@ -571,8 +569,8 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
 
 
 
-    # Fetch ALL games (It's 2000 rows, Python eats this for breakfast)
-    # We fetch all because Python string processing is more robust than SQLite 'LIKE'
+    # Fetch ALL games
+    # We fetch all because string processing is more robust than SQLite 'LIKE', might optimize if needed
     all_games = get_all_games()
 
     results = []
@@ -603,7 +601,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         # TAGS FILTER
         game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',')}
 
-        # Check Excludes (Critical)
+        # Check Excludes
         if not ex_tags.isdisjoint(game_tags):
             continue
 
@@ -631,8 +629,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
              if score != -1 and score < min_review_score:
                  continue
 
-        # If we survived all filters, add to results
-        # Inject the calculated fields so the AI sees them
+        # Passed filters, add to results
         game['status'] = game_status
         game['hours'] = game['playtime_forever']
         game['hltb_main'] = game['hltb_main'] if game['hltb_main'] else None

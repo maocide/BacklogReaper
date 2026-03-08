@@ -83,14 +83,11 @@ def check_all():
     # Database empty is not a critical failure preventing app start, but good to know
     if not ok_db: failures.append(msg_db)
 
-    # We return success even if DB is empty, as the user needs the app to fetch games.
-    # But API keys and HLTB are more "system" level.
-    # Actually, let's keep the logic simple: if anything critical is missing, report it.
+    # If anything critical is missing, report it.
 
     critical_failures = []
     # If LLM keys are missing it's not critical for startup (Gatekeeper only needs Steam keys),
     # but check_api_keys includes OPENAI_API_KEY. However we don't block the app.
-    # Let's just collect it.
     if not ok_keys: critical_failures.append(msg_keys)
     if not ok_hltb: critical_failures.append(msg_hltb)
 

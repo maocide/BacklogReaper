@@ -87,7 +87,7 @@ class DashboardView(ft.Container):
 
         return ft.Row(
             controls=[
-                # 1. The Label (Fixed width so the bars align perfectly)
+                # The Label
                 ft.Text(
                     label_text,
                     width=label_width,  # Adjust based on longest genre name
@@ -98,7 +98,7 @@ class DashboardView(ft.Container):
                     no_wrap=True,
                 ),
 
-                # 2. The Bar (Using your exact style, expanding to fill space)
+                # The Bar
                 ft.Container(
                     content=ft.ProgressBar(
                         value=fraction,
@@ -114,7 +114,7 @@ class DashboardView(ft.Container):
                     height=16,  # Slightly thicker than a normal progress bar
                 ),
 
-                # 3. The Value (Numbers on the right)
+                # The Value
                 ft.Text(
                     f"{current_val}{unit}",  # or f"{current_val}h" for hours
                     width=value_width,
