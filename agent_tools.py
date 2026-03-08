@@ -164,13 +164,13 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "search_by_vibe",
-            "description": "Semantic Vector Search. Use this for ABSTRACT concepts, FEELINGS, or PLOT themes (e.g., 'Games about depression', 'Power fantasy', 'Cozy rain', 'Drunk'). It matches the *meaning* of descriptions, not just keywords. Do NOT use for simple genre lookups like 'FPS' (use vault_search for that).",
+            "description": "Finds games matching a specific mood, emotion, or abstract feeling. CRITICAL: Do not just pass abstract emotions. Translate the user's feeling into concrete Steam tags, genres, and gameplay styles mixed with the mood. Example: If user wants to 'vent anger', use query: 'violent gore blood fast-paced shooter hack and slash dark'. If user wants to 'relax', use 'cozy peaceful base-building relaxing soundtrack casual'.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The abstract concept to search for."
+                        "description": "A dense string of concrete tags, genres, and vibes."
                     },
                     "action_description": {
                         "type": "string",

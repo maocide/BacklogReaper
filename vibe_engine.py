@@ -94,18 +94,17 @@ class VibeEngine:
             # Optimization: Check for None types before join/access
             name = game.get('name', 'Unknown Game')
             tags = game.get('tags', '')
-            # Ensure tags is a string, sometimes it might be None or list depending on Vault evolution
-            if isinstance(tags, list):
-                tags_str = ", ".join(tags)
-            elif isinstance(tags, str):
-                tags_str = tags
-            else:
-                tags_str = ""
-
             description = game.get('description', '') or ""
 
-            # Combine: Title + Tags + Description
-            text_blob = f"{name}. {tags_str}. {description}"
+            # Clean up tags (ensure it's a string)
+            tags_str = ", ".join(tags) if isinstance(tags, list) else (tags or "")
+
+            # Kill empty games
+            if not tags_str and not description:
+                continue
+
+            # The weighted string, by repeating we give more weight to the tags, and shorten description that might be marketing
+            text_blob = f"Game: {name}. Vibe, Genre, and Keywords: {tags_str}. {tags_str}. Summary: {description[:600]}"
 
             try:
                 vector = self.model.encode(text_blob).tolist()
