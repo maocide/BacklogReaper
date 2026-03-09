@@ -4,10 +4,10 @@ import time
 import csv
 import os
 
+import ddgs
 import requests
 from bs4 import BeautifulSoup
 from ddgs import DDGS
-from duckduckgo_search.exceptions import DuckDuckGoSearchException, TimeoutException
 
 from safe_tool import safe_tool
 from types import SimpleNamespace
@@ -191,12 +191,12 @@ def web_search(query, max_results=10):
         # 1. Attempt the search
         results = DDGS().text(query, max_results=max_results)
 
-    except TimeoutException:
+    except ddgs.ddgs.TimeoutException:
         # Handle Connection Timeouts (The error you just saw)
         print(f"   [DDG] ⚠️ TIMEOUT for: '{query}' (Skipping)")
         return {'error': 'Search timed out.'}
 
-    except DuckDuckGoSearchException:
+    except ddgs.ddgs.DDGSException:
         # Handle "No results found" or other API logic errors
         # print(f"   [DDG] No results for: '{query}'")
         return {'error': 'No results found.'}
@@ -414,5 +414,5 @@ def get_hltb_search_scrape(game_name):
         return []
 
 if __name__ == "__main__":
-    print(get_hltb_search_scrape("KILL KNIGHT"))
-    print(get_hltb_data("KILL KNIGHT"))
+    #print(get_hltb_search_scrape("KILL KNIGHT"))
+    print(web_search("Cats"))

@@ -18,3 +18,12 @@ tcl/
 # Ignore DB files
 backlog_vault.db
 *.db
+
+# Ignore user data and cache files
+settings.json
+vibe_cache.json
+data/
+exports/
+
+# Ignore temporary files
+*.bak
