@@ -137,9 +137,6 @@ class ReaperChatView(ft.Container):
         ])
 
     def did_mount(self):
-        # Prefetch avatar without blocking using standard threading
-        threading.Thread(target=self._prefetch_avatar, daemon=True).start()
-
         # Initialize Character
         self._initialize_character()
 
@@ -162,23 +159,30 @@ class ReaperChatView(ft.Container):
 
     def _prefetch_avatar(self):
         try:
+
+            # Fetch to update or set
             url = game_intelligence.get_steam_avatar(settings.STEAM_USER)
 
             # If we got a valid URL that is different from what we have
-            if url and url != self.user_portrait_url:
+            if url and url != self.user_portrait_url or not self.user_portrait_url:
                 self.user_portrait_url = url
+                settings.STEAM_PROFILE_PIC = url # Cache it globally
 
-                # Retroactively update any user bubbles already on the screen
-                if self.br_chat_list.current and self.br_chat_list.current.page:
-                    for ctrl in self.br_chat_list.current.controls:
-                        # Check if this control is a user chat bubble
-                        if getattr(ctrl, "is_user", False) and hasattr(ctrl, "avatar_content"):
-                            ctrl.set_avatar(url)
-                            # Safely update just the avatar container, not the whole bubble
-                            self.page.run_task(ui.utils.smart_update, ctrl.avatar_content)
+                # Update ui and bubbles
+                self._update_avatar_in_chat()
 
         except Exception as e:
             print(f"Error fetching avatar: {e}")
+
+    def _update_avatar_in_chat(self):
+        # Retroactively update any user bubbles already on the screen
+        if self.br_chat_list.current and self.br_chat_list.current.page:
+            for ctrl in self.br_chat_list.current.controls:
+                # Check if this control is a user chat bubble
+                if getattr(ctrl, "is_user", False) and hasattr(ctrl, "avatar_content"):
+                    ctrl.set_avatar(self.user_portrait_url)
+                    # Safely update just the avatar container, not the whole bubble
+                    self.page.run_task(ui.utils.smart_update, ctrl.avatar_content)
 
     def _reload_chat_from_history(self):
         self.br_chat_list.current.controls.clear()
@@ -983,9 +987,13 @@ class ReaperChatView(ft.Container):
 
     def refresh_state(self):
         """Called by flet main page/controller when the user navigates back to this tab."""
+
         # Check if the character actually changed in settings
         current_settings = settings.load_settings()
         new_char_name = current_settings.get("CHARACTER", "Reaper")
+
+        # Fetch avatar
+        threading.Thread(target=self._prefetch_avatar, daemon=True).start()
 
         # If the character changed, we must reload the chat
         if not self.character or self.character.name != new_char_name:

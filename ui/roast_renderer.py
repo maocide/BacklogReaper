@@ -25,27 +25,37 @@ def generate_roast_image(game_data):
     # Attempt to load Cinzel for headers
     font_path_heading = str(paths.get_asset_path("assets", "fonts", "Cinzel-VariableFont_wght.ttf"))
     try:
-        font_heading = ImageFont.truetype(font_path_heading, 52)
+        font_heading = ImageFont.truetype(font_path_heading, 46)
     except IOError:
         font_heading = ImageFont.load_default()
         print("Warning: Cinzel font not found, using default.")
 
-    # Attempt to load DejaVuSans for body
-    font_path_body = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    font_path_bold = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-    # Use Mono Oblique for comments (matches UI style better and file exists)
-    font_path_italic = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Oblique.ttf"
+    # Platform-independent fallback logic for body/comments
+    import sys
+    if sys.platform == "win32":
+        font_path_body = "arial.ttf"
+        font_path_bold = "arialbd.ttf"
+        font_path_italic = "ariali.ttf"
+    elif sys.platform == "darwin":
+        font_path_body = "/Library/Fonts/Arial.ttf"
+        font_path_bold = "/Library/Fonts/Arial Bold.ttf"
+        font_path_italic = "/Library/Fonts/Arial Italic.ttf"
+    else:
+        # Linux
+        font_path_body = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        font_path_bold = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        font_path_italic = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Oblique.ttf"
 
     try:
-        font_body = ImageFont.truetype(font_path_body, 28)
-        font_body_bold = ImageFont.truetype(font_path_bold, 28)
-        font_comment = ImageFont.truetype(font_path_italic, 24)
+        font_body = ImageFont.truetype(font_path_body, 24)
+        font_body_bold = ImageFont.truetype(font_path_bold, 24)
+        font_comment = ImageFont.truetype(font_path_italic, 20)
     except IOError:
-        # Fallback to Cinzel if DejaVu is missing (unlikely in this env)
-        font_body = font_heading
-        font_body_bold = font_heading
-        font_comment = font_heading
-        print("Warning: DejaVu fonts not found, falling back.")
+        # If the platform-specific paths fail, fall back to the built-in default font, NOT Cinzel
+        font_body = ImageFont.load_default()
+        font_body_bold = ImageFont.load_default()
+        font_comment = ImageFont.load_default()
+        print("Warning: Platform sans-serif fonts not found, falling back to basic default.")
 
     # Base Image (Background)
     bg_theme = game_data.get("bg_theme", "DEFAULT")

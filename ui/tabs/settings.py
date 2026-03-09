@@ -188,11 +188,11 @@ class SettingsView(ft.Container):
 
     def save_settings_click(self, e):
         new_settings = {
-            "STEAM_API_KEY": self.set_steam_api.current.value,
-            "OPENAI_API_KEY": self.set_openai_api.current.value,
-            "OPENAI_BASE_URL": self.set_openai_base.current.value,
-            "OPENAI_MODEL": self.set_openai_model.current.value,
-            "STEAM_USER": self.set_steam_user.current.value,
+            "STEAM_API_KEY": self.set_steam_api.current.value.strip() if self.set_steam_api.current.value else "",
+            "OPENAI_API_KEY": self.set_openai_api.current.value.strip() if self.set_openai_api.current.value else "",
+            "OPENAI_BASE_URL": self.set_openai_base.current.value.strip() if self.set_openai_base.current.value else "",
+            "OPENAI_MODEL": self.set_openai_model.current.value.strip() if self.set_openai_model.current.value else "",
+            "STEAM_USER": self.set_steam_user.current.value.strip() if self.set_steam_user.current.value else "",
             "CHARACTER": self.set_character_dd.current.value,
             "LLM_TEMPERATURE": round(self.set_llm_temp.current.value, 2),
             "LLM_TOP_P": round(self.set_llm_top_p.current.value, 2),

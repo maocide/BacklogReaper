@@ -62,7 +62,7 @@ STEAM_USER = get_config("STEAM_USER")
 LLM_TEMPERATURE = float(get_config("LLM_TEMPERATURE") or 0.7)
 LLM_TOP_P = float(get_config("LLM_TOP_P") or 1.0)
 LLM_PRESENCE_PENALTY = float(get_config("LLM_PRESENCE_PENALTY") or 0.0)
-STEAM_PROFILE_PIC = None
+STEAM_PROFILE_PIC = None # Currently fetched in gatekeeper but not updated in chat
 
 def reload():
     """Refreshes the config variables from the settings file."""

@@ -27,7 +27,6 @@ class GatekeeperView(ft.Container):
 
         self.stop_event = threading.Event()
 
-
         # Inputs
         self.tf_steam_id = GrimoireTextField(
             label="Steam Username",
@@ -79,7 +78,7 @@ class GatekeeperView(ft.Container):
             alignment=ft.MainAxisAlignment.CENTER,
         )
 
-        # The "Obsidian Plaque" Wrapper (Glassmorphism effect)
+        # Obsidian Plaque Wrapper (Glassmorphism effect)
         self.container_contract = ft.Container(
             content=contract_content,
             bgcolor=ft.Colors.with_opacity(0.10, styles.COLOR_SURFACE),
@@ -97,8 +96,9 @@ class GatekeeperView(ft.Container):
         )
 
         # STATE 2: THE RITUAL (Sync)
-        # Changed to "Life Wasted" and swapped Red for Orange/Gold
-        self.txt_total_debt = ft.Text("Life Wasted: 0 Hours", size=30, color=styles.COLOR_TEXT_GOLD, font_family=styles.FONT_HEADING, weight=ft.FontWeight.BOLD, ref=self.txt_life_wasted)
+        self.txt_total_debt = ft.Text("Life Wasted: 0 Hours", size=30, color=styles.COLOR_TEXT_GOLD,
+                                      font_family=styles.FONT_HEADING, weight=ft.FontWeight.BOLD,
+                                      ref=self.txt_life_wasted)
         self.progress_bar = GrimoireProgressBar(width=400, height=20)
         self.log_lines = []
         self.txt_log = ft.Text(
@@ -131,7 +131,7 @@ class GatekeeperView(ft.Container):
         # BACKGROUND
         self.background_image = ft.Image(
             src=str(paths.get_asset_path("assets", "gatekeeper_bg.png")),
-            fit=ft.BoxFit.COVER, # Flet 0.80+
+            fit=ft.BoxFit.COVER,  # Flet 0.80+
             opacity=0.3,
             error_content=ft.Container(bgcolor=styles.COLOR_BACKGROUND)
         )
@@ -186,10 +186,9 @@ class GatekeeperView(ft.Container):
             # Tell Flet to close naturally (which will now terminate the app)
             await self.page.window.close()
 
-
     def _on_initiate_click(self, e):
-        user = self.tf_steam_id.value.strip()
-        key = self.tf_api_key.value.strip()
+        user = self.tf_steam_id.value.strip() if self.tf_steam_id.value else ""
+        key = self.tf_api_key.value.strip() if self.tf_api_key.value else ""
 
         # Reset highlights
         self.tf_steam_id.border_color = styles.COLOR_BORDER_BRONZE
@@ -204,7 +203,7 @@ class GatekeeperView(ft.Container):
             if not key:
                 self.tf_api_key.border_color = styles.COLOR_ERROR
                 self.tf_api_key.update()
-                
+
             if self.page:
                 self.page.show_dialog(ft.SnackBar(ft.Text("The pact requires both a Name and a Key."), duration=5000))
             return
@@ -217,21 +216,21 @@ class GatekeeperView(ft.Container):
         # Synchronously validate Steam credentials
         try:
             steam = Steam(key)
-            
-            # Test key first: searching for an arbitrary user validates the key
+
+            # Searching for an arbitrary user validates the key
             # If the key is bad, the API typically throws a 403 exception immediately
             try:
                 # We specifically check the key first so we can highlight the right field
-                steam.users.search_user("gabe") 
+                steam.users.search_user("gabe")
             except Exception as e:
                 # If we fail here, the key itself is rejected
                 self.tf_api_key.border_color = styles.COLOR_ERROR
                 self.tf_api_key.update()
                 raise ValueError(f"The key you provided is cursed: {e}")
-            
+
             # Now test the user
             user_data = steam.users.search_user(user)
-            
+
             # The Steam API wrapper might not throw an exception on invalid username,
             # but instead return an unexpected string or dict without the user data.
             # We must verify the payload structure before proceeding.
@@ -239,20 +238,19 @@ class GatekeeperView(ft.Container):
                 self.tf_steam_id.border_color = styles.COLOR_ERROR
                 self.tf_steam_id.update()
                 raise ValueError("The true name you provided does not exist in the archives.")
-                
+
         except Exception as error:
             # Catch bad key/user
             if self.page:
                 error_msg = f"Lord Gaben remains silent: {error}"
                 self.page.show_dialog(ft.SnackBar(ft.Text(error_msg), duration=6000))
-            
+
             # Reset button state
             self.btn_initiate.disabled = False
             self.btn_initiate.text = "Initiate Ritual"
             self.btn_initiate.update()
             return
 
-        # Update Settings in Memory
         settings.STEAM_USER = user
         settings.STEAM_API_KEY = key
 
@@ -267,7 +265,19 @@ class GatekeeperView(ft.Container):
 
         self._start_ritual()
 
+    def _fetch_avatar_blocking(self):
+        import game_intelligence
+        try:
+            url = game_intelligence.get_steam_avatar(settings.STEAM_USER)
+            if url:
+                settings.STEAM_PROFILE_PIC = url
+        except Exception as e:
+            print(f"Error fetching profile pic during ritual: {e}")
+
     def _start_ritual(self):
+        # Fetch the avatar in a background thread now that the key is known
+        threading.Thread(target=self._fetch_avatar_blocking, daemon=True).start()
+
         # Transition UI
         self.container_contract.visible = False
         self.container_ritual.visible = True
@@ -350,7 +360,7 @@ class GatekeeperView(ft.Container):
                     self.txt_log.update()
                     break
 
-                # --- Normal UI Update ---
+                # Normal UI Update
                 game_name = update_data.get("game_name", "Unknown Entity")
                 hours = update_data.get("hours", 0)
                 current = update_data.get("current", 0)
@@ -358,7 +368,6 @@ class GatekeeperView(ft.Container):
 
                 life_wasted += hours
 
-                # Draw the updates
                 self.txt_total_debt.value = f"Life Wasted: {int(life_wasted)} Hours"
                 self.txt_total_debt.update()
 
@@ -378,9 +387,8 @@ class GatekeeperView(ft.Container):
 
             except queue.Empty:
                 # The bucket is empty right now.
-                # This is the magic line! Yield exactly 50ms back to Flet so it can DRAW THE FRAME.
+                # Yield 50ms back to Flet so it can draw controls.
                 await asyncio.sleep(0.05)
-
 
     def _log(self, message):
         """Appends a message to the log, keeping only the last 5 lines."""
