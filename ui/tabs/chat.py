@@ -359,10 +359,11 @@ class ReaperChatView(ft.Container):
         if not self.chat_history.messages: return
 
         full_log = ""
+        clipboard_nl = ui.utils.get_clipboard_newline()
         for msg in self.chat_history.messages:
             role = msg.get("role", "unknown").upper()
             content = msg.get("content", "")
-            full_log += f"**{role}**: {content}\n\n"
+            full_log += f"**{role}**: {content}{clipboard_nl}"
 
         self.page.run_task(ft.Clipboard().set, full_log)
 
@@ -678,7 +679,7 @@ class ReaperChatView(ft.Container):
                 state["status_text"].visible = False
 
             if state["previous_was_tool"] and not state["first_text"]:
-                state["agent_markdown"].value += "  \n\n" # 2 leading white spaces to force windows to wrap line
+                state["agent_markdown"].value += ui.utils.get_markdown_newline() # 2 leading white spaces to force windows to wrap line
 
             state["agent_markdown"].value += content
 

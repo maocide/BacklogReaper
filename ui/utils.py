@@ -6,6 +6,20 @@ import subprocess
 import platform
 import paths
 
+import sys
+
+def get_markdown_newline():
+    """Returns a cross-platform friendly newline sequence for Markdown."""
+    if sys.platform == 'win32':
+        return "  \r\n\r\n"
+    return "  \n\n"
+
+def get_clipboard_newline():
+    """Returns a native newline sequence for clipboard copying."""
+    if sys.platform == 'win32':
+        return "\r\n\r\n"
+    return "\n\n"
+
 async def smart_update(control):
     """
     Updates a Flet control, preferring the async method if available.

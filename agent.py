@@ -3,6 +3,7 @@ import time
 from ai_tools import get_ai_client
 import settings
 import agent_tools
+import ui.utils
 
 
 class Agent:
@@ -276,4 +277,4 @@ class Agent:
                 chat_history.add_message("assistant", full_content_buffer, **assistant_msg_kwargs)
                 return
 
-        yield "text", "\n\n(Max turns reached.)"
+        yield "text", f"{ui.utils.get_markdown_newline()}(Max turns reached.)"
