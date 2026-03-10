@@ -678,7 +678,7 @@ class ReaperChatView(ft.Container):
                 state["status_text"].visible = False
 
             if state["previous_was_tool"] and not state["first_text"]:
-                state["agent_markdown"].value += "\n\n"
+                state["agent_markdown"].value += "  \n\n" # 2 leading white spaces to force windows to wrap line
 
             state["agent_markdown"].value += content
 

@@ -23,6 +23,7 @@ class GatekeeperView(ft.Container):
         self.on_complete = on_complete
         self.alignment = ft.Alignment.CENTER
         self.bgcolor = styles.COLOR_BACKGROUND
+        self.avatar_url = None
         self.txt_life_wasted = ft.Ref[ft.Text]()
 
         self.stop_event = threading.Event()
@@ -110,8 +111,25 @@ class GatekeeperView(ft.Container):
             text_align=ft.TextAlign.LEFT,
         )
 
+        self.avatar_manifestation = ft.Container(
+            width=80,
+            height=80,
+            shape=ft.BoxShape.CIRCLE,
+            border=ft.border.all(2, styles.COLOR_SYSTEM_LOG),
+            shadow=ft.BoxShadow(
+                spread_radius=2,
+                blur_radius=15,
+                color=styles.COLOR_SYSTEM_LOG,
+            ),
+            opacity=0,  # Completely invisible at start
+            image=ft.DecorationImage(None, fit=ft.BoxFit.COVER),
+            animate_opacity=ft.Animation(1500, ft.AnimationCurve.EASE_IN_OUT),  # 1.5 second ghostly fade
+            margin=ft.margin.only(bottom=10)
+        )
+
         self.container_ritual = ft.Column(
             controls=[
+                self.avatar_manifestation,
                 self.txt_total_debt,
                 ft.Container(height=20),
                 self.progress_bar,
@@ -119,7 +137,7 @@ class GatekeeperView(ft.Container):
                 ft.Container(
                     content=self.txt_log,
                     width=600,
-                    height=250,
+                    height=360,
                     alignment=ft.Alignment.TOP_LEFT,
                 )
             ],
@@ -271,6 +289,7 @@ class GatekeeperView(ft.Container):
             url = game_intelligence.get_steam_avatar(settings.STEAM_USER)
             if url:
                 settings.STEAM_PROFILE_PIC = url
+                self.avatar_url = url
         except Exception as e:
             print(f"Error fetching profile pic during ritual: {e}")
 
@@ -327,6 +346,14 @@ class GatekeeperView(ft.Container):
 
         while True:
             try:
+                # Fetch completed set image and opacity to start animation
+                if self.avatar_url and not self.avatar_manifestation.image.src:
+                    print(self.avatar_url)
+                    self.avatar_manifestation.image.src = self.avatar_url
+                    self.avatar_manifestation.opacity = 1
+                    self.avatar_manifestation.update()
+                    self.page.update()
+
                 # Try to grab a message from the bucket without stopping the program
                 update_data = self.ritual_queue.get_nowait()
 
@@ -391,8 +418,8 @@ class GatekeeperView(ft.Container):
                 await asyncio.sleep(0.05)
 
     def _log(self, message):
-        """Appends a message to the log, keeping only the last 5 lines."""
+        """Appends a message to the log, keeping only the last 8 lines."""
         self.log_lines.append(message)
-        if len(self.log_lines) > 7:
+        if len(self.log_lines) > 8:
             self.log_lines.pop(0)
         self.txt_log.value = "\n".join(self.log_lines)
