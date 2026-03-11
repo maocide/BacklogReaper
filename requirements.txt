@@ -18,3 +18,4 @@ sentence_transformers
 numpy
 kagglehub
 tiktoken
+lxml_html_clean
