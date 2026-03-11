@@ -2,7 +2,6 @@ import threading
 import traceback
 import flet as ft
 import flet_charts as ftc
-from sympy import expand
 
 import vault
 import styles

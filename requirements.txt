@@ -3,7 +3,6 @@ basc-py4chan
 ddgs
 beautifulsoup4
 howlongtobeatpy
-python-dotenv
 networkx
 sympy
 openai

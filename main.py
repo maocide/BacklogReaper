@@ -1,6 +1,15 @@
 import flet as ft
 import sys
 import os
+
+# Check if we are running as a compiled executable
+if getattr(sys, 'frozen', False):
+    # We are in the .exe! If the console is missing, spoof it to prevent crashes.
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")
+
 import startup
 import paths
 import styles
