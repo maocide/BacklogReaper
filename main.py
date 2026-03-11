@@ -1,9 +1,10 @@
 import flet as ft
 import sys
 import os
+import paths
 
 # Fix Windows encoding crashes for special characters (like ★ or ™ in game names)
-if getattr(sys, 'frozen', False):
+if paths.is_packaged():
     # IN THE .EXE: Route to void, but explicitly tell the void to accept UTF-8
     if sys.stdout is None:
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
@@ -11,7 +12,6 @@ if getattr(sys, 'frozen', False):
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 import startup
-import paths
 import styles
 from ui.tabs.dashboard import DashboardView
 from ui.tabs.chat import ReaperChatView
@@ -41,7 +41,7 @@ def main(page: ft.Page):
     page.padding = 0
 
     page.fonts = {
-        styles.FONT_HEADING: "fonts/Cinzel-Regular.ttf"
+        styles.FONT_HEADING: "fonts/Cinzel-VariableFont_wght.ttf"
     }
 
     page.theme = ft.Theme(
@@ -183,4 +183,8 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.run(main, assets_dir="assets")
+    # Force an absolute path to the assets folder using paths.py logic
+    assets_path = str(paths.get_asset_path("assets"))
+
+    # Pass the absolute path to Flet
+    ft.run(main, assets_dir=assets_path)
