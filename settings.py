@@ -54,6 +54,7 @@ def get_config(key):
 
 _file_settings = load_settings()
 
+APP_VERSION = "1.0.0"
 STEAM_API_KEY = get_config("STEAM_API_KEY")
 OPENAI_API_KEY = get_config("OPENAI_API_KEY")
 OPENAI_BASE_URL = get_config("OPENAI_BASE_URL")

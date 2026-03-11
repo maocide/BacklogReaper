@@ -2,13 +2,13 @@ import flet as ft
 import sys
 import os
 
-# Check if we are running as a compiled executable
+# Fix Windows encoding crashes for special characters (like ★ or ™ in game names)
 if getattr(sys, 'frozen', False):
-    # We are in the .exe! If the console is missing, spoof it to prevent crashes.
+    # IN THE .EXE: Route to void, but explicitly tell the void to accept UTF-8
     if sys.stdout is None:
-        sys.stdout = open(os.devnull, "w")
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
     if sys.stderr is None:
-        sys.stderr = open(os.devnull, "w")
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 import startup
 import paths
@@ -21,7 +21,7 @@ from ui.gatekeeper import GatekeeperView
 
 
 def main(page: ft.Page):
-    page.title = "Backlog Reaper"
+    page.title = f"Backlog Reaper"
 
     # Platform-specific icon handling
     if sys.platform == "win32":
