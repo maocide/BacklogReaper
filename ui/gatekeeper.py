@@ -191,7 +191,7 @@ class GatekeeperView(ft.Container):
             self._start_ritual()
 
     async def on_window_event(self, e):
-        print(f"on_window_event {e}")
+        # print(f"on_window_event {e}")
         if e.type == WindowEventType.CLOSE:
             print("OS Window closed! Triggering kill switches...")
             # Fire the Gatekeeper's kill switch
@@ -348,7 +348,7 @@ class GatekeeperView(ft.Container):
             try:
                 # Fetch completed set image and opacity to start animation
                 if self.avatar_url and not self.avatar_manifestation.image.src:
-                    print(self.avatar_url)
+                    # print(self.avatar_url)
                     self.avatar_manifestation.image.src = self.avatar_url
                     self.avatar_manifestation.opacity = 1
                     self.avatar_manifestation.update()

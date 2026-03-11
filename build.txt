@@ -1,0 +1,17 @@
+# 1. Pull the repository
+git clone https://github.com/maocide/BacklogReaper.git
+
+# 2. Navigate into the project folder
+cd BacklogReaper
+
+# 3. Create the virtual environment
+python -m venv venv
+
+# 4. Activate the virtual environment (Git Bash specific!)
+source venv/Scripts/activate
+
+# 5. Install the dependencies
+pip install -r requirements.txt
+
+# 6. Run the build script
+./build.bat
