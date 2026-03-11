@@ -41,7 +41,7 @@ def main(page: ft.Page):
     page.padding = 0
 
     page.fonts = {
-        styles.FONT_HEADING: "fonts/Cinzel-VariableFont_wght.ttf"
+        styles.FONT_HEADING: "fonts/Cinzel-Regular.ttf"
     }
 
     page.theme = ft.Theme(
