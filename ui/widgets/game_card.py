@@ -38,8 +38,9 @@ class GameCard(ft.Card):
         # Get Background Image
         bg_image = self._get_bg_image(appid, is_roast, game_data)
 
-        # Build Content Column (Header, Info Rows, Actions)
-        content_column = ft.Column(spacing=4)
+        # Build Content Column (Header, Info Rows)
+        # Add adaptive scrolling so long text fields don't overflow the card
+        content_column = ft.Column(spacing=4, scroll=ft.ScrollMode.ADAPTIVE)
 
         # Header
         content_column.controls.append(self._build_header(game_data.get("name", "")))
@@ -49,16 +50,14 @@ class GameCard(ft.Card):
         info_rows = self._build_info_rows(game_data)
         content_column.controls.extend(info_rows)
 
-        # Spacer
-        content_column.controls.append(ft.Container(height=10))
+        # Bottom padding to ensure last item is not covered by the fixed button
+        content_column.controls.append(ft.Container(height=45))
 
-        # Actions (Buttons)
+        # Actions (Buttons) are extracted to be positioned absolutely
         actions = self._build_actions(appid)
-        if actions:
-            content_column.controls.append(actions)
 
-        # Build the Visual Stack (Background + Content)
-        return self._build_stack(bg_image, content_column)
+        # Build the Visual Stack (Background + Content + Actions)
+        return self._build_stack(bg_image, content_column, actions)
 
     def _get_bg_image(self, appid, is_roast, game_data):
         """Determines the background image URL or asset path."""
@@ -226,37 +225,27 @@ class GameCard(ft.Card):
 
     def _build_actions(self, appid):
         """Builds the action buttons (Save, Launch) if applicable."""
+        # Note: We return just the button (not a Row) to prevent the Row's
+        # transparent hitbox from consuming clicks meant for the list underneath.
         if appid == "ROAST":
-            return ft.Row(
-                controls=[
-                    GrimoireButton(
-                        "Save it",
-                        icon=ft.Icons.SAVE,
-                        height=30,
-                        style=styles.CARD_STYLE,
-                        on_click=self._handle_save_roast
-                    )
-                ],
-                alignment=ft.MainAxisAlignment.END,
-                vertical_alignment=ft.CrossAxisAlignment.END
+            return GrimoireButton(
+                "Save it",
+                icon=ft.Icons.SAVE,
+                height=30,
+                style=styles.CARD_STYLE,
+                on_click=self._handle_save_roast
             )
         elif appid and vault.is_game_owned(appid):
-            return ft.Row(
-                controls=[
-                    GrimoireButton(
-                        "Launch",
-                        icon=ft.Icons.PLAY_ARROW,
-                        height=30,
-                        style=styles.CARD_STYLE,
-                        on_click=lambda e: launch_game(appid)
-                    )
-                ],
-                alignment=ft.MainAxisAlignment.END,
-                vertical_alignment=ft.CrossAxisAlignment.END
+            return GrimoireButton(
+                "Launch",
+                icon=ft.Icons.PLAY_ARROW,
+                height=30,
+                style=styles.CARD_STYLE,
+                on_click=lambda e: launch_game(appid)
             )
         return None
 
-    def _build_stack(self, bg_image, content_column):
+    def _build_stack(self, bg_image, content_column, actions=None):
         """Combines background, gradient, and content into the final stack."""
 
         stack_controls = []
@@ -305,13 +294,25 @@ class GameCard(ft.Card):
             )
         )
         
-        # LAYER D: Content
+        # LAYER D: Content (Scrollable)
         stack_controls.append(
             ft.Container(
                 padding=15,
                 content=content_column,
+                # Absolute positioning constraints are needed for scrollable columns inside Stacks
+                left=0, right=0, top=0, bottom=0,
             )
         )
+
+        # LAYER E: Action Button (Hovering at bottom right)
+        if actions:
+            stack_controls.append(
+                ft.Container(
+                    content=actions,
+                    bottom=15,
+                    right=15,
+                )
+            )
 
         # Shadow Style
         shadow = ft.BoxShadow(
