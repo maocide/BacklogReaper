@@ -367,25 +367,64 @@ tools_schema = [
         }
     },
     {
-            "type": "function",
-            "function": {
-                "name": "get_friends_who_own",
-                "description": "Checks which of the user's Steam friends own a specific game. Returns their names, status (Online/Offline), and playtime. Use this to leverage social pressure: 'Your friends X and Y play this, why don't you?' or to answer 'Can I play this with anyone?'.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "game_name": {
-                            "type": "string",
-                            "description": "The name of the game."
-                        },
-                        "action_description": {
-                            "type": "string",
-                            "description": "Flavor text describing the action (e.g. 'Stalking your friends list...')."
-                        }
+        "type": "function",
+        "function": {
+            "name": "get_friends_who_own",
+            "description": "Checks which of the user's Steam friends own specific games. Returns their names, status, and playtime. If the user asks 'What can I play with friends?', you can pass games into this tool to find a match.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_names": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "A list of game names to check against the friends list (e.g., ['Helldivers 2', 'Lethal Company'])."
                     },
-                    "required": ["game_name", "action_description"],
-                }
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["game_names", "action_description"],
             }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "compare_library_with_friend",
+            "description": "Fetches a specific friend's entire Steam library and compares it to the user's library. Use this when the user asks 'What games do I share with X?' or 'What can I play with Y?'. Returns shared multiplayer games and the friend's most played games.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "friend_name": {
+                        "type": "string",
+                        "description": "The Steam name of the friend (fuzzy matched)."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["compare_library_with_friend", "action_description"],
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_active_friends",
+            "description": "Fetches a list of all currently online friends and what games they are actively playing right now. Use this when the user asks 'Who is online?', 'What are my friends playing?', or 'Is anyone around to play?'",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["action_description"],
+            }
+        }
     },
 ]
 
@@ -397,7 +436,7 @@ def get_friendly_status(func_name):
         # Vault / Local DB
         "vault_search": "📜 Rummaging through your backlog...",
         "vault_search_batch": "📜 Rummaging through all your library...",
-        "get_user_tags": "🏷️ analyzing your genre habits...",
+        "get_user_tags": "🏷️ Analyzing your genre habits...",
         "get_library_stats": "📊 Auditing your entire life...",
         "find_similar_games": "🔍 Matching games in your vault...",
         "get_achievements": "🏆 Checking your trophy cabinet...",
@@ -412,6 +451,9 @@ def get_friendly_status(func_name):
         "web_search": "🌐 Searching the web...",
         "get_webpage": "📃 Reading webpage content...",
         "get_game_news": "📰 Getting news...",
+        "get_friends_who_own": "👯 Checking friends...",
+        "compare_library_with_friend": "👯 Comparing friends' games...",
+        "get_active_friends": "👯 Meeting your friends..."
 
     }
 
@@ -603,8 +645,18 @@ def execute_tool(tool_request):
             tool_output_str = wrap_output(data, context=context_msg)
 
         elif tool_name == "get_friends_who_own":
-            data = game_intelligence.get_friends_who_own(clean_params.get('game_name'))
-            context_msg = f"Friends who own {clean_params.get('game_name')}."
+            data = game_intelligence.get_friends_who_own(clean_params.get('game_names'))
+            context_msg = f"Friend ownership data for {len(clean_params.get('game_names', []))} games."
+            tool_output_str = wrap_output(data, context=context_msg)
+
+        elif tool_name == "compare_library_with_friend":
+            data = game_intelligence.compare_library_with_friend(clean_params.get('friend_name'))
+            context_msg = f"Common games for {clean_params.get('friend_name')}."
+            tool_output_str = wrap_output(data, context=context_msg)
+
+        elif tool_name == "get_active_friends":
+            data = game_intelligence.get_active_friends()
+            context_msg = f"Active friends retrieved {clean_params.get('friend_name')}."
             tool_output_str = wrap_output(data, context=context_msg)
 
     except Exception as e:

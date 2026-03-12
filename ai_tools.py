@@ -102,11 +102,15 @@ def clean_json_for_ai(data, keep_keys=None, transformations=None):
 
         try:
             if rule == 'date':
+                if int(value) == 0:
+                    return "N/A"
                 # Assumes Unix timestamp (int or float)
                 dt = datetime.datetime.fromtimestamp(int(value))
                 return dt.strftime("%Y-%m-%d")
 
             elif rule == 'datetime':
+                if int(value) == 0:
+                    return "N/A"
                 # Assumes Unix timestamp (int or float)
                 dt = datetime.datetime.fromtimestamp(int(value))
                 return dt.strftime("%Y-%m-%d %H:%M")
@@ -136,14 +140,14 @@ def clean_json_for_ai(data, keep_keys=None, transformations=None):
     if isinstance(data, dict):
         new_dict = {}
         for k, v in data.items():
-            # 1. Filter: Skip keys not in allowlist (if allowlist exists)
+            # Filter: Skip keys not in allowlist (if allowlist exists)
             if keep_keys is not None and k not in keep_keys:
                 continue
 
-            # 2. Transform: Recursive call
+            # Transform: Recursive call
             new_val = clean_json_for_ai(v, keep_keys, transformations)
 
-            # 3. Value Conversion: Apply formatting rule based on key name
+            # Value Conversion: Apply formatting rule based on key name
             final_val = apply_transform(k, new_val)
 
             new_dict[k] = final_val
