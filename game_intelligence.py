@@ -1694,9 +1694,9 @@ def get_active_friends():
 
 
 if __name__ == "__main__":
-    #print(get_achievement_stats(-1, "akane"))
+    pprint(get_achievement_stats(-1, "SYNTHETIK 2", page=0))
     #pprint(get_friends_who_own(game_names=["Helldivers 2", "Peak"]))
     #pprint(get_reviews_byname(game_name="Marathon"))
     #pprint(compare_library_with_friend("Ash"))
-    pprint(get_active_friends())
+    #pprint(get_active_friends())
 

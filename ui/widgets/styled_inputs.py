@@ -112,6 +112,14 @@ class GlowingChatInput(ft.Container):
     def value(self, val):
         self.input_field.value = val
 
+    @property
+    def hint_text(self):
+        return self.input_field.hint_text
+
+    @hint_text.setter
+    def hint_text(self, val):
+        self.input_field.hint_text = val
+
     # Helper method: Flet often needs to refocus the text box after you send a message
     async def focus(self):
         await self.input_field.focus()

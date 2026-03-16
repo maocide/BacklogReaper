@@ -157,6 +157,14 @@ class ReaperChatView(ft.Container):
              self.character = Character.default()
         self.chat_history.load(self.character)
 
+        # Update hint text
+        if self.br_input.current:
+            if self.character.name == "Reaper":
+                self.br_input.current.hint_text = "Consult the Reaper..."
+            else:
+                self.br_input.current.hint_text = f"Consult {self.character.name}..."
+            self.br_input.current.update()
+
     def _prefetch_avatar(self):
         try:
 
@@ -797,10 +805,6 @@ class ReaperChatView(ft.Container):
         if self.current_stop_event:
             self.current_stop_event.set()
 
-        # Update prompt with current character from settings before starting
-        ####self._initialize_character()
-        # this leads to duplicate messages on regenerate, or we could save state on regenerate message removal
-
         # Create new ID and Event
         new_run_id = str(uuid.uuid4())
         self.current_run_id = new_run_id
@@ -808,9 +812,7 @@ class ReaperChatView(ft.Container):
         new_stop_event = threading.Event()
         self.current_stop_event = new_stop_event
 
-        # Ensure queue is clean-ish (we can't easily clear a Queue, but we rely on run_id filtering)
-        # Ideally we'd replace the queue, but that's messy if the loop is reading.
-        # But filter by run_id handles it.
+        # Ensure queue is clean, filter by run_id handles it.
 
         # Reset state
         self.stream_state = {
