@@ -1,4 +1,7 @@
-# 🪦 Backlog Reaper
+
+<p align="left">
+  <img src="docs/images/backlog_reaper_banner.png" width="700" alt="🪦 Backlog Reaper">
+</p>
 
 ![Forged on Arch Linux](https://img.shields.io/badge/Forged_on-Arch_Linux-1793d1?style=for-the-badge&logo=arch-linux)
 ![Compiled for Windows](https://img.shields.io/badge/Compiled_for-Windows-0078D6?style=for-the-badge&logo=windows)
@@ -62,7 +65,23 @@ Backlog Reaper is built for power users who demand data sovereignty and highly o
 2. Place the executable in a dedicated folder (e.g., `C:\Games\BacklogReaper`).
 3. Run the application. 
 4. Complete the **Gatekeeper Ritual** on the first launch by providing your Steam API key and Username.
-5. The application will automatically construct your local database, download the HLTB datasets (~100MB), and awaken your chosen companion.
+5. The application will automatically construct your local database, download the HLTB datasets (~100MB), and awaken your chosen companion.  
+
+### 🔑 Awakening your chosen companion (API Configuration)
+Backlog Reaper requires two keys to function: your Steam data, and an LLM to serve as the reasoning engine. The app is completely model-agnostic and uses standard OpenAI-formatted endpoints.
+
+Navigate to the **Settings** tab to configure your entity's brain:
+
+**Option A: Cloud Models (OpenAI / OpenRouter / etc.)**
+* **API Key:** Paste your standard API key.
+* **Base URL:** Leave blank for default OpenAI, or set to your provider's endpoint (e.g., `https://openrouter.ai/api/v1`).
+* **Model Name:** e.g., `gpt-4o`, `gpt-4-turbo`.
+
+**Option B: Local Models (LM Studio / Ollama)**
+Keep your data 100% local by pointing the Reaper to your own hardware.
+* **API Key:** Enter `lm-studio` or `ollama` (or any dummy text).
+* **Base URL:** Enter your local server address (e.g., `http://localhost:1234/v1` for LM Studio).
+* **Model Name:** Enter the exact name of the loaded local model.
 
 ---
 *Backlog Reaper: Because your pile of shame isn't going to clear itself.*

@@ -1174,32 +1174,29 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
         # print(raw_wishlist)
 
         if not raw_wishlist:
-            return {"error": "Wishlist is empty or private."}
+            return {
+                "error": "Wishlist is empty, or Steam Privacy Settings for 'Game details' are set to Private/Friends Only. Tell the user they must set 'Game details' to Public to use this feature."}
 
-        # Sort (Metadata)
-        # Sort by metadata *before* fetching details to save API calls.
-        # cheapest/discount sorting is imperfect here because we don't have prices yet.
-        # For those, we fetch the top 50 prioritized items and then sort them below.
-        if sort_by == 'priority':
+        # SORTING (Metadata Pre-Sort)
+        if sort_by in ['cheapest', 'discount']:
+            # If the wishlist is messy, 'recent' is the best baseline.
+            # We want to find deals on games you actually remember adding first.
+            raw_wishlist.sort(key=lambda x: x.get('date_added', 0), reverse=True)
+        elif sort_by == 'priority':
             raw_wishlist.sort(key=lambda x: x.get('priority', 999))
         elif sort_by == 'recent':
             raw_wishlist.sort(key=lambda x: x.get('date_added', 0), reverse=True)
-        elif sort_by in ['cheapest', 'discount']:
-            # optimization: default to priority for the fetch batch
-            raw_wishlist.sort(key=lambda x: x.get('priority', 999))
 
-        # Pagination / Slicing
-        # If sorting by price, fetch a larger batch (up to 50) to find deals
-        items_to_process = []
+        # PAGINATION & SLICING
         is_price_sort = sort_by in ['cheapest', 'discount']
 
-        if is_price_sort:
-            # Fetch top 50 to find best deals/prices among them
-            items_to_process = raw_wishlist[:50]
-        else:
-            start_idx = page * page_size
-            end_idx = start_idx + page_size
-            items_to_process = raw_wishlist[start_idx:end_idx]
+        # If looking for deals, we fetch a large 'chunk' (50) based on the current page.
+        # This allows the Agent to say "Let me check the NEXT 50 games for deals..."
+        chunk_size = 50 if is_price_sort else page_size
+
+        start_idx = page * chunk_size
+        end_idx = start_idx + chunk_size
+        items_to_process = raw_wishlist[start_idx:end_idx]
 
         if not items_to_process:
             return []  # End of list reached
@@ -1216,14 +1213,21 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
                 "appid": appid,
                 "date_added": datetime.fromtimestamp(item.get('date_added', 0)).strftime("%Y-%m-%d %H:%M"),
             }
-
+            # pprint(item)
             try:
                 # Fetch details from Store API
                 store_url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=US"
-                # cc=US ensures dollar prices. Might one day include localization
 
                 headers, cookies = get_steam_bypass_with_referer(appid)
-                resp = requests.get(store_url, headers=headers, cookies=cookies, timeout=5).json()
+                response = requests.get(store_url, headers=headers, cookies=cookies, timeout=5)
+
+                # Check for the 429 Rate Limit Bomb
+                if response.status_code == 429:
+                    res['error'] = "RATE_LIMITED"
+                    res['price'] = "Rate Limited"
+                    return res
+
+                resp = response.json()
 
                 if resp and str(appid) in resp and resp[str(appid)]['success']:
                     data = resp[str(appid)]['data']
@@ -1238,7 +1242,6 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
                             res['discount'] = price_data.get('discount_percent', 0)
 
             except Exception as e:
-                # print(f"Error fetching {appid}: {e}")
                 res['error'] = str(e)
                 res['price'] = "Error"
 
@@ -1246,20 +1249,20 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 
         # Execute Parallel Fetch
         enriched_results = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             enriched_results = list(executor.map(fetch_details_worker, items_to_process))
 
-        # Post-Fetch Sorting (If Price/Discount was requested)
+        # POST-FETCH SORTING & TRIMMING
         if is_price_sort:
             def get_price_float(item):
-                p = item['price']
+                p = item.get('price', 'N/A')
                 if p == 'Free': return 0.0
-                if p == 'N/A': return 9999.0
-                # remove currency symbols
-                clean = ''.join(c for c in p if c.isdigit() or c == '.')
+                if p == 'N/A' or p == 'Error': return 9999.0
+                # Remove currency symbols safely
+                clean = ''.join(c for c in str(p) if c.isdigit() or c == '.')
                 try:
                     return float(clean)
-                except:
+                except ValueError:
                     return 9999.0
 
             if sort_by == 'cheapest':
@@ -1267,10 +1270,8 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
             elif sort_by == 'discount':
                 enriched_results.sort(key=lambda x: x['discount'], reverse=True)
 
-            # Since we fetched 50, we now strictly paginate the result for the UI
-            start_idx = page * page_size
-            end_idx = start_idx + page_size
-            enriched_results = enriched_results[start_idx:end_idx]
+            # We fetched 50, sorted them by best deal, now return the top 10 of THIS chunk
+            enriched_results = enriched_results[:page_size]
 
         return enriched_results
 
@@ -1694,9 +1695,10 @@ def get_active_friends():
 
 
 if __name__ == "__main__":
-    pprint(get_achievement_stats(-1, "SYNTHETIK 2", page=0))
+    #pprint(get_achievement_stats(-1, "SYNTHETIK 2", page=0))
     #pprint(get_friends_who_own(game_names=["Helldivers 2", "Peak"]))
     #pprint(get_reviews_byname(game_name="Marathon"))
     #pprint(compare_library_with_friend("Ash"))
     #pprint(get_active_friends())
+    pprint(get_user_wishlist(sort_by='discount', page=0, page_size=10))
 

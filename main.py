@@ -2,6 +2,7 @@ import flet as ft
 import sys
 import os
 import paths
+import settings
 
 # Fix Windows encoding crashes for special characters (like ★ or ™ in game names)
 if paths.is_packaged():
@@ -21,7 +22,7 @@ from ui.gatekeeper import GatekeeperView
 
 
 def main(page: ft.Page):
-    page.title = f"Backlog Reaper"
+    page.title = f"Backlog Reaper [{settings.APP_VERSION}]"
 
     # Platform-specific icon handling
     if sys.platform == "win32":

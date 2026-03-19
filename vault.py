@@ -625,8 +625,8 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
 
         # REVIEW SCORE FILTER
         if min_review_score is not None:
-             score = game.get('review_score', -1)
-             if score != -1 and score < min_review_score:
+             score = game.get('review_score', -2)
+             if score != -2 and score < min_review_score and score != -1: # -1 is used for BETA/DEMO of a game, we skip.
                  continue
 
         # Passed filters, add to results
