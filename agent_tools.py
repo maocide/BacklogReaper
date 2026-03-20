@@ -369,6 +369,28 @@ tools_schema = [
     {
         "type": "function",
         "function": {
+            "name": "get_steam_store_trends",
+            "description": "Fetches the current front-page trends directly from the Steam Store. Use this to tell the user about major seasonal sales, what's popular right now, or new drops.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": ["specials", "top_sellers", "new_releases", "coming_soon"],
+                        "description": "The store category to fetch. Default to 'specials' if looking for sales."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["category", "action_description"],
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_friends_who_own",
             "description": "Checks which of the user's Steam friends own specific games. Returns their names, status, and playtime. If the user asks 'What can I play with friends?', you can pass games into this tool to find a match.",
             "parameters": {
@@ -453,7 +475,8 @@ def get_friendly_status(func_name):
         "get_game_news": "📰 Getting news...",
         "get_friends_who_own": "👯 Checking friends...",
         "compare_library_with_friend": "👯 Comparing friends' games...",
-        "get_active_friends": "👯 Meeting your friends..."
+        "get_active_friends": "👯 Meeting your friends...",
+        "get_steam_store_trends": "🏷️ Checking the Steam storefront...",
 
     }
 
@@ -657,6 +680,11 @@ def execute_tool(tool_request):
         elif tool_name == "get_active_friends":
             data = game_intelligence.get_active_friends()
             context_msg = f"Active friends retrieved {clean_params.get('friend_name')}."
+            tool_output_str = wrap_output(data, context=context_msg)
+        elif tool_name == "get_steam_store_trends":
+            category = clean_params.get('category', 'specials')
+            data = game_intelligence.get_steam_store_trends(category)
+            context_msg = f"Steam store trends for category: {category}."
             tool_output_str = wrap_output(data, context=context_msg)
 
     except Exception as e:

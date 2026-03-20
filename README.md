@@ -143,7 +143,16 @@ Navigate to the **Settings** tab to configure your entity's brain:
 Keep your data 100% local by pointing the Reaper to your own hardware.
 * **API Key:** Enter `lm-studio` or `ollama` (or any dummy text).
 * **Base URL:** Enter your local server address (e.g., `http://localhost:1234/v1` for LM Studio).
-* **Model Name:** Enter the exact name of the loaded local model.
+* **Model Name:** Enter the exact name of the loaded local model.  
+
+---
+
+## 🔮 The Horizon (Roadmap)
+Backlog Reaper is actively evolving. The core architecture is designed to be highly modular, meaning the current implementation is just the beginning.
+
+* **Multi-Platform Vault:** Expanding the SQLite schema to encapsulate Epic Games, GOG, and Xbox Game Pass libraries alongside Steam.
+* **Agnostic Agent Engine:** The ReAct loop and chat UI are completely decoupled from the gaming tools. In the future, the engine could be plugged with entirely different toolsets (e.g., coding, local file management) to serve as a general-purpose desktop AI.
+* **Expanded UI Dashboards:** More granular, interactive charts for playtime analysis and financial tracking.
 
 ---
 *Backlog Reaper: Because your pile of shame isn't going to clear itself.*

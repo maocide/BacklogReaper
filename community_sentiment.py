@@ -108,8 +108,18 @@ def get_webpage(url):
             # STEAM EXTRACTION (Bypassing Trafilatura)
             soup = BeautifulSoup(resp.text, 'html.parser')
 
-            # Destroy the navigation, footer, and scripts so the LLM doesn't see the language menu
-            for junk in soup(["script", "style", "nav", "footer", "select"]):
+            # Destroy standard HTML junk tags
+            for junk in soup(["script", "style", "nav", "footer", "select", "noscript", "header"]):
+                junk.extract()
+
+            # Destroy Steam-specific UI elements (Header, Footer, Language Menus)
+            steam_junk_ids = ['global_header', 'footer', 'store_nav_area', 'global_action_menu']
+            for junk in soup.find_all(id=steam_junk_ids):
+                junk.extract()
+
+            steam_junk_classes = ['header_installsteam_btn', 'language_selector', 'popup_block_new',
+                                  'footer_content', 'valve_links']
+            for junk in soup.find_all(class_=steam_junk_classes):
                 junk.extract()
 
             # Grab all remaining text
@@ -117,6 +127,9 @@ def get_webpage(url):
 
             # Clean up massive blank spaces
             text = '\n'.join([line for line in text.split('\n') if line.strip()])
+
+            if not text or len(text) < 50:
+                return {"error": "Page is dynamic/JavaScript rendered and cannot be read, or is empty."}
 
         else:
             # STANDARD URLS (Let Trafilatura do its magic)
@@ -493,8 +506,9 @@ def get_game_news(game_name: str, limit: int = 5):
 
 
 if __name__ == "__main__":
-    # print(get_hltb_search_scrape("Akane"))
+    #print(get_hltb_search_scrape("Akane"))
     #print(get_webpage("https://store.steampowered.com/app/884260/Akane/"))
-    print(find_4chan_thread(topic_search="marathon", board_name="v", threshold=0.7))
+    print(get_webpage("https://store.steampowered.com/sale/special_deals"))
+    #print(find_4chan_thread(topic_search="marathon", board_name="v", threshold=0.7))
     #print(
     #    scrape_steam_forums(game_intelligence.get_steam_app_info("Cyberpunk 2077")["id"][0], gamename='Cyberpunk 2077'))

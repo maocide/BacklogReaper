@@ -1693,6 +1693,54 @@ def get_active_friends():
 
     return result
 
+@safe_tool
+def get_steam_store_trends(category="specials"):
+    """
+    Fetches the current front-page trends directly from the Steam Store.
+    Valid categories: 'specials' (current sales/deals), 'top_sellers', 'new_releases', 'coming_soon'.
+    Use this to tell the user about major seasonal sales, what's popular, or new drops.
+    """
+    url = "https://store.steampowered.com/api/featuredcategories/?cc=US"
+    valid_categories = ['specials', 'top_sellers', 'new_releases', 'coming_soon']
+
+    # Auto-correct if the LLM hallucinates a category
+    if category not in valid_categories:
+        category = 'specials'
+
+    try:
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+
+        items_raw = data.get(category, {}).get('items', [])
+
+        if not items_raw:
+            return {"error": f"No data found for category: {category}"}
+
+        results = []
+        # Limit to 15 to keep the LLM context window clean and focused
+        for item in items_raw[:15]:
+            original_price = item.get('original_price', 0) / 100
+            final_price = item.get('final_price', 0) / 100
+            discount = item.get('discount_percent', 0)
+
+            results.append({
+                "appid": item.get('id'),  # <--- ADD THIS LINE
+                "name": item.get('name', 'Unknown'),
+                "discount": f"{discount}% OFF" if discount > 0 else "None",
+                "price": f"${final_price:.2f}" if final_price > 0 else "Free",
+                "original": f"${original_price:.2f}" if original_price > 0 else "N/A"
+            })
+
+        return {
+            "current_view": category,
+            "total_items": len(results),
+            "games": results
+        }
+
+    except Exception as e:
+        return {"error": f"Could not fetch Steam store trends: {e}"}
+
 
 if __name__ == "__main__":
     #pprint(get_achievement_stats(-1, "SYNTHETIK 2", page=0))
@@ -1700,5 +1748,6 @@ if __name__ == "__main__":
     #pprint(get_reviews_byname(game_name="Marathon"))
     #pprint(compare_library_with_friend("Ash"))
     #pprint(get_active_friends())
-    pprint(get_user_wishlist(sort_by='discount', page=0, page_size=10))
+    #pprint(get_user_wishlist(sort_by='discount', page=0, page_size=10))
+    pprint(get_steam_store_trends())
 
