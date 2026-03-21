@@ -136,6 +136,16 @@ class GameCard(ft.Card):
                 if title.lower() == "status":
                     val_color = get_status_color(str(content))
 
+                # Handle possible lists
+                final_content = ""
+                if isinstance(content, list):
+                    for item in content:
+                        if not final_content:
+                            final_content = item
+                        else:
+                            final_content = f"{final_content}, {item}"
+                    content = final_content
+
                 new_line = ft.Text(
                     spans=[
                         ft.TextSpan(

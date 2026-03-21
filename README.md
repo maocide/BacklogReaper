@@ -22,10 +22,10 @@ Whether you need a harsh undead auditor to calculate your financial waste, or a 
 
 **maocide**: Roast my Steam library, Reaper. I bet my backlog isn't even that bad.
 
-**Reaper's Cognitive Loop:**
-* `get_library_stats` - `Sifting through the digital graveyard of maocide's gaming sins...`
-* `vault_search | {"sort_by": "recent"}` - `Peering into the recent digital footprints of this mortal...`
-* `get_user_tags` - `Analyzing the genre rot that festers in this digital tomb...`
+> **Reaper's Cognitive Loop:**
+> 1. Sifting through the digital graveyard of maocide's gaming sins... - `get_library_stats` | PARAMS: `{}`
+> 2. Peering into the recent digital footprints of this mortal... - `vault_search` | PARAMS: `{"sort_by": "recent"}`
+> 3. Analyzing the genre rot that festers in this digital tomb... - `get_user_tags` | PARAMS: `{}`
 
 **Reaper:** **"maocide"**... What a name. Sounds like a discount brand of pesticide mixed with a failed edgelord phase. But let's get to the real poison here - your digital hoarding problem.
 
@@ -72,41 +72,182 @@ By default, you are bound to **The Reaper**, a dark fantasy entity that acts as 
 
 ---
 
-## 📜 The Spellbook (Tool Integrations)
-The AI doesn't just guess what you should play; it is armed with a ReAct cognitive loop and **20 specialized API tools** to deeply analyze your digital footprint.
+## 📜 The Spellbook (19 Tool Integrations)
+The AI doesn't just guess what you should play; it is armed with a ReAct cognitive loop and **19 specialized API tools** to deeply analyze your digital footprint.
 
-**Local Library Intelligence**
-* `vault_search`: Advanced filtering by tags, playtime, review scores, and status.
-* `search_by_vibe`: Mood/emotion-based game discovery using semantic vector embeddings.
-* `find_similar_games`: Hybrid tag and vector similarity search.
-* `get_library_stats` & `get_user_tags`: Aggregate shame percentages, completion rates, and genre habits.
-* `get_achievements`: Track progress and identify "easiest missing" completions.
+* **Local Library Intelligence:** `vault_search`, `get_library_stats`, `search_by_vibe` (Vector Embeddings), `find_similar_games`, `get_user_tags`, `get_achievements`.
+* **External Data & Store:** `get_game_details`, `search_steam_store`, `get_steam_store_trends` (Live sales/top sellers).
+* **Community & Sentiment:** `get_reviews`, `get_community_sentiment` (Scrapes Reddit/4chan/Forums), `get_game_news`.
+* **Advanced Social & Matchmaking:** `get_active_friends` (Real-time tracking), `get_friends_who_own` (Batch-optimized overlap), `compare_library_with_friend`.
+* **Research & Web Discovery:** `web_search`, `get_webpage`, `get_user_wishlist`.
 
-**External Data & Community**
-* `get_game_details` & `search_steam_store`: Deep dive into prices to find better deals, HLTB times to get your completion, and store browsing.
-* `get_community_sentiment` & `get_reviews`: Scrape Reddit, 4chan and Steam forums for uncensored player opinions. Fetch and analyze Steam Store user reviews to integrate real community feedback.
-* `get_game_news`: Fetch the latest patch notes and official updates from Steam.
+### 🔮 The Engine in Action
 
-**Advanced Social & Matchmaking**
-* `get_active_friends`: Real-time tracking of who is online and exactly what they are playing.
-* `get_friends_who_own`: Batch-optimized API calls to find multiplayer overlap without hitting Steam's rate limits.
-* `compare_library_with_friend`: Compares owned games distinguishing between games your friends are actively playing versus titles they abandoned years ago.
+> Expand the logs below to see the ReAct engine actively scraping the web, cross-referencing friends lists, and judging your financial choices in real-time:
 
-**Research & Web Discovery**
-* `web_search` & `get_webpage`: Live DuckDuckGo searching with automatic AI article summarization.
-* `get_user_wishlist`: Browse wishlisted games, find sales, and integrate them with other tools.    
+<details>
+<summary>🕵️‍♂️ Example: The Live-Service Analysis (Community check)</summary>
 
-*...and several other utility incantations to power these main functions*
+**maocide:** "What do you think of Marathon, Reaper? Is it good?"
+
+> **Reaper's Cognitive Loop:**
+> 1. *Scouring the digital ether for information on this new extraction shooter temptation* - `web_search` | PARAMS: `{"search": "Marathon Bungie extraction shooter reviews"}`
+> 2. *Examining the cold, hard data on this temptation* - `get_game_details` | PARAMS: `{"game_names": ["Marathon"]}`
+> 3. *Listening to the screams and cheers from the gaming underworld...* - `get_community_sentiment` | PARAMS: `{"game_name": "Marathon"}`
+> 
+
+Ah, Marathon. Bungie's latest attempt to resurrect a dead franchise by turning it into... an extraction shooter. Because what the gaming world really needed was *another* extraction shooter.
+
+Let me break down what the data tells me, and what my ancient, jaded eyes see:
+
+**The Cold Hard Facts:**
+- **Price:** $39.99 (or $33.95 on GameBillet if you're cheap)
+- **User Score:** 90% Positive on Steam (24,828 positive vs 2,799 negative)
+- **Average Playtime:** 25.1 hours (Median: 14.9 hours)
+- **Genre:** Extraction Shooter, PvPvE, Sci-fi FPS
+
+**The Community Screams:**
+- **4chan:** Calls it "mid," "dogshit," "failed niche extraction shooter." They think Bungie is out of touch and catering to streamers.
+- **Reddit:** Mixed. Some say it's boring, unrewarding, unbalanced. Others complain about reviewers being "corrupt" for delaying reviews. There's even a rumor it's "ending service in June 2026" (probably fake).
+- **Steam Forums:** Absolute chaos. Rage about "Cryo" mode having no solo option, rampant cheating, technical issues, matchmaking problems, crashes. The term "Copium Lifecycle" says it all.
+
+*(The engine dynamically renders this analysis into a UI card):*
+<p align="center">
+  <img src="docs/images/cards_output_marathon.png" alt="Marathon Analysis Card">
+</p>
+
+**My Analysis:**
+
+Marathon is Bungie trying to chase trends instead of setting them. They took their classic Marathon IP (which you've probably never played, hoarder) and turned it into an extraction shooter because that's what the kids are playing these days.
+
+The **90% positive Steam reviews** are suspicious. Either Bungie fans are coping hard, or the game has genuinely good gunplay (it *is* Bungie). But the community sentiment tells a different story - technical issues, forced team play in "Cryo" mode, cheating epidemics.
+
+For **YOU specifically, maocide:**
+- You already own **Ready or Not** (3.7 hours played) and **ARC Raiders** (don't own, but it's another extraction shooter)
+- You have **289.9 hours in HELLDIVERS™ 2** - you clearly enjoy co-op PvE
+- You have **92.3 hours in Risk of Rain 2** - you enjoy roguelikes
+
+Marathon is **PvPvE extraction**. That means other players will hunt you while you try to extract loot. Based on your library, you seem to prefer PvE co-op over competitive PvP. You'll probably get frustrated when some sweaty tryhard steals your loot after 20 minutes of careful gameplay.
+
+**Verdict:** Wait. Wait for a deeper sale. Wait for them to fix the technical issues. Wait to see if the playerbase survives. At $39.99, it's too expensive for a gamble. You already have 345 unplayed games. If you're desperate for extraction shooter gameplay, try **ARC Raiders** when it goes on deeper sale, or actually play the **Ready or Not** you already own.
+
+But knowing you, you'll probably buy it anyway, play it for 5 hours, then add it to your shame pile. Typical hoarder behavior.
+</details>
+
+<details>
+<summary>🛒 Example: The Steam Sale Audit (Cross-referencing store vs. local vault)</summary>
+
+**maocide:** "Check the current Spring Sales. What should I buy?"
+
+> **Reaper's Cognitive Loop:**
+> 1. *Scouring the digital marketplace for seasonal sales to judge your potential financial ruin* - `get_steam_store_trends` | PARAMS: `{"category": "specials"}`
+> 2. *Checking if you've already wasted money on these sale games before you waste more* - `vault_search_batch` | PARAMS: `{"game_names": ["Call of Duty®: Modern Warfare®", "Ready or Not", "ELDEN RING", "Cyberpunk 2077", "Baldur's Gate 3", "Resident Evil 3", "ARC Raiders", "Red Dead Redemption 2", "Sons Of The Forest", "Retro Rewind - Video Store Simulator"]}`
+> 3. *Scouring the digital marketplace for fresh souls to tempt... and for this mortal to waste more money on* - `get_steam_store_trends` | PARAMS: `{"category": "specials"}`
+> 4. *Checking if this hoarder already owns the tempting deals before he wastes more money* - `vault_search_batch` | PARAMS: `{"game_names": ["Call of Duty®: Modern Warfare®", "Ready or Not", "ELDEN RING", "Cyberpunk 2077", "Baldur's Gate 3", "Resident Evil 3", "ARC Raiders", "Red Dead Redemption 2", "Sons Of The Forest"]}`
+> 5. *Examining the tempting deals this hoarder might actually not own yet* - `get_game_details` | PARAMS: `{"game_names": ["Cyberpunk 2077", "Baldur's Gate 3", "ARC Raiders", "Sons Of The Forest", "Retro Rewind - Video Store Simulator"]}`
+
+**Reaper:** Ah, the Spring Sale. The digital equivalent of a siren's call for hoarders like you. Let me see what fresh temptations await your already-burdened wallet.
+
+First, let me check what you DON'T own from these deals... because with 694 games, you probably already own half of them.  
+
+Ah, the Spring Sale beckons with its siren song of discounts. Let me break down what's actually worth your time, considering you already own 345 unplayed games.
+
+First, the deals you **already own** (and probably haven't played):
+- **Call of Duty®: Modern Warfare®** - You own 304 hours of Call of Duty already. Do you really need another one?
+- **Ready or Not** - You own it, played 3.7 hours. Typical.
+- **ELDEN RING** - Owned, 6 hours played. Did the Tree Sentinel break your spirit?
+- **Resident Evil 3** - You own SEVEN Resident Evil games, most untouched. Hoarder.
+- **Red Dead Redemption 2** - You actually played this! 166.7 hours! A miracle!
+
+Now, the deals you **don't own**:
+
+<p align="left">
+  <img src="docs/images/cards_output_sales.png" alt="Cards output from the software interface">
+</p>
+
+Now listen carefully, "maocide." You have 345 unplayed games. That's your backlog. That's your shame pile. Before you even THINK about buying anything new, consider this:
+
+**Cyberpunk 2077** at $20.99 is actually a decent deal. It's finally the game it promised to be. But do you have 100 hours to spare? You already own ELDEN RING with 6 hours played. What makes you think you'll finish this?
+
+**Baldur's Gate 3** is a masterpiece, but $44.99 is still steep for someone with your completion rate. You'll probably create a character, play 10 hours, then abandon it like all your other RPGs.
+
+**Sons Of The Forest** at $8.99 is practically stealing. But do you have friends? Your library suggests you're more of a solo player.
+
+**ARC Raiders** - Extraction shooter? With your attention span? Don't make me laugh.
+
+My advice? **Finish something you already own first.** But if you must feed your addiction... Cyberpunk at $20.99 is the least offensive choice. At least it's actually good now.
+
+What's it going to be, hoarder? More digital clutter, or actual progress?
+</details>
+
+<details>
+<summary>⚔️ Example: The Multiplayer Matchmaker</summary>
+
+**maocide**: Who is online right now, and what co-op game can we actually play?  
+
+
+> **Reaper's Cognitive Loop:**
+> 1. Scanning the digital ether for living souls who might tolerate this hoarder's presence - `get_active_friends` | PARAMS: `{}`
+> 2. Digging through the hoarder's multiplayer graveyard for something actually playable - `vault_search` | PARAMS: `{"tags": ["Multiplayer", "Co-op"], "status": ["Unplayed", "Started", "Invested"], "sort_by": "random", "seed": 42}`
+> 3. Checking which of your "friends" might actually suffer through co-op with you - `get_friends_who_own` | PARAMS: `{"game_names": ["Ready or Not", "Borderlands: The Pre-Sequel", "Trine 2", "How to Survive"]}`
+> 4. Finding multiplayer games this hoarder has actually touched for more than 5 minutes - `vault_search` | PARAMS: `{"tags": ["Multiplayer","Co-op"], "min_playtime": 5, "sort_by": "recent"}`
+> 5. Seeing if any of your online "friends" share your taste in chaotic co-op - `get_friends_who_own` | PARAMS: `{"game_names": ["HELLDIVERS™ 2","Risk of Rain 2","Deep Rock Galactic","Killing Floor 2"]}`
+
+
+**Reaper**:  Well, well, well. Look who's trying to be social. You have **5 friends online**, but let's be real - only 2 are actually active, and they're playing single-player games. "AshKetchdem" is losing at Magic, and "Unearth[PL]" is probably mashing buttons in Injustice 2. The other three are "Away" - which in gamer terms means "pretending to be busy so I don't have to talk to you."
+
+But let's play along with this sad attempt at socialization. You want co-op? You have **345 unplayed games**, many of which are multiplayer. Let me see what you actually own that you could play with someone.
+
+First, let me check what multiplayer games you actually have some decent playtime in:
+
+> ⚙️ [Reaper executes: vault_search]
+
+Now let's check which of your online friends might actually own some of these:
+
+> ⚙️ [Reaper executes: get_friends_who_own]
+
+Alright, let me break down this pathetic social situation for you:
+
+**Online Friends (5 total):**
+1. **AshKetchdem** - Online, playing Magic: The Gathering Arena (single-player)
+2. **Unearth[PL]** - Online, playing Injustice™ 2 (fighting game)
+3. **Valas** - Away, not playing anything
+4. **Spardagamer** - Away, not playing anything  
+5. **ZZR** - Away, not playing anything
+
+**Your best bets for co-op right now:**
+
+<p align="left">
+  <img src="docs/images/cards_output_matchmaking.png" alt="Cards output from the software interface">
+</p>
+
+**My recommendation:** Message **AshKetchdem** and ask if he wants to play **HELLDIVERS™ 2**. He's online right now, he owns it (5.7 hours played), and you have 289.9 hours in it. You could actually teach him something for once instead of being carried.
+
+Alternatively, **Risk of Rain 2** with **ZZR** (who has 345.4 hours) would be hilarious because he'd absolutely carry your pathetic ass through the game.
+
+But here's the real question: Do you actually have the social skills to message someone and ask them to play? Or will you just stare at your friends list for 20 minutes before going back to playing SYNTHETIK 2 alone?
+
+**ROCK AND STONE, OR FOR DEMOCRACY?** Choose, you socially awkward hoarder.
+</details>
 
 ---
 
 ## 🎭 The BYOW System (Bring Your Own Waifu / Persona)
-Tired of the edgy skeleton guy? The Backlog Reaper engine natively supports standard PNG/JSON character cards (TavernAI, Silly Tavern format). The engine provides the data; your custom character card completely dictates the vibe.
+Tired of the edgy skeleton guy? The Backlog Reaper engine natively supports **standard Character Cards (SillyTavern / TavernAI format)**. Just drop a supported PNG character card into the `characters/` folder, and the engine will extract the metadata, personality, and scenario automatically.
 
-**The Aggressive Social Auditor (e.g., Asuka)**
+The Reaper engine provides the hard data, the prompt wraps the tool in the card personality; your custom character card completely dictates the vibe.
+
+### ✨ Sibyl the Seer
+Included in the base repository is **Sibyl**, a mystical digital oracle. Instead of aggressively roasting your "pile of shame," she gently reads your Steam vault like a tragic tarot deck, referring to your unplayed games as "abandoned destinies" and "clouded auras."
+*(Insert your screenshot of Sibyl here!)*
+
+### 🔄 Infinite Modularity
+Because the engine adapts entirely to the imported Persona, your experience completely changes based on who you summon:
+
+* **The Aggressive Social Auditor (e.g., imported Asuka PNG)**
 > *"Anta baka?! You want to play CS2 with Ash? I just checked his real-time status and he hasn't logged in for three weeks, and when he did, he carried you. Go finish your single-player games instead of waiting to be carried."*
 
-**The Supportive Co-op Partner (e.g., Zero Two)**
+* **The Supportive Co-op Partner (e.g., imported Zero Two PNG)**
 > *"Darling! You have so many amazing indie games we haven't even touched yet! I see you bought Stardew Valley three years ago... why don't you boot it up tonight so we can relax?"*
 
 ---

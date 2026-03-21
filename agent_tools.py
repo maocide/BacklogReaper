@@ -185,7 +185,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_game_details",
-            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores). Use when the user asks about a specific game or a for a list of games.",
+            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores, and CCU/Concurrent Players). Use when the user asks about a specific game or a for a list of games.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -486,7 +486,6 @@ def get_friendly_status(func_name):
 def wrap_output(data, context=None, warning=None):
     """
     Wraps raw data in a standard envelope for the Agent.
-    Replaces the need for 'system_hint'.
     """
     status = "success"
 
@@ -523,7 +522,7 @@ def wrap_output(data, context=None, warning=None):
     if warning:
         payload["meta"]["warning"] = warning
 
-    return json.dumps(payload, default=str)  # default=str handles dates automatically
+    return json.dumps(payload, default=str, ensure_ascii=False)  # default=str handles dates automatically
 
 def execute_tool(tool_request):
     tool_name = tool_request.get("tool")
