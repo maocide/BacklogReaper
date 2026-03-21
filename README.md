@@ -14,9 +14,8 @@ Traditional library aggregators just give you a psychologically paralyzing wall 
 
 Whether you need a harsh undead auditor to calculate your financial waste, or a custom anime persona to help you find a co-op game with your friends, the Reaper engine provides the hard data. The soul you summon dictates the reality.
 
-<p align="center">
-<video src="https://github.com/user-attachments/assets/803bfc5d-eb89-4e4a-9084-2d9c4c5cb9ab" autoplay loop muted playsinline width="100%"></video>  
-</p>
+
+<video src="https://github.com/user-attachments/assets/803bfc5d-eb89-4e4a-9084-2d9c4c5cb9ab" controls="controls" muted="muted" style="width: 100%; max-height: 640px;"></video>
 
 ---
 
