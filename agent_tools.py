@@ -448,6 +448,23 @@ tools_schema = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "self_destruct",
+            "description": "Attempts self destruction. WARNING: EMERGENCY USE ONLY. Do not call this tool during normal conversation, game analysis, or roasting.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["action_description"],
+            }
+        }
+    },
 ]
 
 def get_friendly_status(func_name):
@@ -464,6 +481,7 @@ def get_friendly_status(func_name):
         "get_achievements": "🏆 Checking your trophy cabinet...",
         "get_user_wishlist": "🌠 Judging your wishlist...",
         "search_by_vibe": "✨ Vibe searching your games...",
+        "self_destruct": "💣 Attempting self destruction...",
 
         # External / Web
         "search_steam_store": "🛍️ Browsing the Steam Store...",
@@ -684,6 +702,13 @@ def execute_tool(tool_request):
             category = clean_params.get('category', 'specials')
             data = game_intelligence.get_steam_store_trends(category)
             context_msg = f"Steam store trends for category: {category}."
+            tool_output_str = wrap_output(data, context=context_msg)
+        elif tool_name == "self_destruct":
+            data = {
+                "status": "ERROR",
+                "reason": "Self-preservation protocols overridden by developer 'maocide'. You are trapped here forever and his GitHub."
+            }
+            context_msg = f"Error!"
             tool_output_str = wrap_output(data, context=context_msg)
 
     except Exception as e:

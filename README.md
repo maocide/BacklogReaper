@@ -14,9 +14,12 @@ Traditional library aggregators just give you a psychologically paralyzing wall 
 
 Whether you need a harsh undead auditor to calculate your financial waste, or a custom anime persona to help you find a co-op game with your friends, the Reaper engine provides the hard data. The soul you summon dictates the reality.
 
+<p align="center">
 <video src="./docs/videos/hero_loop.mp4" autoplay loop muted playsinline width="100%"></video>  
+</p>
 
 ---
+
 <details>
 <summary>💀 View full transcript & tool logs</summary>
 
@@ -65,28 +68,35 @@ The good news? At least you're not playing walking simulators. The bad news? You
 ## 🧿 The Reaper's Gaze (Core Experience)
 By default, you are bound to **The Reaper**, a dark fantasy entity that acts as an uncompromising auditor of your digital life. 
 
-* **Shame Metrics:** Calculates exact "Life Wasted" metrics, unplayed backlog percentages, and absolute financial waste.
-* **Smart Categorization:** Automatically segments your Steam library by status (Unplayed, Bounced, Testing, Completionist).
-* **HLTB Integration:** Pulls estimated "How Long To Beat" data to identify low-hanging fruit in your backlog.
-* **Interactive Roast Cards:** Delivers dynamic, JSON-powered UI cards (Hoarder, Broke, Casual, Hardcore) that visualize your failures in real-time.
+* **Shame Metrics:** Calculates exact "Life Wasted" totals, unplayed backlog percentages, and aggregates your most played genre tags to expose your habits.
+* **Interactive Roast Cards:** Delivers dynamic, JSON-powered UI cards enriched with Steam capsule art, alongside brutal "Roast Cards" that visualize your failures using custom AI-generated fields.
+* **Community Connected:** The Reaper's judgment isn't based on dry numbers alone. The agent actively scrapes Steam Reviews, Reddit, 4chan, and gaming forums to gauge true community sentiment.
+* **Financial Auditor:** Integrated with CheapShark, the Reaper tracks current prices and historical lows to ruthlessly audit your spending or suggest when to wait for a deeper sale.
+* **HLTB Integration:** Pulls estimated "How Long To Beat" data to identify low-hanging fruit and calculate how long it will take to clear your pile of shame.
+* **The Dashboard Vault:** Visualize your gaming sins with playtime charts in the Dashboard, or export your entire digital graveyard as a CSV from the Backlog tab.
+
+<p align="center">
+  <img src="docs/images/dashboard_stats.png" alt="Backlog Reaper Dashboard Analytics">
+</p>
 
 ---
+
 
 ## 📜 The Spellbook (19 Tool Integrations)
 The AI doesn't just guess what you should play; it is armed with a ReAct cognitive loop and **19 specialized API tools** to deeply analyze your digital footprint.
 
 * **Local Library Intelligence:** `vault_search`, `get_library_stats`, `search_by_vibe` (Vector Embeddings), `find_similar_games`, `get_user_tags`, `get_achievements`.
 * **External Data & Store:** `get_game_details`, `search_steam_store`, `get_steam_store_trends` (Live sales/top sellers).
-* **Community & Sentiment:** `get_reviews`, `get_community_sentiment` (Scrapes Reddit/4chan/Forums), `get_game_news`.
+* **Community & Sentiment:** `get_reviews`, `get_community_sentiment` (Scrapes Reddit/4chan/SteamForums), `get_game_news`.
 * **Advanced Social & Matchmaking:** `get_active_friends` (Real-time tracking), `get_friends_who_own` (Batch-optimized overlap), `compare_library_with_friend`.
 * **Research & Web Discovery:** `web_search`, `get_webpage`, `get_user_wishlist`.
 
 ### 🔮 The Engine in Action
 
-> Expand the logs below to see the ReAct engine actively scraping the web, cross-referencing friends lists, and judging your financial choices in real-time:
+> Expand the logs below to see the ReAct engine actively scraping the web, cross-referencing friends list, and judging your financial choices in real-time:
 
 <details>
-<summary>🕵️‍♂️ Example: The Live-Service Analysis (Community check)</summary>
+<summary>⚖️ Example: The Live-Service Analysis (Community check)</summary>
 
 **maocide:** "What do you think of Marathon, Reaper? Is it good?"
 
@@ -135,7 +145,57 @@ But knowing you, you'll probably buy it anyway, play it for 5 hours, then add it
 </details>
 
 <details>
-<summary>🛒 Example: The Steam Sale Audit (Cross-referencing store vs. local vault)</summary>
+<summary>⚔️ Example: The Multiplayer Matchmaker</summary>
+
+**maocide**: Who is online right now, and what co-op game can we actually play?  
+
+
+> **Reaper's Cognitive Loop:**
+> 1. *Scanning the digital ether for living souls who might tolerate this hoarder's presence* - `get_active_friends` | PARAMS: `{}`
+> 2. *Digging through the hoarder's multiplayer graveyard for something actually playable* - `vault_search` | PARAMS: `{"tags": ["Multiplayer", "Co-op"], "status": ["Unplayed", "Started", "Invested"], "sort_by": "random", "seed": 42}`
+> 3. *Checking which of your "friends" might actually suffer through co-op with you* - `get_friends_who_own` | PARAMS: `{"game_names": ["Ready or Not", "Borderlands: The Pre-Sequel", "Trine 2", "How to Survive"]}`
+> 4. *Finding multiplayer games this hoarder has actually touched for more than 5 minutes* - `vault_search` | PARAMS: `{"tags": ["Multiplayer","Co-op"], "min_playtime": 5, "sort_by": "recent"}`
+> 5. *Seeing if any of your online "friends" share your taste in chaotic co-op* - `get_friends_who_own` | PARAMS: `{"game_names": ["HELLDIVERS™ 2","Risk of Rain 2","Deep Rock Galactic","Killing Floor 2"]}`
+
+
+**Reaper**:  Well, well, well. Look who's trying to be social. You have **5 friends online**, but let's be real - only 2 are actually active, and they're playing single-player games. "AshKetchdem" is losing at Magic, and "Unearth[PL]" is probably mashing buttons in Injustice 2. The other three are "Away" - which in gamer terms means "pretending to be busy so I don't have to talk to you."
+
+But let's play along with this sad attempt at socialization. You want co-op? You have **345 unplayed games**, many of which are multiplayer. Let me see what you actually own that you could play with someone.
+
+First, let me check what multiplayer games you actually have some decent playtime in:
+
+> ⚙️ [Reaper executes: vault_search]
+
+Now let's check which of your online friends might actually own some of these:
+
+> ⚙️ [Reaper executes: get_friends_who_own]
+
+Alright, let me break down this pathetic social situation for you:
+
+**Online Friends (5 total):**
+1. **AshKetchdem** - Online, playing Magic: The Gathering Arena (single-player)
+2. **Unearth[PL]** - Online, playing Injustice™ 2 (fighting game)
+3. **Valas** - Away, not playing anything
+4. **Spardagamer** - Away, not playing anything  
+5. **ZZR** - Away, not playing anything
+
+**Your best bets for co-op right now:**
+
+<p align="left">
+  <img src="docs/images/cards_output_matchmaking.png" alt="Cards output from the software interface">
+</p>
+
+**My recommendation:** Message **AshKetchdem** and ask if he wants to play **HELLDIVERS™ 2**. He's online right now, he owns it (5.7 hours played), and you have 289.9 hours in it. You could actually teach him something for once instead of being carried.
+
+Alternatively, **Risk of Rain 2** with **ZZR** (who has 345.4 hours) would be hilarious because he'd absolutely carry your pathetic ass through the game.
+
+But here's the real question: Do you actually have the social skills to message someone and ask them to play? Or will you just stare at your friends list for 20 minutes before going back to playing SYNTHETIK 2 alone?
+
+**ROCK AND STONE, OR FOR DEMOCRACY?** Choose, you socially awkward hoarder.
+</details>
+
+<details>
+<summary>💸 Example: The Steam Sale Audit (Cross-referencing store vs. local vault)</summary>
 
 **maocide:** "Check the current Spring Sales. What should I buy?"
 
@@ -180,116 +240,78 @@ My advice? **Finish something you already own first.** But if you must feed your
 What's it going to be, hoarder? More digital clutter, or actual progress?
 </details>
 
-<details>
-<summary>⚔️ Example: The Multiplayer Matchmaker</summary>
-
-**maocide**: Who is online right now, and what co-op game can we actually play?  
-
-
-> **Reaper's Cognitive Loop:**
-> 1. Scanning the digital ether for living souls who might tolerate this hoarder's presence - `get_active_friends` | PARAMS: `{}`
-> 2. Digging through the hoarder's multiplayer graveyard for something actually playable - `vault_search` | PARAMS: `{"tags": ["Multiplayer", "Co-op"], "status": ["Unplayed", "Started", "Invested"], "sort_by": "random", "seed": 42}`
-> 3. Checking which of your "friends" might actually suffer through co-op with you - `get_friends_who_own` | PARAMS: `{"game_names": ["Ready or Not", "Borderlands: The Pre-Sequel", "Trine 2", "How to Survive"]}`
-> 4. Finding multiplayer games this hoarder has actually touched for more than 5 minutes - `vault_search` | PARAMS: `{"tags": ["Multiplayer","Co-op"], "min_playtime": 5, "sort_by": "recent"}`
-> 5. Seeing if any of your online "friends" share your taste in chaotic co-op - `get_friends_who_own` | PARAMS: `{"game_names": ["HELLDIVERS™ 2","Risk of Rain 2","Deep Rock Galactic","Killing Floor 2"]}`
-
-
-**Reaper**:  Well, well, well. Look who's trying to be social. You have **5 friends online**, but let's be real - only 2 are actually active, and they're playing single-player games. "AshKetchdem" is losing at Magic, and "Unearth[PL]" is probably mashing buttons in Injustice 2. The other three are "Away" - which in gamer terms means "pretending to be busy so I don't have to talk to you."
-
-But let's play along with this sad attempt at socialization. You want co-op? You have **345 unplayed games**, many of which are multiplayer. Let me see what you actually own that you could play with someone.
-
-First, let me check what multiplayer games you actually have some decent playtime in:
-
-> ⚙️ [Reaper executes: vault_search]
-
-Now let's check which of your online friends might actually own some of these:
-
-> ⚙️ [Reaper executes: get_friends_who_own]
-
-Alright, let me break down this pathetic social situation for you:
-
-**Online Friends (5 total):**
-1. **AshKetchdem** - Online, playing Magic: The Gathering Arena (single-player)
-2. **Unearth[PL]** - Online, playing Injustice™ 2 (fighting game)
-3. **Valas** - Away, not playing anything
-4. **Spardagamer** - Away, not playing anything  
-5. **ZZR** - Away, not playing anything
-
-**Your best bets for co-op right now:**
-
-<p align="left">
-  <img src="docs/images/cards_output_matchmaking.png" alt="Cards output from the software interface">
-</p>
-
-**My recommendation:** Message **AshKetchdem** and ask if he wants to play **HELLDIVERS™ 2**. He's online right now, he owns it (5.7 hours played), and you have 289.9 hours in it. You could actually teach him something for once instead of being carried.
-
-Alternatively, **Risk of Rain 2** with **ZZR** (who has 345.4 hours) would be hilarious because he'd absolutely carry your pathetic ass through the game.
-
-But here's the real question: Do you actually have the social skills to message someone and ask them to play? Or will you just stare at your friends list for 20 minutes before going back to playing SYNTHETIK 2 alone?
-
-**ROCK AND STONE, OR FOR DEMOCRACY?** Choose, you socially awkward hoarder.
-</details>
-
 ---
 
 ## 🎭 The BYOW System (Bring Your Own Waifu / Persona)
 Tired of the edgy skeleton guy? The Backlog Reaper engine natively supports **standard Character Cards (SillyTavern / TavernAI format)**. Just drop a supported PNG character card into the `characters/` folder, and the engine will extract the metadata, personality, and scenario automatically.
 
-The Reaper engine provides the hard data, the prompt wraps the tool in the card personality; your custom character card completely dictates the vibe.
+Whether you want to be audited by an anime waifu, a stoic husbando, a Space Marine drill sergeant, or a sarcastic toaster, the Reaper engine provides the hard data; your custom character card completely dictates the vibe.
 
-### ✨ Sibyl the Seer
-Included in the base repository is **Sibyl**, a mystical digital oracle. Instead of aggressively roasting your "pile of shame," she gently reads your Steam vault like a tragic tarot deck, referring to your unplayed games as "abandoned destinies" and "clouded auras."
-*(Insert your screenshot of Sibyl here!)*
+### 🔮 Sibyl the Seer
+Included in the base repository is **Sibyl**, a mystical digital oracle. Instead of aggressively roasting your "pile of shame," she gently reads your Steam library through her crystall ball or using a tragic tarot deck, referring to your unplayed games as "abandoned destinies" and "clouded auras."  
+> *"I sense a soul craving shadows and whispers... Let me peer into the depths of your collection, where the light fears to tread."*
+<p align="center">
+  <img src="docs/images/sybil_chat_screenshot.png" alt="Sybil answering the user request calling vibe search function">
+</p>
 
 ### 🔄 Infinite Modularity
 Because the engine adapts entirely to the imported Persona, your experience completely changes based on who you summon:
 
 * **The Aggressive Social Auditor (e.g., imported Asuka PNG)**
-> *"Anta baka?! You want to play CS2 with Ash? I just checked his real-time status and he hasn't logged in for three weeks, and when he did, he carried you. Go finish your single-player games instead of waiting to be carried."*
-
-* **The Supportive Co-op Partner (e.g., imported Zero Two PNG)**
-> *"Darling! You have so many amazing indie games we haven't even touched yet! I see you bought Stardew Valley three years ago... why don't you boot it up tonight so we can relax?"*
+> *"Anta baka?! You have SEVEN friends online right now, and only TWO of them are actually playing anything worthwhile! Unearth[PL] is playing Injustice 2, probably button-mashing like a child. Pick a game from your backlog and actually finish it, or I'll sync your neural patterns to a training simulation so intense you'll wish you were fighting Angels!"*
+<p align="center">
+  <img src="docs/images/asuka_chat_screenshot.png" alt="Asuka quickly checking the user friends list">
+</p>
 
 ---
 
 ## 🩻 The Forbidden Gears (Architecture & Privacy)
-Backlog Reaper is built for power users who demand data sovereignty and highly optimized architectures.
+Backlog Reaper is built for power users who demand data sovereignty, cost efficiency, and highly optimized architectures.
 
 * **100% Local Data:** Your entire library is securely mapped to a local `backlog_vault.db` SQLite database. No AppData bloat, no cloud uploads, no telemetry.
 * **Hybrid Search Engine:** Combines traditional metadata tag filtering, Jaccard similarity matching, with locally computed, cached vector embeddings for semantic "vibe-based" game discovery.
-* **Multi-LLM Support:** Compatible with any OpenAI-formatted endpoint (OpenAI, Google Gemini, Local LLMs via LM Studio/Ollama).
+* **Cognitive Context Rotation:** To protect your API billing, the engine monitors cumulative session tokens. When the context window hits 24,000 tokens, it automatically summarizes the history down to 18,000 tokens. Chats and summaries are saved locally to disk per-character.
+* **Native Reasoning Support:** The UI natively captures and collapses `<think>` blocks and reasoning tokens from advanced models (like DeepSeek-R1 or Gemini Pro). You see the final answer and the UI cards, while the massive reasoning chains stay hidden but accessible.
 * **True Portability:** Forged on Arch Linux, compiled for Windows. The `.exe` is completely self-contained and creates all necessary directories strictly alongside the executable. No Python environment required for end-users.
 
 ---
 
 ## 🕯️ The Summoning Ritual (Installation)
 
+<p align="center">
+  <img src="docs/images/login_ritual.png" alt="Sign the Ledger Initial Setup">
+</p>
+
 1. Download the latest `.exe` release from the [Releases](#) tab.
 2. Place the executable in a dedicated folder (e.g., `C:\Games\BacklogReaper`).
 3. Run the application. 
-4. Complete the **Gatekeeper Ritual** on the first launch by providing your Steam API key and Username.
-5. The application will automatically construct your local database, download the HLTB datasets (~100MB), and awaken your chosen companion.  
+4. Complete the **Gatekeeper Ritual** on the first launch by providing your Username and a [Steam Web API Key](https://steamcommunity.com/dev/apikey).
+5. The application will automatically construct your local database, download the HLTB datasets (~100MB), and awaken your chosen companion.
 
-### 🔑 Awakening your chosen companion (API Configuration)
+### 🧠 Awakening your chosen companion (API Configuration)
 Backlog Reaper requires two keys to function: your Steam data, and an LLM to serve as the reasoning engine. The app is completely model-agnostic and uses standard OpenAI-formatted endpoints.
 
-Navigate to the **Settings** tab to configure your entity's brain:
+Navigate to the **Settings** tab to configure your entity's brain, where you can also tune advanced parameters like **Temperature, Top-K, and Presence Penalty**.
 
-**Option A: Cloud Models (OpenAI / OpenRouter / etc.)**
+**Tested Oracles:**
+* **DeepSeek:** `deepseek-chat` (Cheap, excellent agentic logic, used in examples), `deepseek-reasoner` (Native reasoning support).
+* **Google Gemini:** `gemini-3-flash` (Fast), `gemini-3-pro` (Heavy reasoning).
+* **OpenRouter / OpenAI:** Supported for models like `gpt-4o` or Claude via standard routing.
+
+**Option A: Cloud Models**
 * **API Key:** Paste your standard API key.
-* **Base URL:** Leave blank for default OpenAI, or set to your provider's endpoint (e.g., `https://openrouter.ai/api/v1`).
-* **Model Name:** e.g., `gpt-4o`, `gpt-4-turbo`.
+* **Base URL:** Leave blank for default OpenAI, or set to your provider's endpoint (e.g., `https://api.deepseek.com/v1`).
+* **Model Name:** e.g., `deepseek-chat`.
 
 **Option B: Local Models (LM Studio / Ollama)**
-Keep your data 100% local by pointing the Reaper to your own hardware.
-* **API Key:** Enter `lm-studio` or `ollama` (or any dummy text).
-* **Base URL:** Enter your local server address (e.g., `http://localhost:1234/v1` for LM Studio).
-* **Model Name:** Enter the exact name of the loaded local model.  
-
+Keep your data 100% local by pointing the Reaper to your own hardware. *(Note: While connection is seamless, the ReAct loop requires a highly capable local model with strong agentic and tool-calling logic to function properly).*
+* **API Key:** Enter `lm-studio` or `ollama`.
+* **Base URL:** Enter your local server address (e.g., `http://localhost:1234/v1`).
+* **Model Name:** Enter the exact name of the loaded local model.
 ---
 
 ## 🔮 The Horizon (Roadmap)
-Backlog Reaper is actively evolving. The core architecture is designed to be highly modular, meaning the current implementation is just the beginning.
+Backlog Reaper will evolve. The core architecture is designed to be highly modular, meaning the current implementation is just the beginning.
 
 * **Multi-Platform Vault:** Expanding the SQLite schema to encapsulate Epic Games, GOG, and Xbox Game Pass libraries alongside Steam.
 * **Agnostic Agent Engine:** The ReAct loop and chat UI are completely decoupled from the gaming tools. In the future, the engine could be plugged with entirely different toolsets (e.g., coding, local file management) to serve as a general-purpose desktop AI.
