@@ -15,7 +15,9 @@ Traditional library aggregators just give you a psychologically paralyzing wall 
 Whether you need a harsh undead auditor to calculate your financial waste, or a custom anime persona to help you find a co-op game with your friends, the Reaper engine provides the hard data. The soul you summon dictates the reality.
 
 <p align="center">
-    <img src="docs/videos/hero_loop.webp" width="100%" alt="Backlog Reaper in Action">
+	<kbd>
+	    <img src="docs/videos/hero_loop.webp" width="100%" alt="Backlog Reaper in Action">
+    </kbd>
 </p>
 
 ---
@@ -76,7 +78,9 @@ By default, you are bound to **The Reaper**, a dark fantasy entity that acts as 
 * **The Dashboard Vault:** Visualize your gaming sins with playtime charts in the Dashboard, or export your entire digital graveyard as a CSV from the Backlog tab.
 
 <p align="center">
+<kbd>
   <img src="docs/images/dashboard_stats.png" alt="Backlog Reaper Dashboard Analytics">
+</kbd>
 </p>
 
 ---
@@ -123,7 +127,9 @@ Let me break down what the data tells me, and what my ancient, jaded eyes see:
 
 *(The engine dynamically renders this analysis into a UI card):*
 <p align="center">
+<kbd>
   <img src="docs/images/cards_output_marathon.png" alt="Marathon Analysis Card">
+</kbd>
 </p>
 
 **My Analysis:**
@@ -182,7 +188,9 @@ Alright, let me break down this pathetic social situation for you:
 **Your best bets for co-op right now:**
 
 <p align="left">
+<kbd>
   <img src="docs/images/cards_output_matchmaking.png" alt="Cards output from the software interface">
+</kbd>
 </p>
 
 **My recommendation:** Message **AshKetchdem** and ask if he wants to play **HELLDIVERS™ 2**. He's online right now, he owns it (5.7 hours played), and you have 289.9 hours in it. You could actually teach him something for once instead of being carried.
@@ -251,7 +259,9 @@ Whether you want to be audited by an anime waifu, a stoic husbando, a Space Mari
 Included in the base repository is **Sibyl**, a mystical digital oracle. Instead of aggressively roasting your "pile of shame," she gently reads your Steam library through her crystall ball or using a tragic tarot deck, referring to your unplayed games as "abandoned destinies" and "clouded auras."  
 > *"I sense a soul craving shadows and whispers... Let me peer into the depths of your collection, where the light fears to tread."*
 <p align="center">
+<kbd>
   <img src="docs/images/sybil_chat_screenshot.png" alt="Sybil answering the user request calling vibe search function">
+</kbd>
 </p>
 
 ### 🔄 Infinite Modularity
@@ -259,8 +269,10 @@ Because the engine adapts entirely to the imported Persona, your experience comp
 
 * **The Aggressive Social Auditor (e.g., imported Asuka PNG)**
 > *"Anta baka?! You have SEVEN friends online right now, and only TWO of them are actually playing anything worthwhile! Unearth[PL] is playing Injustice 2, probably button-mashing like a child. Pick a game from your backlog and actually finish it, or I'll sync your neural patterns to a training simulation so intense you'll wish you were fighting Angels!"*
-<p align="center">
+<p align="center">  
+<kbd>
   <img src="docs/images/asuka_chat_screenshot.png" alt="Asuka quickly checking the user friends list">
+</kbd>
 </p>
 
 ---
@@ -278,8 +290,10 @@ Backlog Reaper is built for power users who demand data sovereignty, cost effici
 
 ## 🕯️ The Summoning Ritual (Installation)
 
-<p align="center">
+<p align="center">  
+<kbd>
   <img src="docs/images/login_ritual.png" alt="Sign the Ledger Initial Setup">
+</kbd>
 </p>
 
 1. Download the latest `.exe` release from the [Releases](#) tab.
