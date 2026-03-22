@@ -1,4 +1,3 @@
-
 <p align="left">
   <img src="docs/images/backlog_reaper_banner.png" width="700" alt="🪦 Backlog Reaper">
 </p>
@@ -15,7 +14,7 @@ Traditional library aggregators just give you a psychologically paralyzing wall 
 Whether you need a harsh undead auditor to calculate your financial waste, or a custom anime persona to help you find a co-op game with your friends, the Reaper engine provides the hard data. The soul you summon dictates the reality.
 
 <p align="center">
-	    <img src="docs/videos/hero_loop.webp" width="100%" alt="Backlog Reaper in Action">
+        <img src="docs/videos/hero_loop.webp" width="100%" alt="Backlog Reaper in Action">
 </p>
 
 ---
@@ -26,6 +25,7 @@ Whether you need a harsh undead auditor to calculate your financial waste, or a 
 **maocide**: Roast my Steam library, Reaper. I bet my backlog isn't even that bad.
 
 > **Reaper's Cognitive Loop:**
+> 
 > 1. *Sifting through the digital graveyard of maocide's gaming sins...* - `get_library_stats` | PARAMS: `{}`
 > 2. *Peering into the recent digital footprints of this mortal...* - `vault_search` | PARAMS: `{"sort_by": "recent"}`
 > 3. *Analyzing the genre rot that festers in this digital tomb...* - `get_user_tags` | PARAMS: `{}`
@@ -42,22 +42,11 @@ The real tragedy? You own **236 indie games** but have only spent **776 hours** 
 
 But here's the most damning evidence of your gaming sin: you have **3,040 hours** in eSports titles but only **8 games** in that category. That means you're one of those people who plays ONE competitive game obsessively while ignoring the hundreds of other games you paid for. The definition of insanity.
 
-```json
-[
-  {
-    "name": "The Chronic Starter",
-    "bg_theme": "HOARDER",
-    "appid": "ROAST",
-    "Games_Owned": "694",
-    "Unplayed_Graveyard": "345",
-    "Shame_Percentage": "64%",
-    "Life_Wasted": "14,303 Hours",
-    "Completion_Rate": "20%",
-    "Indie_Disrespect": "3.3h avg",
-    "comment": "You buy games like groceries, play them like demos."
-  }
-]
-```
+*(The engine dynamically renders this analysis into a UI card):*
+
+<p align="center">
+  <img src="docs/images/cards_output_hoarder.png" alt="Hoarder Analysis Card">
+</p>
 
 The good news? At least you're not playing walking simulators. The bad news? You're a digital dragon sitting on a pile of gold you'll never spend. Pick five games. Finish them. Then come back to me, and maybe - just maybe - I won't judge you as harshly. Until then, you're just another soul in my backlog purgatory.
 
@@ -66,6 +55,7 @@ The good news? At least you're not playing walking simulators. The bad news? You
 ---
 
 ## 🧿 The Reaper's Gaze (Core Experience)
+
 By default, you are bound to **The Reaper**, a dark fantasy entity that acts as an uncompromising auditor of your digital life. 
 
 * **Shame Metrics:** Calculates exact "Life Wasted" totals, unplayed backlog percentages, and aggregates your most played genre tags to expose your habits.
@@ -81,8 +71,8 @@ By default, you are bound to **The Reaper**, a dark fantasy entity that acts as 
 
 ---
 
-
 ## 📜 The Spellbook (19 Tool Integrations)
+
 The AI doesn't just guess what you should play; it is armed with a ReAct cognitive loop and **19 specialized API tools** to deeply analyze your digital footprint.
 
 * **Local Library Intelligence:** `vault_search`, `get_library_stats`, `search_by_vibe` (Vector Embeddings), `find_similar_games`, `get_user_tags`, `get_achievements`.
@@ -101,31 +91,32 @@ The AI doesn't just guess what you should play; it is armed with a ReAct cogniti
 **maocide:** "What do you think of Marathon, Reaper? Is it good?"
 
 > **Reaper's Cognitive Loop:**
+> 
 > 1. *Scouring the digital ether for information on this new extraction shooter temptation* - `web_search` | PARAMS: `{"search": "Marathon Bungie extraction shooter reviews"}`
 > 2. *Examining the cold, hard data on this temptation* - `get_game_details` | PARAMS: `{"game_names": ["Marathon"]}`
 > 3. *Listening to the screams and cheers from the gaming underworld...* - `get_community_sentiment` | PARAMS: `{"game_name": "Marathon"}`
-> 
 
 Ah, Marathon. Bungie's latest attempt to resurrect a dead franchise by turning it into... an extraction shooter. Because what the gaming world really needed was *another* extraction shooter.
 
 Let me break down what the data tells me, and what my ancient, jaded eyes see:
 
 **The Cold Hard Facts:**
+
 - **Price:** $39.99 (or $33.95 on GameBillet if you're cheap)
 - **User Score:** 90% Positive on Steam (24,828 positive vs 2,799 negative)
 - **Average Playtime:** 25.1 hours (Median: 14.9 hours)
 - **Genre:** Extraction Shooter, PvPvE, Sci-fi FPS
 
 **The Community Screams:**
+
 - **4chan:** Calls it "mid," "dogshit," "failed niche extraction shooter." They think Bungie is out of touch and catering to streamers.
 - **Reddit:** Mixed. Some say it's boring, unrewarding, unbalanced. Others complain about reviewers being "corrupt" for delaying reviews. There's even a rumor it's "ending service in June 2026" (probably fake).
 - **Steam Forums:** Absolute chaos. Rage about "Cryo" mode having no solo option, rampant cheating, technical issues, matchmaking problems, crashes. The term "Copium Lifecycle" says it all.
 
 *(The engine dynamically renders this analysis into a UI card):*
+
 <p align="center">
-<kbd>
   <img src="docs/images/cards_output_marathon.png" alt="Marathon Analysis Card">
-</kbd>
 </p>
 
 **My Analysis:**
@@ -135,6 +126,7 @@ Marathon is Bungie trying to chase trends instead of setting them. They took the
 The **90% positive Steam reviews** are suspicious. Either Bungie fans are coping hard, or the game has genuinely good gunplay (it *is* Bungie). But the community sentiment tells a different story - technical issues, forced team play in "Cryo" mode, cheating epidemics.
 
 For **YOU specifically, maocide:**
+
 - You already own **Ready or Not** (3.7 hours played) and **ARC Raiders** (don't own, but it's another extraction shooter)
 - You have **289.9 hours in HELLDIVERS™ 2** - you clearly enjoy co-op PvE
 - You have **92.3 hours in Risk of Rain 2** - you enjoy roguelikes
@@ -144,6 +136,7 @@ Marathon is **PvPvE extraction**. That means other players will hunt you while y
 **Verdict:** Wait. Wait for a deeper sale. Wait for them to fix the technical issues. Wait to see if the playerbase survives. At $39.99, it's too expensive for a gamble. You already have 345 unplayed games. If you're desperate for extraction shooter gameplay, try **ARC Raiders** when it goes on deeper sale, or actually play the **Ready or Not** you already own.
 
 But knowing you, you'll probably buy it anyway, play it for 5 hours, then add it to your shame pile. Typical hoarder behavior.
+
 </details>
 
 <details>
@@ -151,14 +144,13 @@ But knowing you, you'll probably buy it anyway, play it for 5 hours, then add it
 
 **maocide**: Who is online right now, and what co-op game can we actually play?  
 
-
 > **Reaper's Cognitive Loop:**
+> 
 > 1. *Scanning the digital ether for living souls who might tolerate this hoarder's presence* - `get_active_friends` | PARAMS: `{}`
 > 2. *Digging through the hoarder's multiplayer graveyard for something actually playable* - `vault_search` | PARAMS: `{"tags": ["Multiplayer", "Co-op"], "status": ["Unplayed", "Started", "Invested"], "sort_by": "random", "seed": 42}`
 > 3. *Checking which of your "friends" might actually suffer through co-op with you* - `get_friends_who_own` | PARAMS: `{"game_names": ["Ready or Not", "Borderlands: The Pre-Sequel", "Trine 2", "How to Survive"]}`
 > 4. *Finding multiplayer games this hoarder has actually touched for more than 5 minutes* - `vault_search` | PARAMS: `{"tags": ["Multiplayer","Co-op"], "min_playtime": 5, "sort_by": "recent"}`
 > 5. *Seeing if any of your online "friends" share your taste in chaotic co-op* - `get_friends_who_own` | PARAMS: `{"game_names": ["HELLDIVERS™ 2","Risk of Rain 2","Deep Rock Galactic","Killing Floor 2"]}`
-
 
 **Reaper**:  Well, well, well. Look who's trying to be social. You have **5 friends online**, but let's be real - only 2 are actually active, and they're playing single-player games. "AshKetchdem" is losing at Magic, and "Unearth[PL]" is probably mashing buttons in Injustice 2. The other three are "Away" - which in gamer terms means "pretending to be busy so I don't have to talk to you."
 
@@ -175,6 +167,7 @@ Now let's check which of your online friends might actually own some of these:
 Alright, let me break down this pathetic social situation for you:
 
 **Online Friends (5 total):**
+
 1. **AshKetchdem** - Online, playing Magic: The Gathering Arena (single-player)
 2. **Unearth[PL]** - Online, playing Injustice™ 2 (fighting game)
 3. **Valas** - Away, not playing anything
@@ -194,6 +187,7 @@ Alternatively, **Risk of Rain 2** with **ZZR** (who has 345.4 hours) would be hi
 But here's the real question: Do you actually have the social skills to message someone and ask them to play? Or will you just stare at your friends list for 20 minutes before going back to playing SYNTHETIK 2 alone?
 
 **ROCK AND STONE, OR FOR DEMOCRACY?** Choose, you socially awkward hoarder.
+
 </details>
 
 <details>
@@ -202,6 +196,7 @@ But here's the real question: Do you actually have the social skills to message 
 **maocide:** "Check the current Spring Sales. What should I buy?"
 
 > **Reaper's Cognitive Loop:**
+> 
 > 1. *Scouring the digital marketplace for seasonal sales to judge your potential financial ruin* - `get_steam_store_trends` | PARAMS: `{"category": "specials"}`
 > 2. *Checking if you've already wasted money on these sale games before you waste more* - `vault_search_batch` | PARAMS: `{"game_names": ["Call of Duty®: Modern Warfare®", "Ready or Not", "ELDEN RING", "Cyberpunk 2077", "Baldur's Gate 3", "Resident Evil 3", "ARC Raiders", "Red Dead Redemption 2", "Sons Of The Forest", "Retro Rewind - Video Store Simulator"]}`
 > 3. *Scouring the digital marketplace for fresh souls to tempt... and for this mortal to waste more money on* - `get_steam_store_trends` | PARAMS: `{"category": "specials"}`
@@ -215,6 +210,7 @@ First, let me check what you DON'T own from these deals... because with 694 game
 Ah, the Spring Sale beckons with its siren song of discounts. Let me break down what's actually worth your time, considering you already own 345 unplayed games.
 
 First, the deals you **already own** (and probably haven't played):
+
 - **Call of Duty®: Modern Warfare®** - You own 304 hours of Call of Duty already. Do you really need another one?
 - **Ready or Not** - You own it, played 3.7 hours. Typical.
 - **ELDEN RING** - Owned, 6 hours played. Did the Tree Sentinel break your spirit?
@@ -240,34 +236,43 @@ Now listen carefully, "maocide." You have 345 unplayed games. That's your backlo
 My advice? **Finish something you already own first.** But if you must feed your addiction... Cyberpunk at $20.99 is the least offensive choice. At least it's actually good now.
 
 What's it going to be, hoarder? More digital clutter, or actual progress?
+
 </details>
 
 ---
 
 ## 🃏 The BYOW System (Bring Your Own Waifu / Persona)
+
 Tired of the edgy skeleton guy? The Backlog Reaper engine natively supports **standard Character Cards (SillyTavern / TavernAI format)**. Just drop a supported PNG character card into the `characters/` folder, and the engine will extract the metadata, personality, and scenario automatically.
 
 Whether you want to be audited by an anime waifu, a stoic husbando, a Space Marine drill sergeant, or a sarcastic toaster, the Reaper engine provides the hard data; your custom character card completely dictates the vibe.
 
 ### 🔮 Sibyl the Seer
+
 Included in the base repository is **Sibyl**, a mystical digital oracle. Instead of aggressively roasting your "pile of shame," she gently reads your Steam library through her crystall ball or using a tragic tarot deck, referring to your unplayed games as "abandoned destinies" and "clouded auras."  
+
 > *"I sense a soul craving shadows and whispers... Let me peer into the depths of your collection, where the light fears to tread."*
+
 <p align="center">
   <img src="docs/images/sybil_chat_screenshot.png" alt="Sybil answering the user request calling vibe search function">
 </p>
 
 ### 🌀 The Summoning Circle
+
 Because the engine adapts entirely to the imported Persona, your experience completely changes based on who you summon:
 
 * **The Aggressive Social Auditor (e.g., imported Asuka Card)**
-> *"Anta baka?! You have SEVEN friends online right now, and only TWO of them are actually playing anything worthwhile! Unearth[PL] is playing Injustice 2, probably button-mashing like a child. Pick a game from your backlog and actually finish it, or I'll sync your neural patterns to a training simulation so intense you'll wish you were fighting Angels!"*
-<p align="center">
+  
+  > *"Anta baka?! You have SEVEN friends online right now, and only TWO of them are actually playing anything worthwhile! Unearth[PL] is playing Injustice 2, probably button-mashing like a child. Pick a game from your backlog and actually finish it, or I'll sync your neural patterns to a training simulation so intense you'll wish you were fighting Angels!"*
+  
+  <p align="center">
   <img src="docs/images/asuka_chat_screenshot.png" alt="Asuka quickly checking the user friends list">
-</p>
+  </p>
 
 ---
 
 ## 🩻 The Forbidden Gears (Architecture & Privacy)
+
 Backlog Reaper is built for power users who demand data sovereignty, cost efficiency, and highly optimized architectures.
 
 * **100% Local Data:** Your entire library is securely mapped to a local `backlog_vault.db` SQLite database. No AppData bloat, no cloud uploads, no telemetry.
@@ -291,28 +296,34 @@ Backlog Reaper is built for power users who demand data sovereignty, cost effici
 5. The application will automatically construct your local database, download the HLTB datasets (~100MB), and awaken your chosen companion.
 
 ### 🧠 Awakening your chosen companion (API Configuration)
+
 Backlog Reaper requires two keys to function: your Steam data, and an LLM to serve as the reasoning engine. The app is completely model-agnostic and uses standard OpenAI-formatted endpoints.
 
 Navigate to the **Settings** tab to configure your entity's brain, where you can also tune advanced parameters like **Temperature, Top-K, and Presence Penalty**.
 
 **Tested Oracles:**
+
 * **DeepSeek:** `deepseek-chat` (Cheap, excellent agentic logic, used in examples), `deepseek-reasoner` (Native reasoning support).
-* **Google Gemini:** `gemini-3-flash` (Fast), `gemini-3-pro` (Heavy reasoning).
+* **Google Gemini:** `gemini-3-flash-preview` (Fast), `gemini-3-pro-preview` (Heavy reasoning).
 * **OpenRouter / OpenAI:** Supported for models like `gpt-4o` or Claude via standard routing.
 
 **Option A: Cloud Models**
+
 * **API Key:** Paste your standard API key.
 * **Base URL:** Leave blank for default OpenAI, or set to your provider's endpoint (e.g., `https://api.deepseek.com/v1`).
 * **Model Name:** e.g., `deepseek-chat`.
 
 **Option B: Local Models (LM Studio / Ollama)**
 Keep your data 100% local by pointing the Reaper to your own hardware. *(Note: While connection is seamless, the ReAct loop requires a highly capable local model with strong agentic and tool-calling logic to function properly).*
+
 * **API Key:** Enter `lm-studio` or `ollama`.
 * **Base URL:** Enter your local server address (e.g., `http://localhost:1234/v1`).
 * **Model Name:** Enter the exact name of the loaded local model.
+
 ---
 
 ## 🔮 The Horizon (Roadmap)
+
 Backlog Reaper will evolve. The core architecture is designed to be highly modular, meaning the current implementation is just the beginning.
 
 * **Multi-Platform Vault:** Expanding the SQLite schema to encapsulate Epic Games, GOG, and Xbox Game Pass libraries alongside Steam.
@@ -320,4 +331,5 @@ Backlog Reaper will evolve. The core architecture is designed to be highly modul
 * **Expanded UI Dashboards:** More granular, interactive charts for playtime analysis and financial tracking.
 
 ---
-*Backlog Reaper: Because your pile of shame isn't going to clear itself.*
+
+*Backlog Reaper: Because your pile of shame isn't going to clear itself.* 
