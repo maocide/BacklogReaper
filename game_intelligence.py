@@ -44,7 +44,7 @@ def resolve_steam_id(username_or_id):
         return username_or_id
 
     # Try resolving as a Vanity URL (The most common case)
-    # This hits: http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/
+    # This hits: https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/
     try:
         user_data = steam.users.search_user(username_or_id)
 
@@ -861,7 +861,7 @@ def get_steam_app_info(game_name: str):
         # SequenceMatcher calculates how many edits it takes to turn A into B
         score = difflib.SequenceMatcher(None, target_clean, title_clean).ratio()
 
-        # Specific fix for "The" ("Witcher 3" vs "The Witcher 3")
+        # Specific fix for strings contained completely ("Witcher 3" vs "The Witcher 3")
         if target_clean in title_clean:
             score += 0.1  # Boost partial contains
 
@@ -1035,7 +1035,7 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
 
     try:
         # Fetch Schema for Descriptions
-        schema_url = f"http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={settings.STEAM_API_KEY}&appid={appid}"
+        schema_url = f"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={settings.STEAM_API_KEY}&appid={appid}"
         headers, cookies = get_steam_bypass_with_referer(appid)
         schema_resp = requests.get(schema_url, headers=headers, cookies=cookies, timeout=5).json()
 
@@ -1050,12 +1050,12 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
                 }
 
         # Fetch Global %
-        global_url = f"http://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}&format=json"
+        global_url = f"https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid={appid}&format=json"
         global_resp = requests.get(global_url, headers=headers, cookies=cookies, timeout=5).json()
         global_map = {a['name']: a['percent'] for a in
                       global_resp.get('achievementpercentages', {}).get('achievements', [])}
 
-        user_ach_url = f"http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid={appid}&key={settings.STEAM_API_KEY}&steamid={steam_id}"
+        user_ach_url = f"https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid={appid}&key={settings.STEAM_API_KEY}&steamid={steam_id}"
         user_resp = requests.get(user_ach_url, timeout=5)
 
         # Steam returns 403 if the game is unowned or unplayed
@@ -1608,7 +1608,7 @@ def get_active_friends():
     comma_separated_ids = ",".join(friend_ids)
 
     # Get Player Summaries using direct HTTP request
-    url = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
+    url = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
     params = {
         "key": settings.STEAM_API_KEY,
         "steamids": comma_separated_ids
@@ -1747,7 +1747,7 @@ if __name__ == "__main__":
     #pprint(get_friends_who_own(game_names=["Helldivers 2", "Peak"]))
     #pprint(get_reviews_byname(game_name="Marathon"))
     #pprint(compare_library_with_friend("Ash"))
-    #pprint(get_active_friends())
+    pprint(get_active_friends())
     #pprint(get_user_wishlist(sort_by='discount', page=0, page_size=10))
-    pprint(get_steam_store_trends())
+    #pprint(get_steam_store_trends())
 

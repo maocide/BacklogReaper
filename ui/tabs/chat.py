@@ -311,15 +311,13 @@ class ReaperChatView(ft.Container):
                 on_click=chip_clicked
             )
 
-        # --- THE BULLETPROOF FLET FIX ---
-        # 1. Clear the existing controls in the exact Row object mounted in the UI
+        # Clear the existing controls in the exact Row object mounted in the UI
         self.prompt_chips_row.controls.clear()
 
-        # 2. Append the new buttons directly into the existing list
+        # Append the new buttons directly into the existing list
         for text, icon in selected_prompts:
             self.prompt_chips_row.controls.append(create_prompt_chip(text, icon))
 
-        # 3. Safely update
         try:
             self.prompt_chips_row.update()
         except Exception:

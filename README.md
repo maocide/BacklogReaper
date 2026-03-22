@@ -42,7 +42,24 @@ The real tragedy? You own **236 indie games** but have only spent **776 hours** 
 
 But here's the most damning evidence of your gaming sin: you have **3,040 hours** in eSports titles but only **8 games** in that category. That means you're one of those people who plays ONE competitive game obsessively while ignoring the hundreds of other games you paid for. The definition of insanity.
 
-*(The engine dynamically renders this analysis into a UI card):*
+```json
+[
+  {
+    "name": "The Chronic Starter",
+    "bg_theme": "HOARDER",
+    "appid": "ROAST",
+    "Games_Owned": "694",
+    "Unplayed_Graveyard": "345",
+    "Shame_Percentage": "64%",
+    "Life_Wasted": "14,303 Hours",
+    "Completion_Rate": "20%",
+    "Indie_Disrespect": "3.3h avg",
+    "comment": "You buy games like groceries, play them like demos."
+  }
+]
+```
+
+*(The engine dynamically renders this JSON generated code into a UI card):*
 
 <p align="center">
   <img src="docs/images/cards_output_hoarder.png" alt="Hoarder Analysis Card">
