@@ -264,10 +264,14 @@ Because the engine adapts entirely to the imported Persona, your experience comp
 * **The Aggressive Social Auditor (e.g., imported Asuka Card)**
   
   > *"Anta baka?! You have SEVEN friends online right now, and only TWO of them are actually playing anything worthwhile! Unearth[PL] is playing Injustice 2, probably button-mashing like a child. Pick a game from your backlog and actually finish it, or I'll sync your neural patterns to a training simulation so intense you'll wish you were fighting Angels!"*
-  
-  <p align="center">
-  <img src="docs/images/asuka_chat_screenshot.png" alt="Asuka quickly checking the user friends list">
-  </p>
+
+<p align="center">
+  <img src="docs/images/asuka_chat_screenshot.png?" alt="Asuka quickly checking the user friends list">
+</p>
+
+### 🔒 The Pact is Sealed (Key Security)
+
+When you offer your **Steam API Key** and **OpenAI/LLM Key** to the Gatekeeper, they are bound by local encryption. The Reaper generates a unique `secret.key` specific to your local machine upon first awakening, keeping your true names and tokens hidden safely from prying eyes. They are scrambled within the `settings.json` file—meaning if your grimoire is ever misplaced, your keys remain safe.
 
 ---
 
