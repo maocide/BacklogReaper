@@ -7,7 +7,7 @@ call venv\Scripts\activate.bat
 REM Test imports before wasting time on a build
 echo.
 echo Verifying dependencies...
-python -c "import thefuzz; import basc_py4chan; import ddgs; import bs4; import howlongtobeatpy; import networkx; import sympy; import openai; import requests; import steam_web_api; import steamspypi; import flet; import flet_charts; import PIL; import trafilatura; import sentence_transformers; import numpy; import kagglehub; import tiktoken; import lxml_html_clean; print('All imports successful!')"
+python -c "import thefuzz; import basc_py4chan; import ddgs; import bs4; import howlongtobeatpy; import networkx; import sympy; import openai; import requests; import steam_web_api; import steamspypi; import flet; import flet_charts; import PIL; import trafilatura; import sentence_transformers; import numpy; import kagglehub; import tiktoken; import lxml_html_clean; import cryptography; print('All imports successful!')"
 
 REM Check if Python crashed
 if %errorlevel% neq 0 (

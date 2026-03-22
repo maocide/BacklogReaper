@@ -1,6 +1,7 @@
 import json
 import os
 import paths
+import crypto
 
 SETTINGS_FILE = str(paths.get_base_dir() / "settings.json")
 
@@ -28,6 +29,13 @@ def load_settings():
             # Ensure all keys exist (merge with defaults)
             settings = DEFAULT_SETTINGS.copy()
             settings.update(data)
+
+            # Decrypt sensitive keys
+            if settings.get("STEAM_API_KEY"):
+                settings["STEAM_API_KEY"] = crypto.decrypt(settings["STEAM_API_KEY"])
+            if settings.get("OPENAI_API_KEY"):
+                settings["OPENAI_API_KEY"] = crypto.decrypt(settings["OPENAI_API_KEY"])
+
             return settings
     except Exception as e:
         print(f"Error loading settings: {e}")
@@ -36,8 +44,16 @@ def load_settings():
 def save_settings(settings):
     """Saves the settings dictionary to the JSON file."""
     try:
+        settings_to_save = settings.copy()
+
+        # Encrypt sensitive keys before saving
+        if settings_to_save.get("STEAM_API_KEY"):
+            settings_to_save["STEAM_API_KEY"] = crypto.encrypt(settings_to_save["STEAM_API_KEY"])
+        if settings_to_save.get("OPENAI_API_KEY"):
+            settings_to_save["OPENAI_API_KEY"] = crypto.encrypt(settings_to_save["OPENAI_API_KEY"])
+
         with open(SETTINGS_FILE, 'w') as f:
-            json.dump(settings, f, indent=4)
+            json.dump(settings_to_save, f, indent=4)
         return True
     except Exception as e:
         print(f"Error saving settings: {e}")

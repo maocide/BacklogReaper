@@ -21,6 +21,7 @@ backlog_vault.db
 
 # Ignore user data and cache files
 settings.json
+secret.key
 vibe_cache.json
 data/
 exports/
