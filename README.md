@@ -269,10 +269,6 @@ Because the engine adapts entirely to the imported Persona, your experience comp
   <img src="docs/images/asuka_chat_screenshot.png?" alt="Asuka quickly checking the user friends list">
 </p>
 
-### 🔒 The Pact is Sealed (Key Security)
-
-When you offer your **Steam API Key** and **OpenAI/LLM Key** to the Gatekeeper, they are bound by local encryption. The Reaper generates a unique `secret.key` specific to your local machine upon first awakening, keeping your true names and tokens hidden safely from prying eyes. They are scrambled within the `settings.json` file—meaning if your grimoire is ever misplaced, your keys remain safe.
-
 ---
 
 ## 🩻 The Forbidden Gears (Architecture & Privacy)
@@ -323,6 +319,10 @@ Keep your data 100% local by pointing the Reaper to your own hardware. *(Note: W
 * **API Key:** Enter `lm-studio` or `ollama`.
 * **Base URL:** Enter your local server address (e.g., `http://localhost:1234/v1`).
 * **Model Name:** Enter the exact name of the loaded local model.
+
+### 🗝️ The Vault’s Ward (Key Security)
+
+When you offer your **Steam API Key** and **OpenAI/LLM Key** to the Gatekeeper, they are bound by local encryption. The Reaper generates a unique `secret.key` specific to your local machine upon first awakening, keeping your true names and tokens hidden safely from prying eyes...
 
 ---
 
