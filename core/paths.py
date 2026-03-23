@@ -26,7 +26,7 @@ def get_base_dir():
         base_dir = Path(sys.executable).parent
         print(f"paths.py [DEBUG]: Writable base directory resolved to {base_dir}")
         return base_dir
-    return Path(__file__).parent
+    return Path(__file__).parent.parent
 
 def get_asset_path(*parts):
     """

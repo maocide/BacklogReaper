@@ -1,5 +1,5 @@
 import flet as ft
-import styles
+import ui.styles as styles
 
 class MetricCard(ft.Card):
     def __init__(self, title, value_ref, icon, color=ft.Colors.WHITE):

@@ -1,10 +1,10 @@
 import flet as ft
 import webbrowser
 import os
-import styles
+import ui.styles as styles
 import subprocess
 import platform
-import paths
+import core.paths as paths
 
 import sys
 

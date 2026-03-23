@@ -1,7 +1,7 @@
-import styles
+import ui.styles as styles
 from PIL import Image, ImageDraw, ImageFont
 from ui.utils import get_roast_asset
-import paths
+import core.paths as paths
 
 
 def generate_roast_image(game_data):

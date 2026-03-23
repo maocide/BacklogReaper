@@ -6,11 +6,11 @@ import difflib
 import requests
 from steam_web_api import Steam
 
-import ai_tools
-import settings
-from web_tools import get_store_data
-from web_tools import get_hltb_data
-import paths
+import core.ai_tools as ai_tools
+import core.settings as settings
+from core.web_tools import get_store_data
+from core.web_tools import get_hltb_data
+import core.paths as paths
 
 DB_NAME = str(paths.get_base_dir() / "backlog_vault.db")
 

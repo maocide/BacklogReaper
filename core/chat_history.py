@@ -3,10 +3,10 @@ import copy
 import os
 import traceback
 import tiktoken
-import paths
+import core.paths as paths
 
-from ai_tools import aiCall
-import agent_tools
+from core.ai_tools import aiCall
+import core.agent_tools as agent_tools
 
 class ChatHistory:
     def __init__(self, character_name="Reaper"):

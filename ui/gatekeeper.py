@@ -7,13 +7,13 @@ from PIL.ImageOps import expand
 from flet import WindowEventType
 from steam_web_api import Steam
 
-import settings
-import styles
+import core.settings as settings
+import ui.styles as styles
 import ui.utils
-import vault
+import core.vault as vault
 from ui.widgets.styled_inputs import GrimoireButton, GrimoireTextField, GrimoireProgressBar
-from vibe_engine import VibeEngine
-import paths
+from core.vibe_engine import VibeEngine
+import core.paths as paths
 
 
 class GatekeeperView(ft.Container):

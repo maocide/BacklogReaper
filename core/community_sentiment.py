@@ -9,10 +9,10 @@ import trafilatura
 from basc_py4chan import Board
 from bs4 import BeautifulSoup
 
-from ai_tools import aiCall
-from safe_tool import safe_tool
-from web_tools import web_search, get_steam_bypass, get_steam_bypass_with_referer
-import game_intelligence
+from core.ai_tools import aiCall
+from core.safe_tool import safe_tool
+from core.web_tools import web_search, get_steam_bypass, get_steam_bypass_with_referer
+import core.game_intelligence as game_intelligence
 from thefuzz import fuzz
 
 @safe_tool

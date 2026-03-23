@@ -1,7 +1,7 @@
 import flet as ft
-import settings
-from character_manager import CharacterManager
-import styles
+import core.settings as settings
+from core.character_manager import CharacterManager
+import ui.styles as styles
 from ui.widgets.styled_inputs import GrimoireTextField, GrimoireDropdown, GrimoireButton
 
 

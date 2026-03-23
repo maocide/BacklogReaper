@@ -6,16 +6,16 @@ import uuid
 import asyncio
 import queue
 import flet as ft
-import agent
-import startup
-import vault
-import settings
-from character_manager import CharacterManager, Character
-import paths
-import game_intelligence
-from vibe_engine import VibeEngine
-import styles
-from chat_history import ChatHistory
+import core.agent as agent
+import core.startup as startup
+import core.vault as vault
+import core.settings as settings
+from core.character_manager import CharacterManager, Character
+import core.paths as paths
+import core.game_intelligence as game_intelligence
+from core.vibe_engine import VibeEngine
+import ui.styles as styles
+from core.chat_history import ChatHistory
 
 import ui.utils
 from ui.widgets.chat_bubble import ReaperChatBubble

@@ -6,13 +6,13 @@ import os
 from datetime import datetime
 import flet as ft
 
-import vault
-import settings
-import styles
+import core.vault as vault
+import core.settings as settings
+import ui.styles as styles
 from ui.utils import get_status_color
-from vibe_engine import VibeEngine
+from core.vibe_engine import VibeEngine
 from ui.widgets.styled_inputs import GrimoireButton, GrimoireProgressBar
-import paths
+import core.paths as paths
 
 class LibraryView(ft.Container):
     def __init__(self):

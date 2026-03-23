@@ -1,5 +1,5 @@
 from openai import OpenAI
-import settings
+import core.settings as settings
 import datetime
 
 

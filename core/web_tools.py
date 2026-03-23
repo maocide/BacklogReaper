@@ -9,10 +9,10 @@ import requests
 from bs4 import BeautifulSoup
 from ddgs import DDGS
 
-from safe_tool import safe_tool
+from core.safe_tool import safe_tool
 from types import SimpleNamespace
 import kagglehub
-import paths
+import core.paths as paths
 
 def get_steam_bypass():
     """

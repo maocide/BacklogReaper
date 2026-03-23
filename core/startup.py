@@ -1,6 +1,6 @@
-import settings
-import vault
-from web_tools import HLTBManager
+import core.settings as settings
+import core.vault as vault
+from core.web_tools import HLTBManager
 
 def check_api_keys():
     """

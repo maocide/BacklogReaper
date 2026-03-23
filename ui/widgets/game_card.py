@@ -1,10 +1,10 @@
 import flet as ft
-import styles
-import vault
+import ui.styles as styles
+import core.vault as vault
 from ui.utils import get_roast_asset, launch_game, get_status_color
 from ui.widgets.styled_inputs import GrimoireButton
 from ui.roast_renderer import generate_roast_image
-import paths
+import core.paths as paths
 from datetime import datetime
 import os
 

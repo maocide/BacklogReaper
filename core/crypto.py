@@ -1,6 +1,6 @@
 import os
 from cryptography.fernet import Fernet
-import paths
+import core.paths as paths
 
 SECRET_KEY_FILE = str(paths.get_base_dir() / "secret.key")
 

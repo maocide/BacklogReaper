@@ -1,7 +1,7 @@
 import json
 import os
-import paths
-import crypto
+import core.paths as paths
+import core.crypto as crypto
 
 SETTINGS_FILE = str(paths.get_base_dir() / "settings.json")
 

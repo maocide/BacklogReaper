@@ -1,5 +1,5 @@
 import flet as ft
-import styles
+import ui.styles as styles
 from ui.utils import mix_color
 
 class ReaperChatBubble(ft.Container):

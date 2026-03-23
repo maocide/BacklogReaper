@@ -1,6 +1,6 @@
 import flet as ft
 
-import styles
+import ui.styles as styles
 
 
 class GrimoireTextField(ft.TextField):

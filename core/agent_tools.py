@@ -3,12 +3,12 @@ import sys
 import re
 from datetime import datetime
 
-import game_intelligence
-import community_sentiment
-import web_tools
-import vault
-import settings
-import vibe_engine
+import core.game_intelligence as game_intelligence
+import core.community_sentiment as community_sentiment
+import core.web_tools as web_tools
+import core.vault as vault
+import core.settings as settings
+import core.vibe_engine as vibe_engine
 
 tools_schema = [
     {

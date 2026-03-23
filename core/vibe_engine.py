@@ -2,9 +2,9 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 import os
 import json
-import vault
+import core.vault as vault
 import threading
-import paths
+import core.paths as paths
 
 class VibeEngine:
     _instance = None

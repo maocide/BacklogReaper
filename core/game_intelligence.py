@@ -13,16 +13,16 @@ import requests
 import steamspypi
 from bs4 import BeautifulSoup
 from thefuzz import fuzz
-import vault
-import vibe_engine
-from ai_tools import clean_json_for_ai
-from vault import calculate_status
+import core.vault as vault
+import core.vibe_engine as vibe_engine
+from core.ai_tools import clean_json_for_ai
+from core.vault import calculate_status
 import concurrent.futures
 from datetime import datetime
 from steam_web_api import Steam
-import settings
-from safe_tool import safe_tool
-from web_tools import get_hltb_data, get_store_data, get_steam_bypass, get_steam_bypass_with_referer
+import core.settings as settings
+from core.safe_tool import safe_tool
+from core.web_tools import get_hltb_data, get_store_data, get_steam_bypass, get_steam_bypass_with_referer
 
 max_tags = 10
 steam_id = None

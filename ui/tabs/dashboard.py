@@ -3,8 +3,8 @@ import traceback
 import flet as ft
 import flet_charts as ftc
 
-import vault
-import styles
+import core.vault as vault
+import ui.styles as styles
 from ui.utils import get_status_color
 from ui.widgets.metric_card import MetricCard
 

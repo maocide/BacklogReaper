@@ -1,8 +1,8 @@
 import flet as ft
 import sys
 import os
-import paths
-import settings
+import core.paths as paths
+import core.settings as settings
 
 # Fix Windows encoding crashes for special characters (like ★ or ™ in game names)
 if paths.is_packaged():
@@ -12,8 +12,8 @@ if paths.is_packaged():
     if sys.stderr is None:
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
-import startup
-import styles
+import core.startup as startup
+import ui.styles as styles
 from ui.tabs.dashboard import DashboardView
 from ui.tabs.chat import ReaperChatView
 from ui.tabs.library import LibraryView

@@ -1,8 +1,8 @@
 import json
 import time
-from ai_tools import get_ai_client
-import settings
-import agent_tools
+from core.ai_tools import get_ai_client
+import core.settings as settings
+import core.agent_tools as agent_tools
 import ui.utils
 
 

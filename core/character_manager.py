@@ -3,8 +3,8 @@ import json
 import base64
 from datetime import datetime
 from PIL import Image
-import settings
-import paths
+import core.settings as settings
+import core.paths as paths
 
 AGENT_SYSTEM_PROMPT_TEMPLATE = """
 You have access to the user's "Vault" (local database of games populated via steam api) and external game data tools.
