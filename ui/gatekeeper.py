@@ -14,6 +14,7 @@ import core.vault as vault
 from ui.widgets.styled_inputs import GrimoireButton, GrimoireTextField, GrimoireProgressBar
 from core.vibe_engine import VibeEngine
 import core.paths as paths
+import core.game_intelligence as game_intelligence
 
 
 class GatekeeperView(ft.Container):
@@ -284,7 +285,6 @@ class GatekeeperView(ft.Container):
         self._start_ritual()
 
     def _fetch_avatar_blocking(self):
-        import game_intelligence
         try:
             url = game_intelligence.get_steam_avatar(settings.STEAM_USER)
             if url:

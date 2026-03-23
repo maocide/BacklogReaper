@@ -861,6 +861,6 @@ if __name__ == "__main__":
     print(advanced_search(sort_by="recent"))
     #hltb_test = get_hltb_search_scrape("Lossless Scaling")
     #print(hltb_test)
-    # import vibe_engine
+    # import core.vibe_engine as vibe_engine
     # vibes = vibe_engine.VibeEngine.get_instance()
     # print(vibes.search("gloomy"))
