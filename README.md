@@ -216,15 +216,19 @@ But here's the real question: Do you actually have the social skills to message 
 > 
 > 1. *Scouring the digital marketplace for seasonal sales to judge your potential financial ruin* - `get_steam_store_trends` | PARAMS: `{"category": "specials"}`
 > 2. *Checking if you've already wasted money on these sale games before you waste more* - `vault_search_batch` | PARAMS: `{"game_names": ["Call of Duty®: Modern Warfare®", "Ready or Not", "ELDEN RING", "Cyberpunk 2077", "Baldur's Gate 3", "Resident Evil 3", "ARC Raiders", "Red Dead Redemption 2", "Sons Of The Forest", "Retro Rewind - Video Store Simulator"]}`
-> 3. *Scouring the digital marketplace for fresh souls to tempt... and for this mortal to waste more money on* - `get_steam_store_trends` | PARAMS: `{"category": "specials"}`
-> 4. *Checking if this hoarder already owns the tempting deals before he wastes more money* - `vault_search_batch` | PARAMS: `{"game_names": ["Call of Duty®: Modern Warfare®", "Ready or Not", "ELDEN RING", "Cyberpunk 2077", "Baldur's Gate 3", "Resident Evil 3", "ARC Raiders", "Red Dead Redemption 2", "Sons Of The Forest"]}`
-> 5. *Examining the tempting deals this hoarder might actually not own yet* - `get_game_details` | PARAMS: `{"game_names": ["Cyberpunk 2077", "Baldur's Gate 3", "ARC Raiders", "Sons Of The Forest", "Retro Rewind - Video Store Simulator"]}`
+> 3. *Examining the tempting deals this hoarder might actually not own yet* - `get_game_details` | PARAMS: `{"game_names": ["Cyberpunk 2077", "Baldur's Gate 3", "ARC Raiders", "Sons Of The Forest", "Retro Rewind - Video Store Simulator"]}`
 
 **Reaper:** Ah, the Spring Sale. The digital equivalent of a siren's call for hoarders like you. Let me see what fresh temptations await your already-burdened wallet.
 
+> ⚙️ [Reaper executes: get_steam_store_trends]
+
 First, let me check what you DON'T own from these deals... because with 694 games, you probably already own half of them.  
 
+> ⚙️ [Reaper executes: vault_search_batch]
+
 Ah, the Spring Sale beckons with its siren song of discounts. Let me break down what's actually worth your time, considering you already own 345 unplayed games.
+
+> ⚙️ [Reaper executes: get_game_details]
 
 First, the deals you **already own** (and probably haven't played):
 
@@ -280,7 +284,7 @@ Because the engine adapts entirely to the imported Persona, your experience comp
 
 * **The Aggressive Social Auditor (e.g., imported Asuka Card)**
   
-  > *"Anta baka?! You have SEVEN friends online right now, and only TWO of them are actually playing anything worthwhile! Unearth[PL] is playing Injustice 2, probably button-mashing like a child. Pick a game from your backlog and actually finish it, or I'll sync your neural patterns to a training simulation so intense you'll wish you were fighting Angels!"*
+  > *"Anta baka?! You have SEVEN friends online right now, and only TWO of them are actually playing anything worthwhile!"*
 
 <p align="center">
   <img src="docs/images/asuka_chat_screenshot.png?" alt="Asuka quickly checking the user friends list">
@@ -311,6 +315,7 @@ Backlog Reaper is built for power users who demand data sovereignty, cost effici
 3. Run the application. 
 4. Complete the **Gatekeeper Ritual** on the first launch by providing your Username and a [Steam Web API Key](https://steamcommunity.com/dev/apikey).
 5. The application will automatically construct your local database, download the HLTB datasets (~100MB), and awaken your chosen companion.
+6. **Navigate to the Settings tab** to input your chosen LLM API Key (see below) to give your companion a brain.
 
 ### 🧠 Awakening your chosen companion (API Configuration)
 
@@ -340,6 +345,31 @@ Keep your data 100% local by pointing the Reaper to your own hardware. *(Note: W
 ### 🗝️ The Vault’s Ward (Key Security)
 
 When you offer your **Steam API Key** and **OpenAI/LLM Key** to the Gatekeeper, they are bound by local encryption. The Reaper generates a unique `secret.key` specific to your local machine upon first awakening, keeping your true names and tokens hidden safely from prying eyes...
+
+### ⚗️ The Alchemist's Path (Running from Source)
+
+For developers, Linux users, and those who refuse to touch compiled Windows binaries, you can summon the Reaper directly from the source code:
+
+1. Clone the repository:
+   
+   ```bash
+   git clone [https://github.com/maocide/BacklogReaper.git](https://github.com/maocide/BacklogReaper.git)
+   cd BacklogReaper
+   ```
+
+2. Install the arcane dependencies:
+   
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Initiate the core sequence:
+   
+   ```bash
+   python main.py
+   ```
+   
+   *(Note: Ensure you are using Python 3.11 or higher).*
 
 ---
 
