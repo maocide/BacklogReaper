@@ -25,7 +25,7 @@ if exist build rmdir /s /q build
 REM Build executable
 echo.
 echo Running flet pack...
-flet pack main.py --onedir --name "Backlog Reaper" --icon assets\reaper_icon.ico --add-data "assets;assets" --pyinstaller-build-args="--copy-metadata=tiktoken" --pyinstaller-build-args="--collect-data=sentence_transformers" --pyinstaller-build-args="--collect-data=transformers" --pyinstaller-build-args="--copy-metadata=python-steam-api"
+flet pack main.py --onedir --name "Backlog Reaper" --icon assets\reaper_icon.ico --add-data "assets;assets" --pyinstaller-build-args="--copy-metadata=tiktoken" --pyinstaller-build-args="--collect-data=tiktoken" --pyinstaller-build-args="--collect-data=sentence_transformers" --pyinstaller-build-args="--collect-data=transformers" --pyinstaller-build-args="--copy-metadata=python-steam-api"
 
 REM Check if the executable was actually created
 if exist "dist\Backlog Reaper\Backlog Reaper.exe" (
