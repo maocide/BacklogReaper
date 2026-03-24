@@ -65,19 +65,20 @@ def ensure_dirs():
     for dir_path in directories:
         dir_path.mkdir(parents=True, exist_ok=True)
 
-    # Copy default Reaper.png from bundled assets to user characters directory
-    # Only if characters directory is empty and default character doesn't exist
+    # Copy default characters from bundled assets to user characters directory
+    # Only if characters directory is empty
     characters_dir = base / "characters"
-    default_char_src = get_asset_path("assets", "characters", "Reaper.png")
-    default_char_dst = characters_dir / "Reaper.png"
 
-    if (default_char_src.exists() and
-        not default_char_dst.exists() and
-        len(list(characters_dir.glob("*"))) == 0):
-        try:
-            shutil.copy2(default_char_src, default_char_dst)
-            print(f"Copied default character to: {default_char_dst}")
-        except Exception as e:
-            print(f"Warning: Could not copy default character: {e}")
+    if len(list(characters_dir.glob("*"))) == 0:
+        for char_file in ["Reaper.png", "Sybil.png"]:
+            default_char_src = get_asset_path("assets", "characters", char_file)
+            default_char_dst = characters_dir / char_file
+
+            if default_char_src.exists() and not default_char_dst.exists():
+                try:
+                    shutil.copy2(default_char_src, default_char_dst)
+                    print(f"Copied default character to: {default_char_dst}")
+                except Exception as e:
+                    print(f"Warning: Could not copy default character {char_file}: {e}")
 
     return True
