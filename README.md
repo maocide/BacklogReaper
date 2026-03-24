@@ -353,7 +353,7 @@ For developers, Linux users, and those who refuse to touch compiled Windows bina
 1. Clone the repository:
    
    ```bash
-   git clone [https://github.com/maocide/BacklogReaper.git](https://github.com/maocide/BacklogReaper.git)
+   git clone https://github.com/maocide/BacklogReaper.git
    cd BacklogReaper
    ```
 
