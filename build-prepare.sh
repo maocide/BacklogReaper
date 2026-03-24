@@ -7,7 +7,7 @@ cd BacklogReaper
 # Create the virtual environment
 python -m venv venv
 
-# Activate the virtual environment (Git Bash specific!)
+# Activate the virtual environment
 source venv/Scripts/activate
 
 # Install the dependencies
