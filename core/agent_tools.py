@@ -427,7 +427,7 @@ tools_schema = [
                         "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
-                "required": ["compare_library_with_friend", "action_description"],
+                "required": ["friend_name", "action_description"],
             }
         }
     },
