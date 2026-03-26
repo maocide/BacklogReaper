@@ -54,10 +54,6 @@ class Agent:
                 create_kwargs["extra_body"] = {
                     "include_reasoning": True
                 }
-                # Also include it in stream_options just in case OpenRouter's parser looks for it there or if OpenAI adds it later
-                create_kwargs["stream_options"] = {
-                    "include_usage": True
-                }
 
             # Request thinking/reasoning from the model
             if settings.OPENAI_MODEL and "gemini" in settings.OPENAI_MODEL.lower():
