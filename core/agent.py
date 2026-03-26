@@ -85,6 +85,10 @@ class Agent:
                 # Extract reasoning content (Deepseek format)
                 reasoning_chunk = getattr(delta, "reasoning_content", None)
 
+                # Check for OpenRouter's reasoning payload
+                if not reasoning_chunk and hasattr(delta, "model_extra") and delta.model_extra:
+                    reasoning_chunk = delta.model_extra.get("reasoning", None)
+
                 if reasoning_chunk:
                     if not has_started_reasoning:
                         has_started_reasoning = True
@@ -94,14 +98,18 @@ class Agent:
                 if delta.content:
                     text_chunk = delta.content
 
-                    # Intercept Gemini's nested <thought> tags from the main content stream
-                    if "<thought>" in text_chunk:
+                    # Intercept nested <thought> or <think> tags from the main content stream
+                    if "<thought>" in text_chunk or "<think>" in text_chunk:
                         is_gemini_thinking_tag = True
-                        text_chunk = text_chunk.replace("<thought>", "")
+                        text_chunk = text_chunk.replace("<thought>", "").replace("<think>", "")
 
-                    if "</thought>" in text_chunk:
+                    if "</thought>" in text_chunk or "</think>" in text_chunk:
                         is_gemini_thinking_tag = False
-                        parts = text_chunk.split("</thought>")
+                        if "</thought>" in text_chunk:
+                            parts = text_chunk.split("</thought>")
+                        else:
+                            parts = text_chunk.split("</think>")
+
                         # Yield the last bit of reasoning before the tag closes
                         if parts[0]:
                             if not has_started_reasoning:
@@ -128,6 +136,8 @@ class Agent:
                         full_content_buffer += text_chunk
 
                 if delta.tool_calls:
+                    # Reset thinking tag if tools are called, as the model may have missed the closing tag
+                    is_gemini_thinking_tag = False
                     is_tool_call = True
                     for i, tool_chunk in enumerate(delta.tool_calls):
                         # Fallback to the loop index 'i' if the API sends None
@@ -183,6 +193,14 @@ class Agent:
                         yield "tokens", {"in": in_tokens, "out": out_tokens}
                 except Exception as e:
                     print(f"Token count error: {e}")
+
+            # Heuristic Split for Hallucinated Combined Responses
+            if not full_content_buffer and full_reasoning_buffer:
+                # If there is a double newline in the reasoning buffer
+                if "\n\n" in full_reasoning_buffer:
+                    parts = full_reasoning_buffer.rsplit("\n\n", 1)
+                    full_reasoning_buffer = parts[0]
+                    full_content_buffer = parts[1].strip()
 
             # End of Stream Logic
             if is_tool_call:

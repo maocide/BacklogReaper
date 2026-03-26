@@ -660,11 +660,13 @@ class ReaperChatView(ft.Container):
             await self.add_action_display(content)
 
             # Update status text in bubble
-            state["status_text"].value = content
-            try:
-                await ui.utils.smart_update(state["status_text"])
-            except RuntimeError:
-                pass
+            if state["status_text"]:
+                state["status_text"].value = content
+                state["status_text"].visible = True # Ensure it's visible in the bubble
+                try:
+                    await ui.utils.smart_update(state["status_text"])
+                except RuntimeError:
+                    pass
 
             state["previous_was_tool"] = True
 
@@ -699,6 +701,13 @@ class ReaperChatView(ft.Container):
 
             if not self.current_streaming_bubble:
                 return
+
+            # Mirror the heuristic split from agent.py for the UI if it arrived un-split
+            if not state["agent_markdown"].value and state["reasoning_buffer"]:
+                if "\n\n" in state["reasoning_buffer"]:
+                    parts = state["reasoning_buffer"].rsplit("\n\n", 1)
+                    state["reasoning_buffer"] = parts[0]
+                    state["agent_markdown"].value = parts[1].strip()
 
             # Force final flush of streaming controls to ensure completeness before replacement
             if state["agent_markdown"] and state["agent_markdown"].page:
