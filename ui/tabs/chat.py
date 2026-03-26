@@ -683,7 +683,9 @@ class ReaperChatView(ft.Container):
 
         elif msg_type == "text":
             # Update state synchronously first
-            if state["status_text"] and state["status_text"].visible:
+            # Only hide the status text if the incoming chunk has actual visible characters
+            # Some models stream empty strings or just newlines before answering which hides the tool text too early
+            if state["status_text"] and state["status_text"].visible and content.strip():
                 state["status_text"].visible = False
 
             if state["previous_was_tool"] and not state["first_text"]:
@@ -701,13 +703,6 @@ class ReaperChatView(ft.Container):
 
             if not self.current_streaming_bubble:
                 return
-
-            # Mirror the heuristic split from agent.py for the UI if it arrived un-split
-            if not state["agent_markdown"].value and state["reasoning_buffer"]:
-                if "\n\n" in state["reasoning_buffer"]:
-                    parts = state["reasoning_buffer"].rsplit("\n\n", 1)
-                    state["reasoning_buffer"] = parts[0]
-                    state["agent_markdown"].value = parts[1].strip()
 
             # Force final flush of streaming controls to ensure completeness before replacement
             if state["agent_markdown"] and state["agent_markdown"].page:

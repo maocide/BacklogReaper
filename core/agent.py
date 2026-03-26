@@ -49,8 +49,14 @@ class Agent:
                 "presence_penalty": settings.LLM_PRESENCE_PENALTY
             }
 
+            # Request thinking/reasoning from OpenRouter models
+            if settings.OPENAI_BASE_URL and "openrouter" in settings.OPENAI_BASE_URL.lower():
+                create_kwargs["extra_body"] = {
+                    "include_reasoning": True
+                }
+
             # Request thinking/reasoning from the model
-            if "gemini" in settings.OPENAI_MODEL.lower():
+            if settings.OPENAI_MODEL and "gemini" in settings.OPENAI_MODEL.lower():
                 create_kwargs["extra_body"] = {
                     "extra_body": {
                         "google": {
@@ -193,14 +199,6 @@ class Agent:
                         yield "tokens", {"in": in_tokens, "out": out_tokens}
                 except Exception as e:
                     print(f"Token count error: {e}")
-
-            # Heuristic Split for Hallucinated Combined Responses
-            if not full_content_buffer and full_reasoning_buffer:
-                # If there is a double newline in the reasoning buffer
-                if "\n\n" in full_reasoning_buffer:
-                    parts = full_reasoning_buffer.rsplit("\n\n", 1)
-                    full_reasoning_buffer = parts[0]
-                    full_content_buffer = parts[1].strip()
 
             # End of Stream Logic
             if is_tool_call:
