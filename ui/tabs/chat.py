@@ -72,6 +72,8 @@ class ReaperChatView(ft.Container):
             "reasoning_buffer": "",
             "previous_was_tool": False,
             "first_text": True,
+            "previous_was_tool_for_reasoning": False,
+            "first_reasoning": True,
             "reasoning_container_ref": None,
             "needs_update": False
         }
@@ -630,7 +632,14 @@ class ReaperChatView(ft.Container):
                 # No scroll needed
 
         elif msg_type == "reasoning":
+            if state["previous_was_tool_for_reasoning"] and not state["first_reasoning"]:
+                state["reasoning_buffer"] += ui.utils.get_markdown_newline() # Add break after tool action
+
             state["reasoning_buffer"] += content
+
+            state["previous_was_tool_for_reasoning"] = False
+            state["first_reasoning"] = False
+
             if state["reasoning_view"]:
                 state["reasoning_view"].value = state["reasoning_buffer"]
                 state["reasoning_view"].visible = True
@@ -669,6 +678,7 @@ class ReaperChatView(ft.Container):
                     pass
 
             state["previous_was_tool"] = True
+            state["previous_was_tool_for_reasoning"] = True
 
         elif msg_type == "tokens":
             try:
@@ -824,6 +834,8 @@ class ReaperChatView(ft.Container):
             "reasoning_buffer": "",
             "previous_was_tool": False,
             "first_text": True,
+            "previous_was_tool_for_reasoning": False,
+            "first_reasoning": True,
             "reasoning_container_ref": None,
             "needs_update": False
         }

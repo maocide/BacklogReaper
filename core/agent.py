@@ -51,13 +51,13 @@ class Agent:
 
             # Request thinking/reasoning from OpenRouter models
             if settings.OPENAI_BASE_URL and "openrouter" in settings.OPENAI_BASE_URL.lower():
-                create_kwargs["extra_body"] = {
+                create_kwargs.setdefault("extra_body", {}).update({
                     "include_reasoning": True
-                }
+                })
 
             # Request thinking/reasoning from the model
             if settings.OPENAI_MODEL and "gemini" in settings.OPENAI_MODEL.lower():
-                create_kwargs["extra_body"] = {
+                create_kwargs.setdefault("extra_body", {}).update({
                     "extra_body": {
                         "google": {
                             "thinking_config": {
@@ -65,7 +65,7 @@ class Agent:
                             }
                         }
                     }
-                }
+                })
 
             stream = client.chat.completions.create(**create_kwargs)
 
