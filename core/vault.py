@@ -2,6 +2,7 @@ import concurrent
 import sqlite3
 import random
 import difflib
+from pprint import pprint
 
 import requests
 from steam_web_api import Steam
@@ -508,22 +509,27 @@ def get_all_tags(limit=50, recent_days=None):
     # Format and Filter
     results = []
     for tag, data in stats.items():
-
-        # FILTER: If looking at LIFETIME stats, ignore tags that are irrelevant.
-        # Rule: If you own < 2 games AND played < 1 hour total, it's noise.
-        # (We skip this check for 'recent_days' because sample size is naturally small)
         if not recent_days:
+            # LIFETIME FILTER: Ignore tags with < 2 games AND < 1 hour total.
             if data['count'] < 2 and data['minutes'] < 60:
                 continue
 
         results.append({
             "name": tag,
-            "owned": data['count'],
-            "total_hours": round(data['minutes'] / 60, 1)
+            "active_titles_count" if recent_days else "owned_count": data['count'],
+            "lifetime_hours_in_tag": round(data['minutes'] / 60, 1)  # Explicitly name it 'lifetime'
         })
 
     # Smart Sorting
-    results.sort(key=lambda x: x['total_hours'], reverse=True)
+    if recent_days:
+        # If looking at recent trends, sort by how many DIFFERENT games in that genre you played recently
+        # (Since lifetime hours will heavily skew towards old games you just booted for 5 mins)
+        results.sort(key=lambda x: (x['active_titles_count'], x['lifetime_hours_in_tag']), reverse=True)
+    else:
+        # If looking at lifetime, sort by total hours invested
+        results.sort(key=lambda x: x['lifetime_hours_in_tag'], reverse=True)
+
+    return results[:limit]
 
     # Cap the output size for the Agent
     # 50 tags is plenty for an AI
@@ -858,9 +864,10 @@ if __name__ == "__main__":
     pass
     #print(get_all_tags(recent_days=30))
     #print(get_all_games(0,20))
-    print(advanced_search(sort_by="recent"))
+    #print(advanced_search(sort_by="recent"))
     #hltb_test = get_hltb_search_scrape("Lossless Scaling")
     #print(hltb_test)
     # import core.vibe_engine as vibe_engine
     # vibes = vibe_engine.VibeEngine.get_instance()
     # print(vibes.search("gloomy"))
+    #pprint(get_all_tags())

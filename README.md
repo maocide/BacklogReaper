@@ -73,6 +73,8 @@ The good news? At least you're not playing walking simulators. The bad news? You
 
 ## 🧿 The Reaper's Gaze (Core Experience)
 
+<img title="" src="assets/characters/Reaper.png" alt="The Backlog Reaper" align="right" width="280" data-align="inline">
+
 By default, you are bound to **The Reaper**, a dark fantasy entity that acts as an uncompromising auditor of your digital life. 
 
 * **Shame Metrics:** Calculates exact "Life Wasted" totals, unplayed backlog percentages, and aggregates your most played genre tags to expose your habits.
@@ -81,6 +83,8 @@ By default, you are bound to **The Reaper**, a dark fantasy entity that acts as 
 * **Financial Auditor:** Integrated with CheapShark, the Reaper tracks current prices and historical lows to ruthlessly audit your spending or suggest when to wait for a deeper sale.
 * **HLTB Integration:** Pulls estimated "How Long To Beat" data to identify low-hanging fruit and calculate how long it will take to clear your pile of shame.
 * **The Dashboard Vault:** Visualize your gaming sins with playtime charts in the Dashboard, or export your entire digital graveyard as a CSV from the Backlog tab.
+
+<br clear="all">
 
 <p align="center">
   <img src="docs/images/dashboard_stats.png" alt="Backlog Reaper Dashboard Analytics">
@@ -93,7 +97,7 @@ By default, you are bound to **The Reaper**, a dark fantasy entity that acts as 
 The AI doesn't just guess what you should play; it is armed with a ReAct cognitive loop and **19 specialized API tools** to deeply analyze your digital footprint.
 
 * **Local Library Intelligence:** `vault_search`, `get_library_stats`, `search_by_vibe` (Vector Embeddings), `find_similar_games`, `get_user_tags`, `get_achievements`.
-* **External Data & Store:** `get_game_details`, `search_steam_store`, `get_steam_store_trends` (Live sales/top sellers).
+* **External Data & Store:** `get_game_details`, `search_steam_store`, `get_steam_store_trends` (recently released/top sellers).
 * **Community & Sentiment:** `get_reviews`, `get_community_sentiment` (Scrapes Reddit/4chan/SteamForums), `get_game_news`.
 * **Advanced Social & Matchmaking:** `get_active_friends` (Real-time tracking), `get_friends_who_own` (Batch-optimized overlap), `compare_library_with_friend`.
 * **Research & Web Discovery:** `web_search`, `get_webpage`, `get_user_wishlist`.
@@ -287,7 +291,7 @@ Because the engine adapts entirely to the imported Persona, your experience comp
   > *"Anta baka?! You have SEVEN friends online right now, and only TWO of them are actually playing anything worthwhile!"*
 
 <p align="center">
-  <img src="docs/images/asuka_chat_screenshot.png?" alt="Asuka quickly checking the user friends list">
+  <img src="docs/images/asuka_chat_screenshot.png" alt="Asuka quickly checking the user friends list">
 </p>
 
 ---
@@ -297,20 +301,27 @@ Because the engine adapts entirely to the imported Persona, your experience comp
 Backlog Reaper is built for power users who demand data sovereignty, cost efficiency, and highly optimized architectures.
 
 * **100% Local Data:** Your entire library is securely mapped to a local `backlog_vault.db` SQLite database. No AppData bloat, no cloud uploads, no telemetry.
+
 * **Hybrid Search Engine:** Combines traditional metadata tag filtering, Jaccard similarity matching, with locally computed, cached vector embeddings for semantic "vibe-based" game discovery.
+
 * **Cognitive Context Rotation:** To protect your API billing, the engine monitors cumulative session tokens. When the context window hits 24,000 tokens, it automatically summarizes the history down to 18,000 tokens. Chats and summaries are saved locally to disk per-character.
-* **Native Reasoning Support:** The UI natively captures and collapses `<think>` blocks and reasoning tokens from advanced models (like DeepSeek-R1 or Gemini Pro). You see the final answer and the UI cards, while the massive reasoning chains stay hidden but accessible.
+
+* **Native Reasoning Support:** The UI natively captures and collapses `<think>` blocks and reasoning tokens from advanced models (like DeepSeek-3.2 or Gemini Flash/Pro). You see the final answer and the UI cards, while the massive reasoning chains stay hidden but accessible.
+  <p align="center">
+    <img src="docs/images/reasoning_ui.png" alt="Collapsible Reasoning Blocks in UI">
+  </p>
+
 * **True Portability:** Forged on Arch Linux, compiled for Windows. The `.exe` is completely self-contained and creates all necessary directories strictly alongside the executable. No Python environment required for end-users.
 
 ---
 
-## 🕯️ The Summoning Ritual (Installation)
+## 🕯️ The Summoning Ritual (Installation)	
 
 <p align="center">  
   <img src="docs/images/login_ritual.png" alt="Sign the Ledger Initial Setup">
 </p>
 
-1. Download the latest `.exe` release from the [Releases](#) tab.
+1. Download the latest `.exe` release from the [Releases](https://github.com/maocide/BacklogReaper/releases/latest) tab.
 2. Place the executable in a dedicated folder (e.g., `C:\Games\BacklogReaper`).
 3. Run the application. 
 4. Complete the **Gatekeeper Ritual** on the first launch by providing your Username and a [Steam Web API Key](https://steamcommunity.com/dev/apikey).
@@ -327,7 +338,7 @@ Navigate to the **Settings** tab to configure your entity's brain, where you can
 
 * **DeepSeek:** `deepseek-chat` (Cheap, excellent agentic logic, used in examples), `deepseek-reasoner` (Native reasoning support).
 * **Google Gemini:** `gemini-3-flash-preview` (Fast), `gemini-3-pro-preview` (Heavy reasoning).
-* **OpenRouter / OpenAI:** Supported for models like `gpt-4o` or Claude via standard routing.
+* **OpenRouter / OpenAI:** Supported for models like `gpt-5.4` or `Claude` via standard routing.
 
 **Option A: Cloud Models**
 

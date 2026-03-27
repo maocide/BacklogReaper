@@ -1747,7 +1747,8 @@ if __name__ == "__main__":
     #pprint(get_friends_who_own(game_names=["Helldivers 2", "Peak"]))
     #pprint(get_reviews_byname(game_name="Marathon"))
     #pprint(compare_library_with_friend("Ash"))
-    pprint(get_active_friends())
+    #pprint(get_active_friends())
     #pprint(get_user_wishlist(sort_by='discount', page=0, page_size=10))
     #pprint(get_steam_store_trends())
+    pass
 

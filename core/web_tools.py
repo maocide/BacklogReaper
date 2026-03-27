@@ -414,5 +414,6 @@ def get_hltb_search_scrape(game_name):
         return []
 
 if __name__ == "__main__":
+    pass
     #print(get_hltb_search_scrape("KILL KNIGHT"))
-    print(web_search("Cats"))
+    #print(web_search("Cats"))
