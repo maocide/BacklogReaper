@@ -200,8 +200,7 @@ class ReaperChatView(ft.Container):
             self.hide_background()
 
             # We need to build the list in reverse order (newest first)
-            # Or build normally and then reverse the controls list.
-            # Let's build normally for logic simplicity, then reverse.
+            # Build normally for simplicity, then reverse.
             controls_to_add = []
 
             last_role = ""
@@ -247,7 +246,7 @@ class ReaperChatView(ft.Container):
             if self.chat_history.messages and self.chat_history.messages[-1].get('role') == 'assistant':
                 self._append_message_actions() # Will insert at index 0 (newest)
 
-        # No need to scroll, reverse list stays at bottom (0) by default
+        # No need to scroll, reverse list stays at bottom index 0 by default
         # self.scroll_chat_to_bottom(500,0,True)
 
     def _refresh_prompt_chips(self):
@@ -293,9 +292,6 @@ class ReaperChatView(ft.Container):
                 # await self.br_input.current.focus()
 
                 await self.send_message(e)
-
-                # If you want it to auto-send instantly without them hitting Enter, you can call:
-                # self.send_message(None) # (or whatever your send function is named)
 
             return GrimoireButton(
                 content=text,
