@@ -90,6 +90,7 @@ def main(page: ft.Page):
 
     # Navigation Logic
     def on_nav_change(e):
+        settings.reload()
         index = e.control.selected_index
 
         is_chat_tab = (index == 1)
@@ -157,12 +158,17 @@ def main(page: ft.Page):
     )
 
     def on_ritual_complete():
+        # Force a settings reload to ensure any new Steam User is loaded
+        settings.reload()
+
         # Transition: Hide Gatekeeper, Show Main App
         gatekeeper.visible = False
         main_layout.visible = True
 
-        # Refresh Dashboard Stats to reflect any new data from the ritual
+        # Refresh Views to reflect any new data from the ritual
         view_dashboard.load_stats()
+        view_library.load_data()
+        view_chat.refresh_state()
 
         page.update()
 

@@ -1005,11 +1005,18 @@ class ReaperChatView(ft.Container):
         current_settings = settings.load_settings()
         new_char_name = current_settings.get("CHARACTER", "Reaper")
 
+        # Check if steam user changed
+        new_steam_user = settings.STEAM_USER
+        steam_user_changed = False
+        if getattr(self, "current_steam_user", None) != new_steam_user:
+             self.current_steam_user = new_steam_user
+             steam_user_changed = True
+
         # Fetch avatar
         threading.Thread(target=self._prefetch_avatar, daemon=True).start()
 
-        # If the character changed, we must reload the chat
-        if not self.character or self.character.name != new_char_name:
+        # If the character or user changed, we must reload the chat
+        if not self.character or self.character.name != new_char_name or steam_user_changed:
             self.chat_history.reset_history()  # Removes all messages
             self._initialize_character()  # Loads the new Character and JSON
 
