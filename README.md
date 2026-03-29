@@ -73,7 +73,7 @@ The good news? At least you're not playing walking simulators. The bad news? You
 
 ## 🧿 The Reaper's Gaze (Core Experience)
 
-<img title="" src="assets/characters/Reaper.png" alt="The Backlog Reaper" align="right" width="280" data-align="inline">
+<img title="" src="assets/characters/Reaper.png" alt="The Backlog Reaper" align="right" width="30%" data-align="inline">
 
 By default, you are bound to **The Reaper**, a dark fantasy entity that acts as an uncompromising auditor of your digital life. 
 
@@ -307,6 +307,7 @@ Backlog Reaper is built for power users who demand data sovereignty, cost effici
 * **Cognitive Context Rotation:** To protect your API billing, the engine monitors cumulative session tokens. When the context window hits 24,000 tokens, it automatically summarizes the history down to 18,000 tokens. Chats and summaries are saved locally to disk per-character.
 
 * **Native Reasoning Support:** The UI natively captures and collapses `<think>` blocks and reasoning tokens from advanced models (like DeepSeek-3.2 or Gemini Flash/Pro). You see the final answer and the UI cards, while the massive reasoning chains stay hidden but accessible.
+  
   <p align="center">
     <img src="docs/images/reasoning_ui.png" alt="Collapsible Reasoning Blocks in UI">
   </p>
@@ -315,7 +316,7 @@ Backlog Reaper is built for power users who demand data sovereignty, cost effici
 
 ---
 
-## 🕯️ The Summoning Ritual (Installation)	
+## 🕯️ The Summoning Ritual (Installation)
 
 <p align="center">  
   <img src="docs/images/login_ritual.png" alt="Sign the Ledger Initial Setup">

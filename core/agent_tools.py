@@ -278,7 +278,7 @@ tools_schema = [
                     },
                     "sort_by": {
                         "type": "string",
-                        "enum": ["priority", "cheapest", "recent", "discount", ],
+                        "enum": [ "recent", "discount", "cheapest", "priority", ],
                         "description": "Sorting criteria. Default is 'shortest'."
                     },
                     "page": {

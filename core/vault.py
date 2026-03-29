@@ -18,6 +18,14 @@ DB_NAME = str(paths.get_base_dir() / "backlog_vault.db")
 import time
 from datetime import datetime
 
+# Ignore noise
+IGNORED_TAGS = {
+    "Software", "Utilities", "Design & Illustration", "Web Publishing",
+    "Animation & Modeling", "Video Production", "Audio Production",
+    "Education", "Game Development", "Benchmark", "Movie", "Documentary",
+    "360 Video", "Short", "Tutorial"
+}
+
 last_refreshed = 0
 
 def calculate_status(game):
@@ -465,18 +473,10 @@ def get_all_tags(limit=50, recent_days=None):
     - Sorts by HOURS PLAYED (Interest) rather than COUNT (Hoarding).
     """
 
-    # 1. The "Anti-Noise" Blocklist
-    IGNORED_TAGS = {
-        "Software", "Utilities", "Design & Illustration", "Web Publishing",
-        "Animation & Modeling", "Video Production", "Audio Production",
-        "Education", "Game Development", "Benchmark", "Movie", "Documentary",
-        "360 Video", "Short", "Tutorial"
-    }
-
     with get_connection() as conn:
         c = conn.cursor()
 
-        # 2. Handle "Recent" vs "Lifetime"
+        # Handle "Recent" vs "Lifetime"
         if recent_days:
             # Unix timestamp for X days ago
             cutoff = time.time() - (recent_days * 86400)
@@ -522,17 +522,12 @@ def get_all_tags(limit=50, recent_days=None):
 
     # Smart Sorting
     if recent_days:
-        # If looking at recent trends, sort by how many DIFFERENT games in that genre you played recently
-        # (Since lifetime hours will heavily skew towards old games you just booted for 5 mins)
+        # If looking at recent trends, sort by how many DIFFERENT games in that genre played recently
+        # Since lifetime hours will heavily skew towards old games just booted for 5 mins
         results.sort(key=lambda x: (x['active_titles_count'], x['lifetime_hours_in_tag']), reverse=True)
     else:
         # If looking at lifetime, sort by total hours invested
         results.sort(key=lambda x: x['lifetime_hours_in_tag'], reverse=True)
-
-    return results[:limit]
-
-    # Cap the output size for the Agent
-    # 50 tags is plenty for an AI
 
     return results[:limit]
 
@@ -760,9 +755,17 @@ def get_vault_statistics():
         if status == "Unplayed":
             stats["backlog_hours"] += hltb
 
-        # Aggregate Genres (First Tag)
+        # Aggregate Genres (First VALID Tag)
         if tags_str:
-            primary_tag = tags_str.split(',')[0].strip()
+            primary_tag = "Uncategorized"  # Fallback just in case
+
+            for tag in tags_str.split(','):
+                clean_tag = tag.strip()
+                # Check if it's a real genre and not in our global blocklist
+                if clean_tag and clean_tag not in IGNORED_TAGS:
+                    primary_tag = clean_tag
+                    break  # Stop. Primary genre, preventing overlap.
+
             tag_tally[primary_tag] = tag_tally.get(primary_tag, 0) + 1
             tag_hours_tally[primary_tag] = tag_hours_tally.get(primary_tag, 0) + playtime
 
@@ -809,10 +812,12 @@ def get_library_stats():
 
     tag_counts = {}
     tag_minutes = {}
+    backlog_minutes = 0  # NEW VARIABLE
 
     for game in games:
         status = calculate_status(game)
         playtime = game.get('playtime_forever', 0)
+        hltb = game.get('hltb_main', 0)
         tags_str = game.get('tags', '')
 
         # Global totals
@@ -821,25 +826,28 @@ def get_library_stats():
         # Status Counts
         if status == "Unplayed":
             unplayed_count += 1
+            backlog_minutes += hltb
         elif status == "Bounced":
             bounced_count += 1
         elif status in ("Invested", "Completionist"):
             finished_count += 1
 
-        # Genre Analysis (Split all tags)
+        # Genre Analysis (Filtered)
         if tags_str:
             tags = [t.strip() for t in tags_str.split(',')]
             for tag in tags:
-                if not tag: continue
+                if not tag or tag in IGNORED_TAGS:
+                    continue  # Skip the noisy unuseful tags
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
                 tag_minutes[tag] = tag_minutes.get(tag, 0) + playtime
 
     # Derived Metrics
-    # Shame = Unplayed + Bounced
+    # Shame = (Unplayed + Bounced) / total
     shame_percentage = int(((unplayed_count + bounced_count) / total_games) * 100)
     completion_rate = int((finished_count / total_games) * 100)
     total_hours = int(total_minutes / 60)
     avg_playtime_hours = round(total_hours / total_games, 1)
+    backlog_hours = int(backlog_minutes / 60)
 
     # Top Genres
     top_played = sorted(tag_minutes.items(), key=lambda x: x[1], reverse=True)[:5]
@@ -853,9 +861,10 @@ def get_library_stats():
         "unplayed_count": unplayed_count,
         "bounced_count": bounced_count,
         "shame_percentage": f"{shame_percentage}%",
-        "total_hours": total_hours,
-        "avg_playtime_hours": avg_playtime_hours,
         "completion_rate": f"{completion_rate}%",
+        "total_hours_played": total_hours,
+        "backlog_debt_hours": backlog_hours,
+        "avg_playtime_hours": avg_playtime_hours,
         "top_played_genres": top_played_fmt,
         "top_owned_genres": top_owned_fmt
     }
@@ -867,6 +876,7 @@ if __name__ == "__main__":
     #print(advanced_search(sort_by="recent"))
     #hltb_test = get_hltb_search_scrape("Lossless Scaling")
     #print(hltb_test)
+    #pprint(get_library_stats())
     # import core.vibe_engine as vibe_engine
     # vibes = vibe_engine.VibeEngine.get_instance()
     # print(vibes.search("gloomy"))
