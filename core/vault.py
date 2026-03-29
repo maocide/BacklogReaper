@@ -23,7 +23,8 @@ IGNORED_TAGS = {
     "Software", "Utilities", "Design & Illustration", "Web Publishing",
     "Animation & Modeling", "Video Production", "Audio Production",
     "Education", "Game Development", "Benchmark", "Movie", "Documentary",
-    "360 Video", "Short", "Tutorial"
+    "360 Video", "Short", "Tutorial",
+    "Singleplayer", "Multiplayer", "Indie",
 }
 
 last_refreshed = 0
@@ -702,7 +703,7 @@ def vault_search_batch(game_names: list[str]):
     return results
 
 
-def get_vault_statistics():
+def get_chart_totals():
     """
     Aggregates library data for the Dashboard Charts.
     Returns a dictionary with:
@@ -876,6 +877,7 @@ if __name__ == "__main__":
     #print(advanced_search(sort_by="recent"))
     #hltb_test = get_hltb_search_scrape("Lossless Scaling")
     #print(hltb_test)
+    #pprint(get_chart_totals())
     #pprint(get_library_stats())
     # import core.vibe_engine as vibe_engine
     # vibes = vibe_engine.VibeEngine.get_instance()

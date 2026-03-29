@@ -301,7 +301,7 @@ class GatekeeperView(ft.Container):
         self.container_contract.visible = False
         self.container_ritual.visible = True
 
-        stats = vault.get_vault_statistics()
+        stats = vault.get_chart_totals()
         life_wasted = int(stats.get("total_hours", 0))
 
         self.txt_total_debt.value = f"Life Wasted: {life_wasted} Hours"
@@ -338,7 +338,7 @@ class GatekeeperView(ft.Container):
 
     async def _ui_updater_task(self):
         """Runs on Flet's UI thread. Safely checks the bucket and draws the screen."""
-        stats = vault.get_vault_statistics()
+        stats = vault.get_chart_totals()
         life_wasted = float(stats.get("total_hours", 0))
 
         self._log("> Opening game Vault...")

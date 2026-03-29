@@ -151,7 +151,7 @@ class DashboardView(ft.Container):
                 self.vs_status.current.value = "Crunching the numbers..."
                 self.vs_status.current.update()
 
-            stats = vault.get_vault_statistics()
+            stats = vault.get_chart_totals()
 
             # Handle empty stats
             if not stats or stats.get("total_games", 0) == 0:
