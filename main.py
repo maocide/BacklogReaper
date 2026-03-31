@@ -6,19 +6,7 @@ import core.settings as settings
 import os
 import sys
 import certifi
-
-# Force Python requests and urllib to use certifi's CA bundle
-os.environ["SSL_CERT_FILE"] = certifi.where()
-os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
-
-# Fix Windows encoding crashes for special characters (like ★ or ™ in game names)
-if paths.is_packaged():
-    # IN THE .EXE: Route to void, but explicitly tell the void to accept UTF-8
-    if sys.stdout is None:
-        sys.stdout = open(os.devnull, "w", encoding="utf-8")
-    if sys.stderr is None:
-        sys.stderr = open(os.devnull, "w", encoding="utf-8")
-
+import core.paths as paths
 import core.startup as startup
 import ui.styles as styles
 from ui.tabs.dashboard import DashboardView
@@ -26,6 +14,28 @@ from ui.tabs.chat import ReaperChatView
 from ui.tabs.library import LibraryView
 from ui.tabs.settings import SettingsView
 from ui.gatekeeper import GatekeeperView
+
+# Force Python requests and urllib to use certifi's CA bundle
+os.environ["SSL_CERT_FILE"] = certifi.where()
+os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
+
+# Fix Windows encoding crashes and setup a Debug Log for the Sandbox
+if paths.is_packaged():
+    # Create a path for a log file inside your local data folder
+    log_path = paths.get_asset_path("data", "reaper_debug.log")
+
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+    # Open the file in append mode so it doesn't overwrite immediately on quick restarts
+    debug_log = open(log_path, "a", encoding="utf-8")
+
+    sys.stdout = debug_log
+    sys.stderr = debug_log
+
+    print("\n" + "=" * 40)
+    print("💀 REAPER EXECUTABLE INITIATED")
+    print("=" * 40)
 
 
 def main(page: ft.Page):
