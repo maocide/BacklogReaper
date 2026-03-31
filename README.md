@@ -300,7 +300,7 @@ Because the engine adapts entirely to the imported Persona, your experience comp
 
 Backlog Reaper is built for power users who demand data sovereignty, cost efficiency, and highly optimized architectures.
 
-* **100% Local Data:** Your entire library is securely mapped to a local `backlog_vault.db` SQLite database. No AppData bloat, no cloud uploads, no telemetry.
+* **100% Local Data:** Your entire library is securely mapped to a local `backlog_vault.db` SQLite database. No developer telemetry and no background analytics. Your data only leaves your machine if you explicitly configure a cloud-based LLM API (and stays completely local if you bind it to Ollama/LM Studio).
 
 * **Hybrid Search Engine:** Combines traditional metadata tag filtering, Jaccard similarity matching, with locally computed, cached vector embeddings for semantic "vibe-based" game discovery.
 
