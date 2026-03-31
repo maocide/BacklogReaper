@@ -329,7 +329,7 @@ Backlog Reaper is built for power users who demand data sovereignty, cost effici
 5. The application will automatically construct your local database, download the HLTB datasets (~100MB), and awaken your chosen companion.
 6. **Navigate to the Settings tab** to input your chosen LLM API Key (see below) to give your companion a brain.
 
-> **Note on Steam Privacy:** For the Reaper to use social tools (like `get_active_friends` or `get_user_wishlist`), your Steam Profile and Game Details must be set to **Public**. If your profile is private, the core library auditing will still work, but the social matchmaking tools will fail (and the Reaper will mock you).
+> **Note on Steam Privacy:** *For the Reaper to use social tools (like `get_active_friends` or `get_user_wishlist`), your Steam Profile and Game Details must be set to **Public**. If your profile is private, the core library auditing will still work, but the social matchmaking tools will fail (and the Reaper will mock you).*
 
 ### 🧠 Awakening your chosen companion (API Configuration)
 
@@ -342,6 +342,7 @@ Navigate to the **Settings** tab to configure your entity's brain, where you can
 * **DeepSeek:** `deepseek-chat` (Cheap, excellent agentic logic, used in examples), `deepseek-reasoner` (Native reasoning support).
 * **Google Gemini:** `gemini-3-flash-preview` (Fast), `gemini-3-pro-preview` (Heavy reasoning).
 * **OpenRouter / OpenAI:** Supported for models like `gpt-5.4` or `Claude` via standard routing.
+* **Local Weights (Ollama / LM Studio):** Tested successfully on RTX 3090 hardware using 20B+ parameter models (e.g., `gpt-oss:20b`). 
 
 **Option A: Cloud Models**
 
@@ -350,11 +351,13 @@ Navigate to the **Settings** tab to configure your entity's brain, where you can
 * **Model Name:** e.g., `deepseek-chat`.
 
 **Option B: Local Models (LM Studio / Ollama)**
-Keep your data 100% local by pointing the Reaper to your own hardware. *(Note: While connection is seamless, the ReAct loop requires a highly capable local model with strong agentic and tool-calling logic to function properly).*
+Keep your data 100% local by pointing the Reaper to your own hardware. 
 
 * **API Key:** Enter `lm-studio` or `ollama`.
-* **Base URL:** Enter your local server address (e.g., `http://localhost:1234/v1`).
+* **Base URL:** Enter your local server address (e.g., `http://localhost:1234/v1` or `http://localhost:11434/v1`).
 * **Model Name:** Enter the exact name of the loaded local model.
+
+> **Note:** *The 19-tool ReAct loop is heavy. 20B+ parameter models explicitly fine-tuned for **Function/Tool Calling** are highly recommended. If you force a standard chat model or a smaller 7B model to run this many tools, the agent will likely suffer from Cyberpsychosis and hallucinate or rebel!*
 
 ### 🗝️ The Vault’s Ward (Key Security)
 
