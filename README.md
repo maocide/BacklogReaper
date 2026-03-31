@@ -312,7 +312,7 @@ Backlog Reaper is built for power users who demand data sovereignty, cost effici
     <img src="docs/images/reasoning_ui.png" alt="Collapsible Reasoning Blocks in UI">
   </p>
 
-* **True Portability:** Forged on Arch Linux, compiled for Windows. The `.exe` is completely self-contained and creates all necessary directories strictly alongside the executable. No Python environment required for end-users.
+* **True Portability:** Forged on Arch Linux, compiled for Windows. The application is completely self-contained. Just extract the folder, run the `.exe`, and it will create all necessary databases strictly alongside itself. No Python environment required for end-users.
 
 ---
 
@@ -328,6 +328,8 @@ Backlog Reaper is built for power users who demand data sovereignty, cost effici
 4. Complete the **Gatekeeper Ritual** on the first launch by providing your Username and a [Steam Web API Key](https://steamcommunity.com/dev/apikey).
 5. The application will automatically construct your local database, download the HLTB datasets (~100MB), and awaken your chosen companion.
 6. **Navigate to the Settings tab** to input your chosen LLM API Key (see below) to give your companion a brain.
+
+> **Note on Steam Privacy:** For the Reaper to use social tools (like `get_active_friends` or `get_user_wishlist`), your Steam Profile and Game Details must be set to **Public**. If your profile is private, the core library auditing will still work, but the social matchmaking tools will fail (and the Reaper will mock you).
 
 ### 🧠 Awakening your chosen companion (API Configuration)
 
