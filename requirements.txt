@@ -19,3 +19,4 @@ kagglehub
 tiktoken
 lxml_html_clean
 cryptography
+certifi
