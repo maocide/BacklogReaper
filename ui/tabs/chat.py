@@ -83,6 +83,15 @@ class ReaperChatView(ft.Container):
             wrap=True
         )
 
+        self.md_sheet = ft.MarkdownStyleSheet(
+            # Force a dark, translucent background with a colored left border
+            blockquote_decoration=ft.BoxDecoration(
+                bgcolor=ft.Colors.with_opacity(0.1, styles.COLOR_TEXT_PRIMARY),
+                border=ft.border.only(left=ft.border.BorderSide(4, styles.COLOR_SYSTEM_LOG))
+            ),
+            blockquote_padding=ft.padding.all(10),
+        )
+
         self.content = ft.Column([
             ft.Row([
                 ft.Text("Reaper Chat", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM, expand=True, font_family=styles.FONT_HEADING),
@@ -413,12 +422,12 @@ class ReaperChatView(ft.Container):
 
         # If it's a user message or no JSON, just render markdown
         if "```json" not in text or is_user:
-            controls.append(ft.Markdown(text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+            controls.append(ft.Markdown(text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, md_style_sheet=self.md_sheet))
         else:
             segments = text.split("```json")
 
             if segments[0].strip():
-                controls.append(ft.Markdown(segments[0].strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+                controls.append(ft.Markdown(segments[0].strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, md_style_sheet=self.md_sheet))
 
             for segment in segments[1:]:
                 if "```" in segment:
@@ -436,9 +445,9 @@ class ReaperChatView(ft.Container):
                         controls.append(ft.Markdown(f"```json{json_part}```"))
 
                     if post_text.strip():
-                        controls.append(ft.Markdown(post_text.strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+                        controls.append(ft.Markdown(post_text.strip(), extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, md_style_sheet=self.md_sheet))
                 else:
-                    controls.append(ft.Markdown(f"```json{segment}", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB))
+                    controls.append(ft.Markdown(f"```json{segment}", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, md_style_sheet=self.md_sheet))
 
         bubble_content = ft.Column(controls, tight=True, spacing=5)
 
@@ -455,7 +464,7 @@ class ReaperChatView(ft.Container):
 
         reasoning_control = None
         if reasoning_text and not is_user:
-            reasoning_control = ft.Markdown(value=reasoning_text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, visible=True, selectable=True)
+            reasoning_control = ft.Markdown(value=reasoning_text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, visible=True, selectable=True, md_style_sheet=self.md_sheet)
 
         return ReaperChatBubble(
             avatar_name=avatar_name,
@@ -592,8 +601,8 @@ class ReaperChatView(ft.Container):
                 self.current_streaming_bubble = None
 
             state["status_text"] = ft.Text("Awakening...", italic=True, size=12, color=ft.Colors.GREY_500)
-            state["agent_markdown"] = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)
-            state["reasoning_view"] = ft.Markdown("", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, visible=False, selectable=True)
+            state["agent_markdown"] = ft.Markdown("", selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, md_style_sheet=self.md_sheet)
+            state["reasoning_view"] = ft.Markdown("", extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, visible=False, selectable=True, md_style_sheet=self.md_sheet)
             state["reasoning_buffer"] = ""
 
             # Get Real Name and Avatar
