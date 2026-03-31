@@ -21,14 +21,14 @@ os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
 
 # Fix Windows encoding crashes and setup a Debug Log for the Sandbox
 if paths.is_packaged():
-    # Create a path for a log file inside your local data folder
-    log_path = paths.get_asset_path("data", "reaper_debug.log")
+    # USE get_base_dir() for writable files, NOT get_asset_path!
+    log_path = paths.get_base_dir() / "data" / "reaper_debug.log"
 
     # Ensure the directory exists
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
-    # Open the file in append mode so it doesn't overwrite immediately on quick restarts
-    debug_log = open(log_path, "a", encoding="utf-8")
+    # buffering=1 forces Python to flush to disk on every newline (\n)
+    debug_log = open(log_path, "a", encoding="utf-8", buffering=1)
 
     sys.stdout = debug_log
     sys.stderr = debug_log
