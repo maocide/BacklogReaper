@@ -117,7 +117,7 @@ The AI doesn't just guess what you should play; it is armed with a ReAct cogniti
 > 2. *Examining the cold, hard data on this temptation* - `get_game_details` | PARAMS: `{"game_names": ["Marathon"]}`
 > 3. *Listening to the screams and cheers from the gaming underworld...* - `get_community_sentiment` | PARAMS: `{"game_name": "Marathon"}`
 
-Ah, Marathon. Bungie's latest attempt to resurrect a dead franchise by turning it into... an extraction shooter. Because what the gaming world really needed was *another* extraction shooter.
+**Reaper:** Ah, Marathon. Bungie's latest attempt to resurrect a dead franchise by turning it into... an extraction shooter. Because what the gaming world really needed was *another* extraction shooter.
 
 Let me break down what the data tells me, and what my ancient, jaded eyes see:
 
