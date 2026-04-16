@@ -1718,17 +1718,22 @@ def get_steam_store_trends(category="specials"):
             return {"error": f"No data found for category: {category}"}
 
         results = []
-        # Limit to 15 to keep the LLM context window clean and focused
-        for item in items_raw[:15]:
-            original_price = item.get('original_price', 0) / 100
-            final_price = item.get('final_price', 0) / 100
-            discount = item.get('discount_percent', 0)
+        # Limit to 25 to keep the LLM context window clean and focused
+        for item in items_raw[:25]:
+            original_price = (item.get('original_price') or 0) / 100
+            final_price = (item.get('final_price') or 0) / 100
+            discount = item.get('discount_percent') or 0
+
+            if final_price == 0 and category == 'coming_soon':
+                price_str = "TBA"
+            else:
+                price_str = f"${final_price:.2f}" if final_price > 0 else "Free"
 
             results.append({
-                "appid": item.get('id'),  # <--- ADD THIS LINE
+                "appid": item.get('id', ''),
                 "name": item.get('name', 'Unknown'),
                 "discount": f"{discount}% OFF" if discount > 0 else "None",
-                "price": f"${final_price:.2f}" if final_price > 0 else "Free",
+                "price": price_str,
                 "original": f"${original_price:.2f}" if original_price > 0 else "N/A"
             })
 
@@ -1749,6 +1754,6 @@ if __name__ == "__main__":
     #pprint(compare_library_with_friend("Ash"))
     #pprint(get_active_friends())
     #pprint(get_user_wishlist(sort_by='discount', page=0, page_size=10))
-    #pprint(get_steam_store_trends())
+    #pprint(get_steam_store_trends("new_releases"))
     pass
 

@@ -377,7 +377,7 @@ tools_schema = [
                     "category": {
                         "type": "string",
                         "enum": ["specials", "top_sellers", "new_releases", "coming_soon"],
-                        "description": "The store category to fetch. Default to 'specials' if looking for sales."
+                        "description": "The store category to fetch. Defaults to 'specials'."
                     },
                     "action_description": {
                         "type": "string",
