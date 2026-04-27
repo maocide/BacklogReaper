@@ -50,11 +50,12 @@ class GameCard(ft.Card):
         info_rows = self._build_info_rows(game_data)
         content_column.controls.extend(info_rows)
 
-        # Bottom padding to ensure last item is not covered by the fixed button
-        content_column.controls.append(ft.Container(height=45))
-
         # Actions (Buttons) are extracted to be positioned absolutely
         actions = self._build_actions(appid)
+
+        # Bottom padding to ensure last item is not covered by the fixed button
+        if actions:
+            content_column.controls.append(ft.Container(height=45))
 
         # Build the Visual Stack (Background + Content + Actions)
         return self._build_stack(bg_image, content_column, actions)

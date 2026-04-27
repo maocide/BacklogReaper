@@ -101,14 +101,19 @@ def get_steam_avatar(username_or_id):
     return None
 
 @safe_tool
-def search_steam_store(term, limit=10):
+def search_steam_store(term, sort_by="relevance", limit=10):
     """
     Scrapes the Steam Search page for games matching the term.
+    Use sort_by='recent' to find brand new releases for a specific genre or term.
     Returns: List of dicts {name, price, reviews, link}
     """
     # URL Encode the search term
     encoded_term = urllib.parse.quote(term)
     url = f"https://store.steampowered.com/search/?term={encoded_term}&category1=998"  # 998 = Games only (no DLC)
+
+    # Inject the sorting parameter if requested
+    if sort_by == "recent":
+        url += "&sort_by=Released_DESC"
 
     headers, cookies = get_steam_bypass()
 
@@ -147,9 +152,14 @@ def search_steam_store(term, limit=10):
         if appid and appid.isdigit():
             is_owned = vault.is_game_owned(int(appid))
 
+        # Extract Release Date
+        released_div = row.select_one('.search_released')
+        release_date = released_div.text.strip() if released_div else "Unknown"
+
         results.append({
             "appid": appid,
             "name": title,
+            "release_date": release_date,
             "price": price,
             "reviews": reviews,
             "link": href,
@@ -157,7 +167,6 @@ def search_steam_store(term, limit=10):
         })
 
     return results
-
 
 @safe_tool
 def get_similar_games(game_name):
@@ -1094,7 +1103,7 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
 
             if entry['unlocked']:
                 # Convert timestamp for readability only on unlocked
-                entry['date'] = datetime.fromtimestamp(entry['unlock_time']).strftime('%Y-%m-%d')
+                entry['date'] = datetime.fromtimestamp(entry['unlock_time']).strftime('%Y-%m-%d %H:%M')
                 unlocked_list.append(entry)
             else:
                 locked_list.append(entry)
@@ -1129,6 +1138,29 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
         # Sort locked by rarity (highest % first = easiest)
         locked_list.sort(key=lambda x: x['rarity'], reverse=True)
 
+        ach_schema = {
+            # TRANSFORMATIONS: 'field_name': 'rule'
+            "transformations": {
+                "unlocked": "bool_text"
+            },
+            # ALLOWLIST: Only keep these fields
+            "keep_keys": [
+                'date',
+                'description',
+                'name',
+                'rarity',
+                'unlocked'
+            ]
+        }
+
+        unlocked_list = clean_json_for_ai(unlocked_list,
+                                                     transformations=ach_schema["transformations"],
+                                                     keep_keys=ach_schema["keep_keys"])
+
+        locked_list =  clean_json_for_ai(locked_list,
+                                                     transformations=ach_schema["transformations"],
+                                                     keep_keys=ach_schema["keep_keys"])
+
         return {
             "game": game_name,
             "stats": {
@@ -1137,9 +1169,9 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
                 "unlocked_count": count
             },
             # Give the agent context on what they just finished
-            "latest_unlocks": unlocked_list[:3],
+            "latest_unlocks": unlocked_list[:6],
             # Give the agent 'ammo' to suggest the next step
-            "recommended_next": locked_list[:5]
+            "recommended_next": locked_list[:3]
         }
 
     except Exception as e:
@@ -1748,12 +1780,13 @@ def get_steam_store_trends(category="specials"):
 
 
 if __name__ == "__main__":
-    #pprint(get_achievement_stats(-1, "SYNTHETIK 2", page=0))
+    pprint(get_achievement_stats(game_name="KILL KNIGHT"))
     #pprint(get_friends_who_own(game_names=["Helldivers 2", "Peak"]))
     #pprint(get_reviews_byname(game_name="Marathon"))
     #pprint(compare_library_with_friend("Ash"))
     #pprint(get_active_friends())
     #pprint(get_user_wishlist(sort_by='discount', page=0, page_size=10))
     #pprint(get_steam_store_trends("new_releases"))
+    #pprint(search_steam_store("",sort_by="recent"))
     pass
 

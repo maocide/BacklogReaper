@@ -207,13 +207,18 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "search_steam_store",
-            "description": "Search the external Steam store for games not in the user's library. Returns name, price, and review score.",
+            "description": "Search the external Steam store for games not in the user's library. Use this to find prices or review scores. To act as a 'Release Radar', pass a genre to search_term and set sort_by to 'recent'.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "search_term": {
                         "type": "string",
-                        "description": "The keyword or game title to search for."
+                        "description": "The keyword, game title, or genre to search for."
+                    },
+                    "sort_by": {
+                        "type": "string",
+                        "enum": ["relevance", "recent"],
+                        "description": "Default is 'relevance'. Use 'recent' to find brand new releases for the given search term."
                     },
                     "action_description": {
                         "type": "string",
