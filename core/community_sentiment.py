@@ -14,6 +14,7 @@ from core.safe_tool import safe_tool
 from core.web_tools import web_search, get_steam_bypass, get_steam_bypass_with_referer
 import core.game_intelligence as game_intelligence
 from thefuzz import fuzz
+from curl_cffi import requests
 
 @safe_tool
 def scrape_steam_forums(appid, gamename):
@@ -185,26 +186,31 @@ def scrape_reddit_search(game_name):
     Scrapes Reddit search results via their public JSON endpoint.
     Use with caution: Rate limits are strict.
     """
-    # 1. The "Magic" Header.
-    # NEVER use 'python-requests/x.x'. Reddit blocks it instantly.
-    # Use a real browser string or a descriptive bot name.
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
-
-    # 2. The JSON Endpoint
+    # The JSON Endpoint
     # sort=relevance or top, t=year (to keep it recent)
     url = f"https://www.reddit.com/search.json?q={game_name}&sort=relevance&t=year&limit=5"
 
-    resp = requests.get(url, headers=headers, timeout=5)
+    # impersonate="chrome120" handles the headers, TLS, and HTTP/2 automatically
+    resp = requests.get(url, impersonate="chrome120", timeout=10) # uses module curl_cffi requests, it spoofs browser
 
-    # Rate Limit Fallback
-    if resp.status_code == 429:
-        print("Error: Reddit is rate-limiting the Reaper. (Trying WEB Search...)")
+    if resp.status_code != 200:
+        print(f"Error: Reddit blocked the Reaper with status {resp.status_code}.")
         return web_search(f"site:reddit.com {game_name}")
 
-    data = resp.json()
-    posts = data.get('data', {}).get('children', [])
+    if resp.status_code != 200:
+        print(f"ERROR!!! Unexpected status code {resp.status_code}.")
+        return {"error": f"Reddit returned status {resp.status_code}."}
+
+    try :
+        data = resp.json()
+        posts = data.get('data', {}).get('children', [])
+    except  Exception as e:
+        print(resp.text)
+        posts = None
+        print("ERROR!!! possibly bad json.")
+        return {"error": "Reddit returned bad json."}
+
+
 
     if not posts:
         return {"error": "No Reddit threads found."}
