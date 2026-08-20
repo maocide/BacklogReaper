@@ -12,14 +12,15 @@ class ChatHistory:
     def __init__(self, character_name="Reaper"):
         self.messages = []
         self.character_name = character_name
-        self.max_tokens = 24000
-        self.target_tokens = 18000
+        self.max_tokens = 32000
+        self.target_tokens = 27000
 
     def _load_character(self, character):
         """
         Loads the character's system prompt into the history.
         Updates the first message if it's a system prompt, or inserts it.
         """
+        self.character = character
         self.character_name = character.name
         system_prompt = character.get_system_prompt()
         system_message = {"role": "system", "content": system_prompt}
@@ -45,6 +46,12 @@ class ChatHistory:
         return self.clean_history() # Gets token count for summarization back
 
     def get_history(self):
+        # Dynamically refresh the system prompt so datetime and other variables are always current
+        if hasattr(self, 'character') and self.character:
+            system_prompt = self.character.get_system_prompt()
+            system_message = {"role": "system", "content": system_prompt}
+            if self.messages and self.messages[0].get("role") == "system":
+                self.messages[0] = system_message
         return self.messages
 
     def reset_history(self):

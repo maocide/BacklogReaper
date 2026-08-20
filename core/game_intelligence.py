@@ -261,9 +261,12 @@ def get_similar_games(game_name):
 @safe_tool
 def get_game_deals(title, appid):
     def fetch_with_retry(url, params=None, retries=3, backoff_factor=1.0):
+        headers = {
+            'User-Agent': 'BacklogReaper/1.0 (contact@example.com)'
+        }
         for i in range(retries):
             try:
-                response = requests.get(url, params=params)
+                response = requests.get(url, params=params, headers=headers)
                 if response.status_code == 429:
                     wait_time = backoff_factor * (2 ** i)
                     print(f"Rate limited (429). Retrying in {wait_time}s...")
@@ -841,8 +844,13 @@ def get_steam_app_info(game_name: str):
 
     steam = Steam(settings.STEAM_API_KEY)
 
+    # Steam's search suggest endpoint is notoriously bad with punctuation.
+    # We clean up common punctuation to improve hit rates.
+    search_term = re.sub(r'[-_:]', ' ', game_name)
+    search_term = re.sub(r'\s+', ' ', search_term).strip()
+
     # Fetch list of candidates (Steam usually returns 5-20 results)
-    results = steam.apps.search_games(game_name)
+    results = steam.apps.search_games(search_term)
 
     if 'apps' not in results or not results['apps']:
         print(" -> Not found in the Steam void.\n")
@@ -1014,6 +1022,9 @@ def get_reviews_byname(game_name, count=10):
 
     app = get_steam_app_info(game_name)
 
+    if not app:
+        return {"error": f"Game '{game_name}' not found on Steam."}
+
     appid = app['id'][0]
 
 
@@ -1169,7 +1180,7 @@ def get_achievement_stats(appid=-1, game_name="", page=None):
                 "unlocked_count": count
             },
             # Give the agent context on what they just finished
-            "latest_unlocks": unlocked_list[:6],
+            "latest_unlocks": unlocked_list[:10],
             # Give the agent 'ammo' to suggest the next step
             "recommended_next": locked_list[:3]
         }
