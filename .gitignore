@@ -28,3 +28,10 @@ exports/
 
 # Ignore temporary files
 *.bak
+
+# Ignore custom character cards except default characters
+characters/*
+!characters/
+!characters/Reaper.*
+!characters/Sybil.*
+!characters/Sibyl.*

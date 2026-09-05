@@ -390,7 +390,7 @@ For developers, Linux users, and those who refuse to touch compiled Windows bina
 
 ---
 
-## 🔮 The Horizon (Roadmap)
+## 🔮 The Horizon
 
 Backlog Reaper will evolve. The core architecture is designed to be highly modular, meaning the current implementation is just the beginning.
 
