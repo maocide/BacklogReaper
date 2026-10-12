@@ -28,6 +28,7 @@ exports/
 
 # Ignore temporary files
 *.bak
+downloaded_files/
 
 # Ignore custom character cards except default characters
 characters/*

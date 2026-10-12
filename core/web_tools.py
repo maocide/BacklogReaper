@@ -220,6 +220,71 @@ def web_search(query, max_results=10):
 
     return data
 
+def search_reddit_discussions(game_name: str, limit: int = 5) -> list:
+    """
+    Finds real Reddit gamer discussions and reviews for a game via search syndication,
+    bypassing Reddit's anti-scraping walls and Cloudflare Turnstile.
+    Filters out description-hidden links and meta pages.
+    """
+    ddgs_client = DDGS()
+    queries = [
+        f'"{game_name}" (review OR discussion OR "worth it" OR "thoughts") site:reddit.com',
+        f'"{game_name}" video game site:reddit.com',
+        f'"{game_name}" site:reddit.com'
+    ]
+
+    results = []
+    seen_urls = set()
+
+    for q in queries:
+        try:
+            raw_res = list(ddgs_client.text(q, max_results=limit * 2))
+        except Exception as e:
+            print(f"   [RedditSearch] Error on '{q}': {e}")
+            continue
+
+        for r in raw_res:
+            href = r.get("href", "")
+            body = r.get("body", "")
+            title = r.get("title", "")
+
+            if not href or href in seen_urls:
+                continue
+            if not body or "hides the web page description" in body.lower():
+                continue
+            # Filter generic subreddit index / rule / wiki pages
+            if any(junk in href.lower() for junk in ["/about/", "/rules", "/wiki/", "/top/"]):
+                continue
+
+            seen_urls.add(href)
+
+            # Extract subreddit
+            sub_match = re.search(r"reddit\.com/r/([^/]+)", href)
+            subreddit = f"r/{sub_match.group(1)}" if sub_match else "r/gaming"
+
+            # Clean Title and Body
+            clean_title = re.sub(r"\s*[-:|]\s*Reddit.*$", "", title, flags=re.IGNORECASE).strip()
+            clean_body = body.replace("\n", " ").strip()
+            if len(clean_body) > 500:
+                clean_body = clean_body[:500] + "... [TRUNCATED]"
+
+            results.append({
+                "title": clean_title or "Reddit Discussion",
+                "score": "N/A",
+                "comments": "N/A",
+                "subreddit": subreddit,
+                "body": clean_body,
+                "url": href
+            })
+
+            if len(results) >= limit:
+                break
+
+        if results:
+            break
+
+    return results
+
 def get_store_data(app_id, max_tags=10):
     """
     Scrapes BOTH Tags and Description from the store page in one request.

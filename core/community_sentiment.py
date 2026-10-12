@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 
 from core.ai_tools import aiCall
 from core.safe_tool import safe_tool
-from core.web_tools import web_search, get_steam_bypass, get_steam_bypass_with_referer
+from core.web_tools import web_search, search_reddit_discussions, get_steam_bypass, get_steam_bypass_with_referer
 import core.game_intelligence as game_intelligence
 from thefuzz import fuzz
 from curl_cffi import requests
@@ -183,72 +183,55 @@ def get_webpage(url):
 @safe_tool
 def scrape_reddit_search(game_name):
     """
-    Scrapes Reddit search results via their public JSON endpoint.
-    Use with caution: Rate limits are strict.
+    Scrapes Reddit discussions and sentiment for a game.
+    First attempts direct public JSON endpoint (via curl_cffi).
+    If blocked by Cloudflare/Anti-Bot filters (HTTP 403/429/humanity gate),
+    automatically falls back to search syndication to extract authentic gamer discourse.
     """
-    # The JSON Endpoint
-    # sort=relevance or top, t=year (to keep it recent)
     url = f"https://www.reddit.com/search.json?q={game_name}&sort=relevance&t=year&limit=5"
 
-    # impersonate="chrome120" handles the headers, TLS, and HTTP/2 automatically
-    resp = requests.get(url, impersonate="chrome120", timeout=10) # uses module curl_cffi requests, it spoofs browser
-
-    if resp.status_code != 200:
-        print(f"Error: Reddit blocked the Reaper with status {resp.status_code}.")
-        return web_search(f"site:reddit.com {game_name}")
-
-    if resp.status_code != 200:
-        print(f"ERROR!!! Unexpected status code {resp.status_code}.")
-        return {"error": f"Reddit returned status {resp.status_code}."}
-
-    try :
-        data = resp.json()
-        posts = data.get('data', {}).get('children', [])
-    except  Exception as e:
-        print(resp.text)
-        posts = None
-        print("ERROR!!! possibly bad json.")
-        return {"error": "Reddit returned bad json."}
-
-
-
-    if not posts:
-        return {"error": "No Reddit threads found."}
+    posts = None
+    try:
+        # Fast direct probe with browser TLS fingerprinting
+        resp = requests.get(url, impersonate="chrome120", timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            posts = data.get('data', {}).get('children', [])
+    except Exception as e:
+        print(f"Direct Reddit probe error: {e}")
 
     results = []
-    for post in posts:
-        p = post['data']
 
-        body = p.get('selftext', '')
+    if posts:
+        for post in posts:
+            p = post.get('data', {})
+            body = p.get('selftext', '')
+            if not body:
+                url_preview = p.get('url_overridden_by_dest', p.get('url', ''))
+                if url_preview:
+                    body = f"[Link/Image Post]: {url_preview}"
 
-        # If body is empty, it might be an image/link post. Use the URL instead.
-        if not body:
-            url_preview = p.get('url_overridden_by_dest', p.get('url', ''))
-            if url_preview:
-                body = f"[Link/Image Post]: {url_preview}"
+            body = body.replace("\n", " ").strip()
+            if len(body) > 500:
+                body = body[:500] + "... [TRUNCATED]"
 
-        # Clean & Truncate (Critical for Token Economy)
-        # Flatten newlines to keep JSON clean
-        body = body.replace("\n", " ").strip()
-        if len(body) > 500:
-            body = body[:500] + "... [TRUNCATED]"
+            results.append({
+                'title': p.get('title', 'No Title'),
+                'score': p.get('score', 0),
+                'comments': p.get('num_comments', 0),
+                'subreddit': p.get('subreddit_name_prefixed', 'r/gaming'),
+                'body': body,
+                'url': p.get('url', '')
+            })
 
-        results.append({
-            'title': p.get('title', 'No Title'),
-            'score': p.get('score', 0),
-            'comments': p.get('num_comments', 0),
-            'subreddit': p.get('subreddit_name_prefixed', 'r/gaming'),
-            'body': body  # Matches web_search key name
-        })
+    # If direct Reddit was blocked (403/Turnstile) or returned empty, trigger discussion extractor
+    if not results:
+        print("Reddit direct API blocked by bot filters. Engaging discussion syndication bypass...")
+        results = search_reddit_discussions(game_name, limit=5)
 
     if not results:
-        print("Error: Reddit ignoring the Reaper. (Trying WEB Search...)")
-        web_res = web_search(f"site:reddit.com {game_name}")
-        if isinstance(web_res, list):
-            return {"results": web_res}
-        else:
-            # Propagate error dict or return it wrapped if needed, but error dict is fine
-            return web_res
+        print("Reddit discourse could not be retrieved.")
+        return {"error": "No Reddit threads or discussions found."}
 
     return {"results": results}
 
