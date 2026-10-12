@@ -188,17 +188,19 @@ def get_connection():
     but it's safer to just open/close per function.
     """
     paths.ensure_dirs()  # Ensure directory exists before creating DB
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+    conn = sqlite3.connect(DB_NAME, timeout=30.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row  # Allows dict-like access (row['name'])
     return conn
 
 
 def init_db():
     """
-    Creates local sql lite db
+    Creates local sql lite db and enables WAL mode for high-concurrency read/write.
     """
     with get_connection() as conn:
         c = conn.cursor()
+        c.execute('PRAGMA journal_mode=WAL;')
+        c.execute('PRAGMA busy_timeout=30000;')
         c.execute('''CREATE TABLE IF NOT EXISTS games (
             appid INTEGER PRIMARY KEY,
             name TEXT,

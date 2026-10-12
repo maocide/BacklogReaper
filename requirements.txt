@@ -21,3 +21,4 @@ lxml_html_clean
 cryptography
 certifi
 curl_cffi
+mcp

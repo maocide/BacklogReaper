@@ -17,7 +17,9 @@ tcl/
 
 # Ignore DB files
 backlog_vault.db
+backlog_vault.db-*
 *.db
+*.db-*
 
 # Ignore user data and cache files
 settings.json

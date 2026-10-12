@@ -6,6 +6,7 @@
 ![Compiled for Windows](https://img.shields.io/badge/Compiled_for-Windows-0078D6?style=for-the-badge&logo=windows)
 ![Local SQLite](https://img.shields.io/badge/Database-Local_SQLite-003B57?style=for-the-badge&logo=sqlite)
 ![Zero Cloud Telemetry](https://img.shields.io/badge/Privacy-Zero_Cloud_Telemetry-success?style=for-the-badge)
+![MCP Server](https://img.shields.io/badge/Protocol-MCP_2.0-8A2BE2?style=for-the-badge)
 
 > **Stop staring at a spreadsheet. Summon a Curator Soul to manage your Backlog Debt.**
 
@@ -383,10 +384,41 @@ For developers, Linux users, and those who refuse to touch compiled Windows bina
 3. Initiate the core sequence:
    
    ```bash
+   # Launch the desktop UI application:
    python main.py
+
+   # Or run as a headless MCP server for external agents:
+   python mcp_server.py
    ```
    
    *(Note: Ensure you are using Python 3.11 or higher).*
+
+---
+
+## ⚡ The Conduit (Model Context Protocol - MCP Server)
+
+Need to summon the Reaper's intelligence from an external agent or bot framework (such as **BakaBot**, **Claude Desktop**, or **Cursor**)? Backlog Reaper exposes a native, high-performance **Model Context Protocol (MCP)** server:
+
+* **High-Concurrency WAL Engine:** Powered by SQLite Write-Ahead Logging (WAL mode), allowing external AI clients to execute parallel vault queries while the database updates seamlessly in the background.
+* **Autonomous 20-Minute Steam Sync:** Operates a non-blocking background daemon thread that refreshes your Steam library and VibeEngine embeddings every 20 minutes with single-flight mutex locking.
+* **12 Scary Tools:** Direct access to `vault_search`, `get_library_stats`, `find_similar_games`, `get_community_sentiment`, `search_reddit_discussions`, `get_game_deals`, `get_game_news`, and more.
+
+### 🔌 Connecting an MCP Client
+
+Point your MCP client configuration to your local Python virtual environment and `mcp_server.py`:
+
+```json
+{
+  "mcpServers": {
+    "backlog-reaper": {
+      "command": "/absolute/path/to/BacklogReaperProject/.venv/bin/python",
+      "args": [
+        "/absolute/path/to/BacklogReaperProject/mcp_server.py"
+      ]
+    }
+  }
+}
+```
 
 ---
 
