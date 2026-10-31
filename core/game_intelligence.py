@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import unquote
 import concurrent
 import requests
+from curl_cffi import requests as curl_requests
 import steamspypi
 from bs4 import BeautifulSoup
 from thefuzz import fuzz
@@ -261,12 +262,9 @@ def get_similar_games(game_name):
 @safe_tool
 def get_game_deals(title, appid):
     def fetch_with_retry(url, params=None, retries=3, backoff_factor=1.0):
-        headers = {
-            'User-Agent': 'BacklogReaper/1.0 (contact@example.com)'
-        }
         for i in range(retries):
             try:
-                response = requests.get(url, params=params, headers=headers)
+                response = curl_requests.get(url, params=params, impersonate="chrome120", timeout=10)
                 if response.status_code == 429:
                     wait_time = backoff_factor * (2 ** i)
                     print(f"Rate limited (429). Retrying in {wait_time}s...")
@@ -274,7 +272,7 @@ def get_game_deals(title, appid):
                     continue
                 response.raise_for_status()
                 return response
-            except requests.exceptions.RequestException as e:
+            except Exception as e:
                 wait_time = backoff_factor * (2 ** i)
                 print(f"Request failed: {e}. Retrying in {wait_time}s...")
                 sleep(wait_time)
@@ -720,23 +718,41 @@ def get_current_os_for_steam():
         return "all"
 
 @safe_tool
-def get_reviews(appid, params={'json': 1}):
+def get_reviews(appid, params=None):
     """
-    Gets the reviews for a given appid from the Steam store.
+    Gets the reviews for a given appid from the Steam WebAPI.
+    Uses the modern IUserReviewsService endpoint since the old store endpoint was deprecated.
 
     Args:
         appid: The id of the app to get the reviews for.
         params: The parameters to be sent with the request.
 
     Returns:
-        A json object containing the reviews.
+        A dict containing the reviews and query_summary.
     """
-    url = 'https://store.steampowered.com/appreviews/'
-    headers, cookies = get_steam_bypass_with_referer(appid)
-    response = requests.get(url=url + str(appid), params=params, headers=headers, cookies=cookies)
+    if params is None:
+        params = {}
 
-    # print(response.url)
-    return response.json()
+    url = 'https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/'
+    clean_params = params.copy()
+    clean_params['appid'] = str(appid)
+    if 'cursor' not in clean_params:
+        clean_params['cursor'] = '*'
+    if 'json' in clean_params:
+        clean_params.pop('json')
+
+    try:
+        response = requests.get(url, params=clean_params, timeout=10)
+        if response.status_code != 200:
+            return {"success": 0, "reviews": [], "query_summary": {"num_reviews": 0}}
+        data = response.json()
+        resp_body = data.get('response', {})
+        if resp_body:
+            resp_body['success'] = 1
+        return resp_body
+    except Exception as e:
+        print(f"Error fetching reviews for {appid}: {e}")
+        return {"success": 0, "reviews": [], "query_summary": {"num_reviews": 0}}
 
 @safe_tool
 def get_reviews_summary(appid):
@@ -752,17 +768,15 @@ def get_reviews_summary(appid):
     reviews = []
     cursor = '*'
     params = {
-        'json': 1,
         'filter': 'all',
-        #'language': 'english',
-        #'day_range': 9223372036854775807,
         'review_type': 'all',
         'purchase_type': 'all'
     }
 
     response = get_reviews(str(appid), params)
-
-    return response['query_summary']
+    if isinstance(response, dict):
+        return response.get('query_summary', {})
+    return {}
 
 
 @safe_tool
@@ -773,7 +787,6 @@ def get_n_reviews(appid, n, review_type="all", filter_os=True):
     cursor = '*'
 
     params = {
-        'json': 1,
         'filter': 'all',
         'language': 'english',  # Usually safer to specify, or Steam defaults to user's IP locale
         'review_type': review_type,
@@ -799,7 +812,8 @@ def get_n_reviews(appid, n, review_type="all", filter_os=True):
             print("API request failed or finished.")
             break
 
-        if response['query_summary']['num_reviews'] == 0:
+        query_summary = response.get('query_summary', {})
+        if query_summary.get('num_reviews', 0) == 0:
             print("No more reviews found.")
             break
 

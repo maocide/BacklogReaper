@@ -302,8 +302,13 @@ def update(username, stop_event=None):
 
     steam = Steam(settings.STEAM_API_KEY)
     user_data = steam.users.search_user(username)
+    if not isinstance(user_data, dict) or 'player' not in user_data or 'steamid' not in user_data['player']:
+        raise ValueError(f"Steam user '{username}' could not be resolved. Please verify your Steam username and API key.")
     steam_id = user_data['player']['steamid']
-    owned_games = steam.users.get_owned_games(steam_id, True, False)['games']
+    games_resp = steam.users.get_owned_games(steam_id, True, False)
+    if not isinstance(games_resp, dict) or 'games' not in games_resp:
+        raise ValueError(f"Failed to fetch owned games for '{username}'. Your games library may be set to private or the API key lacks permissions.")
+    owned_games = games_resp['games']
 
     print(f"Library Scan: Found {len(owned_games)} games.")
 

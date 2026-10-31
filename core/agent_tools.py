@@ -9,6 +9,7 @@ import core.web_tools as web_tools
 import core.vault as vault
 import core.settings as settings
 import core.vibe_engine as vibe_engine
+import core.diagnostics as diagnostics
 
 tools_schema = [
     {
@@ -470,6 +471,23 @@ tools_schema = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_system_diagnostics",
+            "description": "Runs a comprehensive diagnostic check on BacklogReaper's subsystems, APIs (Steam API, Steam reviews, CheapShark deals, game details, news), database vault, vibe engine, and external scraping syndication. Use this to verify system health, diagnose broken integrations, or check API keys.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["action_description"],
+            }
+        }
+    },
 ]
 
 def get_friendly_status(func_name):
@@ -500,6 +518,7 @@ def get_friendly_status(func_name):
         "compare_library_with_friend": "👯 Comparing friends' games...",
         "get_active_friends": "👯 Meeting your friends...",
         "get_steam_store_trends": "🏷️ Checking the Steam storefront...",
+        "run_system_diagnostics": "🛠️ Running system diagnostics...",
 
     }
 
@@ -715,6 +734,10 @@ def execute_tool(tool_request):
             }
             context_msg = f"Error!"
             tool_output_str = wrap_output(data, context=context_msg)
+        elif tool_name == "run_system_diagnostics":
+            report = diagnostics.run_system_diagnostics(action_description=action_desc or "Running system diagnostics...")
+            context_msg = "System diagnostic health check report."
+            tool_output_str = wrap_output({"report": report}, context=context_msg)
 
     except Exception as e:
         print(sys.exc_info())

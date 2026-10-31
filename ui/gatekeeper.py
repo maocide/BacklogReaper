@@ -386,9 +386,32 @@ class GatekeeperView(ft.Container):
 
                 # Check if the thread threw an error
                 if isinstance(update_data, dict) and "error" in update_data:
-                    self._log(f"> CRITICAL FAILURE: {update_data['error']}")
+                    err_msg = update_data['error']
+                    self._log(f"> CRITICAL FAILURE: {err_msg}")
                     self.txt_log.color = styles.COLOR_ERROR
                     self.txt_log.update()
+
+                    # Yield briefly so the user sees what happened, then return to contract
+                    await asyncio.sleep(2.0)
+
+                    self.container_ritual.visible = False
+                    self.container_contract.visible = True
+                    self.btn_initiate.disabled = False
+                    self.btn_initiate.text = "Initiate Ritual"
+                    self.tf_api_key.border_color = styles.COLOR_ERROR
+                    self.page.window.prevent_close = False
+                    self.page.window.on_event = None
+
+                    if self.page:
+                        self.page.show_dialog(
+                            ft.SnackBar(
+                                ft.Text(f"Ritual failed: {err_msg}. Please verify your Steam credentials."),
+                                duration=7000
+                            )
+                        )
+
+                    self.update()
+                    self.page.update()
                     break
 
                 # Normal UI Update

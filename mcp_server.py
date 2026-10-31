@@ -16,6 +16,7 @@ import core.vault as vault
 import core.game_intelligence as game_intelligence
 import core.community_sentiment as community_sentiment
 import core.web_tools as web_tools
+import core.diagnostics as diagnostics
 from core.vibe_engine import VibeEngine
 from mcp.server.mcpserver import MCPServer
 
@@ -264,6 +265,19 @@ def get_game_news(game_name: str, limit: int = 5) -> dict:
     return {
         "game_name": game_name,
         "news": news
+    }
+
+
+@mcp.tool()
+def run_system_diagnostics() -> dict:
+    """
+    Run a full diagnostic health check across all BacklogReaper subsystems,
+    databases, APIs (Steam Store, Steam Reviews, CheapShark, Steam News),
+    and web search scraping syndication.
+    """
+    report = diagnostics.run_system_diagnostics("MCP Diagnostic Run")
+    return {
+        "report": report
     }
 
 
