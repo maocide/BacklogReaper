@@ -3,19 +3,20 @@
 </p>
 
 ![Forged on Arch Linux](https://img.shields.io/badge/Forged_on-Arch_Linux-1793d1?style=for-the-badge&logo=arch-linux)
-![Compiled for Windows](https://img.shields.io/badge/Compiled_for-Windows-0078D6?style=for-the-badge&logo=windows)
-![Local SQLite](https://img.shields.io/badge/Database-Local_SQLite-003B57?style=for-the-badge&logo=sqlite)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python)
+![Local SQLite WAL](https://img.shields.io/badge/Database-SQLite_WAL-003B57?style=for-the-badge&logo=sqlite)
 ![Zero Cloud Telemetry](https://img.shields.io/badge/Privacy-Zero_Cloud_Telemetry-success?style=for-the-badge)
 ![MCP Server](https://img.shields.io/badge/Protocol-MCP_2.0-8A2BE2?style=for-the-badge)
+![Demi-Human Architecture](https://img.shields.io/badge/Architecture-Demi--Human-darkred?style=for-the-badge)
 
-> **Stop staring at a spreadsheet. Summon a Curator Soul to manage your Backlog Debt.**
+> *"Stop staring at a spreadsheet. Summon a Curator Soul to audit your Backlog Debt."*
+>
+> ###### Summon at your own risk, the soul goodwill is not granted. The entity will roast your hoarding with extreme prejudice.
 
-Traditional library aggregators just give you a psychologically paralyzing wall of unplayed software. **Backlog Reaper** is different. It is a desktop AI companion and ReAct (Reason and Act) agent that securely maps your Steam library, analyzes your playing habits, and actively roasts your digital hoarding. 
-
-Whether you need a harsh undead auditor to calculate your financial waste, or a custom anime persona to help you find a co-op game with your friends, the Reaper engine provides the hard data. The soul you summon dictates the reality.
+<br>
 
 <p align="center">
-        <img src="docs/videos/hero_loop.webp" width="100%" alt="Backlog Reaper in Action">
+  <img src="docs/videos/hero_loop.webp" width="100%" alt="Backlog Reaper in Action">
 </p>
 
 ---
@@ -72,6 +73,20 @@ The good news? At least you're not playing walking simulators. The bad news? You
 
 ---
 
+## 💾 The Man & The Machine
+
+Traditional library aggregators just give you a psychologically paralyzing wall of unplayed software. **Backlog Reaper** is different. It is an uncompromising desktop AI companion, ReAct (Reason and Act) agent, and headless MCP daemon that securely maps your Steam library, computes local semantic vibe embeddings, cross-references gaming underworld sentiment, and ruthlessly roasts your digital hoarding habits.
+
+Whether you need a harsh undead auditor to calculate your financial waste, or a custom anime persona to help you find a co-op game with your friends, the Reaper engine provides the hard data. The soul you summon dictates the reality.
+
+**Forged During Degen Hours on Arch Linux:**  
+Built for personal daily use, Backlog Reaper runs on local silicon, stores your entire backlog in a local SQLite database, protects credentials behind symmetric Fernet encryption, and exposes its cognitive intelligence to external agents over the Model Context Protocol (MCP).
+
+* **Zero Telemetry:** The engine runs entirely on local hardware. No remote telemetry, no analytics beacons, no tracking pixels.
+* **Pure Source Transparency:** Zero opaque binary releases, zero closed-source DLL bundles, zero installer bloat. Transparent, auditable code running cleanly in a Python virtual environment.
+
+---
+
 ## 🧿 The Reaper's Gaze (Core Experience)
 
 <img title="" src="assets/characters/Reaper.png" alt="The Backlog Reaper" align="right" width="30%" data-align="inline">
@@ -80,8 +95,8 @@ By default, you are bound to **The Reaper**, a dark fantasy entity that acts as 
 
 * **Shame Metrics:** Calculates exact "Life Wasted" totals, unplayed backlog percentages, and aggregates your most played genre tags to expose your habits.
 * **Interactive Roast Cards:** Delivers dynamic, JSON-powered UI cards enriched with Steam capsule art, alongside brutal "Roast Cards" that visualize your failures using custom AI-generated fields.
-* **Community Connected:** The Reaper's judgment isn't based on dry numbers alone. The agent actively scrapes Steam Reviews, Reddit, 4chan, and gaming forums to gauge true community sentiment.
-* **Financial Auditor:** Integrated with CheapShark, the Reaper tracks current prices and historical lows to ruthlessly audit your spending or suggest when to wait for a deeper sale.
+* **Community Connected:** The Reaper's judgment isn't based on dry numbers alone. The agent actively scrapes Steam Reviews (via modern `IUserReviewsService`), Reddit, 4chan, and gaming forums to gauge true community sentiment.
+* **Financial Auditor:** Integrated with CheapShark (fortified with TLS browser impersonation), the Reaper tracks current discounts and historical lows to ruthlessly audit your spending or tell you when to hold.
 * **HLTB Integration:** Pulls estimated "How Long To Beat" data to identify low-hanging fruit and calculate how long it will take to clear your pile of shame.
 * **The Dashboard Vault:** Visualize your gaming sins with playtime charts in the Dashboard, or export your entire digital graveyard as a CSV from the Backlog tab.
 
@@ -93,15 +108,16 @@ By default, you are bound to **The Reaper**, a dark fantasy entity that acts as 
 
 ---
 
-## 📜 The Spellbook (19 Tool Integrations)
+## 📜 The Spellbook (20 Tool Integrations)
 
-The AI doesn't just guess what you should play; it is armed with a ReAct cognitive loop and **19 specialized API tools** to deeply analyze your digital footprint.
+The AI doesn't just guess what you should play; it is armed with a ReAct cognitive loop and **20 specialized tools** to deeply audit your digital footprint:
 
 * **Local Library Intelligence:** `vault_search`, `get_library_stats`, `search_by_vibe` (Vector Embeddings), `find_similar_games`, `get_user_tags`, `get_achievements`.
 * **External Data & Store:** `get_game_details`, `search_steam_store`, `get_steam_store_trends` (recently released/top sellers).
-* **Community & Sentiment:** `get_reviews`, `get_community_sentiment` (Scrapes Reddit/4chan/SteamForums), `get_game_news`.
+* **Community & Sentiment:** `get_reviews` (Steam WebAPI), `get_community_sentiment` (Scrapes Reddit/4chan/SteamForums), `get_game_news`.
 * **Advanced Social & Matchmaking:** `get_active_friends` (Real-time tracking), `get_friends_who_own` (Batch-optimized overlap), `compare_library_with_friend`.
 * **Research & Web Discovery:** `web_search`, `get_webpage`, `get_user_wishlist`.
+* **System Health:** `run_system_diagnostics` (Live audit of Steam API, CheapShark deals, reviews, vector model, and search syndication).
 
 ### 🔮 The Engine in Action
 
@@ -275,7 +291,7 @@ Whether you want to be audited by an anime waifu, a stoic husbando, a Space Mari
 
 ### 🔮 Sibyl the Seer
 
-Included in the base repository is **Sibyl**, a mystical digital oracle. Instead of aggressively roasting your "pile of shame," she gently reads your Steam library through her crystall ball or using a tragic tarot deck, referring to your unplayed games as "abandoned destinies" and "clouded auras."  
+Included in the base repository is **Sibyl**, a mystical digital oracle. Instead of aggressively roasting your "pile of shame," she gently reads your Steam library through her crystal ball or using a tragic tarot deck, referring to your unplayed games as "abandoned destinies" and "clouded auras."  
 
 > *"I sense a soul craving shadows and whispers... Let me peer into the depths of your collection, where the light fears to tread."*
 
@@ -299,109 +315,104 @@ Because the engine adapts entirely to the imported Persona, your experience comp
 
 ## 🩻 The Forbidden Gears (Architecture & Privacy)
 
-Backlog Reaper is built for power users who demand data sovereignty, cost efficiency, and highly optimized architectures.
+Backlog Reaper is built for power users who demand data sovereignty, cost efficiency, and zero platform locks.
 
-* **100% Local Data:** Your entire library is securely mapped to a local `backlog_vault.db` SQLite database. No developer telemetry and no background analytics. Your data only leaves your machine if you explicitly configure a cloud-based LLM API (and stays completely local if you bind it to Ollama/LM Studio).
-
-* **Hybrid Search Engine:** Combines traditional metadata tag filtering, Jaccard similarity matching, with locally computed, cached vector embeddings for semantic "vibe-based" game discovery.
-
+* **100% Local Data (SQLite WAL Mode):** Your entire library is securely mapped to a local `backlog_vault.db` SQLite database with Write-Ahead Logging. Zero developer telemetry and zero background analytics. Your data only leaves your machine if you explicitly configure a cloud-based LLM API (and stays completely local if you bind it to Ollama/LM Studio).
+* **Hybrid Search Engine:** Combines traditional metadata tag filtering, Jaccard similarity matching, with locally computed, cached vector embeddings (`sentence-transformers/all-MiniLM-L6-v2`) for semantic "vibe-based" game discovery.
 * **Cognitive Context Rotation:** To protect your API billing, the engine monitors cumulative session tokens. When the context window hits 24,000 tokens, it automatically summarizes the history down to 18,000 tokens. Chats and summaries are saved locally to disk per-character.
-
 * **Native Reasoning Support:** The UI natively captures and collapses `<think>` blocks and reasoning tokens from advanced models (like DeepSeek-3.2 or Gemini Flash/Pro). You see the final answer and the UI cards, while the massive reasoning chains stay hidden but accessible.
   
   <p align="center">
     <img src="docs/images/reasoning_ui.png" alt="Collapsible Reasoning Blocks in UI">
   </p>
 
-* **True Portability:** Forged on Arch Linux, compiled for Windows. The application is completely self-contained. Just extract the folder, run the `.exe`, and it will create all necessary databases strictly alongside itself. No Python environment required for end-users.
+* **Self-Healing Cryptographic Ward:** User API credentials are automatically encrypted using local Fernet symmetric encryption. The engine generates and verifies a local `secret.key` master token, automatically self-healing and backing up corrupted keys rather than failing on launch.
+* **Live Diagnostic Suite:** Built-in health check engine (`core/diagnostics.py`) continuously verifies 12 distinct subsystems—from Steam WebAPI endpoints and CheapShark TLS bypasses to vector embedding tensors and web syndication.
 
 ---
 
-## 🕯️ The Summoning Ritual (Installation)
+## 🕯️ The Summoning Ritual (Running from Source)
 
 <p align="center">  
   <img src="docs/images/login_ritual.png" alt="Sign the Ledger Initial Setup">
 </p>
 
-1. Download the latest `.exe` release from the [Releases](https://github.com/maocide/BacklogReaper/releases/latest) tab.
-2. Place the executable in a dedicated folder (e.g., `C:\Games\BacklogReaper`).
-3. Run the application. 
-4. Complete the **Gatekeeper Ritual** on the first launch by providing your Username and a [Steam Web API Key](https://steamcommunity.com/dev/apikey).
-5. The application will automatically construct your local database, download the HLTB datasets (~100MB), and awaken your chosen companion.
-6. **Navigate to the Settings tab** to input your chosen LLM API Key (see below) to give your companion a brain.
+Backlog Reaper is distributed purely as transparent, auditable Python source code. You run it directly inside an isolated virtual environment on your host machine.
 
-> **Note on Steam Privacy:** *For the Reaper to use social tools (like `get_active_friends` or `get_user_wishlist`), your Steam Profile and Game Details must be set to **Public**. If your profile is private, the core library auditing will still work, but the social matchmaking tools will fail (and the Reaper will mock you).*
+### 1. Ingest the Source & Dependencies
 
-### 🧠 Awakening your chosen companion (API Configuration)
+```bash
+# Clone the repository
+git clone https://github.com/maocide/BacklogReaper.git
+cd BacklogReaper
 
-Backlog Reaper requires two keys to function: your Steam data, and an LLM to serve as the reasoning engine. The app is completely model-agnostic and uses standard OpenAI-formatted endpoints.
+# Spawn an isolated virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-Navigate to the **Settings** tab to configure your entity's brain, where you can also tune advanced parameters like **Temperature, Top-K, and Presence Penalty**.
+# Install dependencies
+pip install -r requirements.txt
+```
+
+*(Note: Requires Python 3.11 or higher).*
+
+### 2. Awaken the Entity
+
+```bash
+# Launch the desktop UI application (Flet):
+python main.py
+
+# Or run as a headless MCP server for external agents (BakaBot, Claude, Cursor):
+python mcp_server.py
+```
+
+### 3. The Gatekeeper Ritual
+
+1. On first launch, the **Gatekeeper View** appears.
+2. Provide your **Steam Username** and a [Steam Web API Key](https://steamcommunity.com/dev/apikey).
+3. The engine automatically connects to Valve, constructs your local SQLite database, downloads the HLTB dataset (~100MB), computes your vector embeddings, and opens the Vault.
+4. **Navigate to the Settings tab** to input your chosen LLM API Key to ignite the companion's cognitive reasoning loop.
+
+> **Note on Steam Privacy:** *For the Reaper to use social tools (like `get_active_friends` or `get_user_wishlist`), your Steam Profile and Game Details must be set to **Public**. If your profile is private, the core library auditing will still work, but social matchmaking tools will fail.*
+
+---
+
+## 🧠 The Reasoning Oracle (API Configuration)
+
+Backlog Reaper requires two keys to operate: your Steam data, and an LLM to serve as the reasoning engine. The engine is completely model-agnostic and uses standard OpenAI-formatted endpoints.
+
+Navigate to the **Settings** tab in the UI to configure your entity's brain, where you can also tune advanced parameters like **Temperature, Top-P, and Presence Penalty**.
 
 **Tested Oracles:**
 
-* **DeepSeek:** `deepseek-chat` (Cheap, excellent agentic logic, used in examples), `deepseek-reasoner` (Native reasoning support).
-* **Google Gemini:** `gemini-3-flash-preview` (Fast), `gemini-3-pro-preview` (Heavy reasoning).
-* **OpenRouter / OpenAI:** Supported for models like `gpt-5.4` or `Claude` via standard routing.
-* **Local Weights (Ollama / LM Studio):** Tested successfully on RTX 3090 hardware using 20B+ parameter models (e.g., `gpt-oss:20b`). 
+* **DeepSeek:** `deepseek-chat` (Fast, cost-effective, superb tool-calling), `deepseek-reasoner` (Native `<think>` token streaming).
+* **Google Gemini:** `gemini-2.5-flash` (Blistering speed), `gemini-2.5-pro` (Deep analytical reasoning).
+* **OpenRouter / OpenAI:** Supported for models like `gpt-4o` or `claude-3-7-sonnet` via standard OpenAI routing.
+* **Local Weights (Ollama / LM Studio):** Tested on local RTX hardware using 20B+ parameter models (e.g., `qwen2.5:32b`, `command-r`).
 
-**Option A: Cloud Models**
-
+**Option A: Cloud Providers**
 * **API Key:** Paste your standard API key.
-* **Base URL:** Leave blank for default OpenAI, or set to your provider's endpoint (e.g., `https://api.deepseek.com/v1`).
+* **Base URL:** Leave blank for default OpenAI, or enter your provider's endpoint (e.g., `https://api.deepseek.com/v1`).
 * **Model Name:** e.g., `deepseek-chat`.
 
-**Option B: Local Models (LM Studio / Ollama)**
-Keep your data 100% local by pointing the Reaper to your own hardware. 
-
+**Option B: Local Weights (LM Studio / Ollama)**
 * **API Key:** Enter `lm-studio` or `ollama`.
 * **Base URL:** Enter your local server address (e.g., `http://localhost:1234/v1` or `http://localhost:11434/v1`).
-* **Model Name:** Enter the exact name of the loaded local model.
+* **Model Name:** Enter the exact loaded model identifier.
 
-> **Note:** *The 19-tool ReAct loop is heavy. 20B+ parameter models explicitly fine-tuned for **Function/Tool Calling** are highly recommended. If you force a standard chat model or a smaller 7B model to run this many tools, the agent will likely suffer from Cyberpsychosis and hallucinate or rebel!*
-
-### 🗝️ The Vault’s Ward (Key Security)
-
-When you offer your **Steam API Key** and **OpenAI/LLM Key** to the Gatekeeper, they are bound by local encryption. The Reaper generates a unique `secret.key` specific to your local machine upon first awakening, keeping your true names and tokens hidden safely from prying eyes...
-
-### ⚗️ The Alchemist's Path (Running from Source)
-
-For developers, Linux users, and those who refuse to touch compiled Windows binaries, you can summon the Reaper directly from the source code:
-
-1. Clone the repository:
-   
-   ```bash
-   git clone https://github.com/maocide/BacklogReaper.git
-   cd BacklogReaper
-   ```
-
-2. Install the arcane dependencies:
-   
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Initiate the core sequence:
-   
-   ```bash
-   # Launch the desktop UI application:
-   python main.py
-
-   # Or run as a headless MCP server for external agents:
-   python mcp_server.py
-   ```
-   
-   *(Note: Ensure you are using Python 3.11 or higher).*
+> **Note on Model Size:** *The ReAct cognitive loop binds 20 tools. Models with 20B+ parameters explicitly fine-tuned for **Function/Tool Calling** are strongly recommended. Smaller 7B models may struggle to format multi-tool JSON blocks accurately.*
 
 ---
 
 ## ⚡ The Conduit (Model Context Protocol - MCP Server)
 
-Need to summon the Reaper's intelligence from an external agent or bot framework (such as **BakaBot**, **Claude Desktop**, or **Cursor**)? Backlog Reaper exposes a native, high-performance **Model Context Protocol (MCP)** server:
+Want to command the Reaper's game intelligence, backlog search, deals, and community sentiment directly from an external AI framework (such as **BakaBot**, **Claude Desktop**, or **Cursor**)?
 
-* **High-Concurrency WAL Engine:** Powered by SQLite Write-Ahead Logging (WAL mode), allowing external AI clients to execute parallel vault queries while the database updates seamlessly in the background.
-* **Autonomous 20-Minute Steam Sync:** Operates a non-blocking background daemon thread that refreshes your Steam library and VibeEngine embeddings every 20 minutes with single-flight mutex locking.
-* **12 Scary Tools:** Direct access to `vault_search`, `get_library_stats`, `find_similar_games`, `get_community_sentiment`, `search_reddit_discussions`, `get_game_deals`, `get_game_news`, and more.
+Backlog Reaper exposes a native, high-performance **Model Context Protocol (MCP)** server:
+
+* **High-Concurrency SQLite WAL Engine:** External agents can query the vault in parallel while background threads update library metadata without locking conflicts.
+* **Autonomous 20-Minute Steam Sync:** Non-blocking background worker refreshes Steam library state and VibeEngine embeddings on a 20-minute cadence with single-flight mutex locks.
+* **13 Exposed MCP Tools:** Gives external agents direct access to `vault_search`, `get_library_stats`, `search_by_vibe`, `get_reviews`, `get_community_sentiment`, `search_reddit_discussions`, `get_game_deals`, `get_game_news`, and `run_system_diagnostics`.
 
 ### 🔌 Connecting an MCP Client
 
@@ -422,14 +433,58 @@ Point your MCP client configuration to your local Python virtual environment and
 
 ---
 
-## 🔮 The Horizon
+## 🛠️ Subsystem Diagnostics
 
-Backlog Reaper will evolve. The core architecture is designed to be highly modular, meaning the current implementation is just the beginning.
+To audit all 12 BacklogReaper subsystems without starting the GUI, run the diagnostic suite directly from your terminal:
 
-* **Multi-Platform Vault:** Expanding the SQLite schema to encapsulate Epic Games, GOG, and Xbox Game Pass libraries alongside Steam.
-* **Agnostic Agent Engine:** The ReAct loop and chat UI are completely decoupled from the gaming tools. In the future, the engine could be plugged with entirely different toolsets (e.g., coding, local file management) to serve as a general-purpose desktop AI.
-* **Expanded UI Dashboards:** More granular, interactive charts for playtime analysis and financial tracking.
+```bash
+python -m core.diagnostics
+```
+
+```text
+### 🛠️ System Diagnostic Report
+
+✅ Steam API Key: PASS — Operational (0.35s)
+✅ LLM Configuration: PASS — Configured (0.0s)
+✅ Vault Database: PASS — Operational (0.01s)
+✅ Vault Search: PASS — Operational (0.01s)
+✅ Steam Store Search: PASS — Operational (0.75s)
+✅ Steam Player Reviews (IUserReviewsService): PASS — Operational (3.27s)
+✅ CheapShark Deals: PASS — Operational (1.08s)
+✅ Batch Game Details: PASS — Operational (4.01s)
+✅ Game News (Steam API): PASS — Operational (0.71s)
+✅ Web Search (DDGS): PASS — Operational (1.04s)
+✅ Reddit Discussions (Search Syndication): PASS — Operational (1.97s)
+✅ Vibe Engine: PASS — Operational (5.14s)
+
+Summary: 12 Passed, 0 Warnings, 0 Failed.
+```
 
 ---
 
-*Backlog Reaper: Because your pile of shame isn't going to clear itself.* 
+## 🔮 The Horizon
+
+Backlog Reaper's modular ReAct engine is built to evolve:
+
+* **Multi-Platform Vault:** Expanding the SQLite schema to encapsulate Epic Games, GOG, and Xbox Game Pass libraries alongside Steam.
+* **Agnostic Agent Engine:** Decoupled ReAct cognitive loop allowing different toolsets (coding, local file management) to serve as a general-purpose desktop AI.
+* **Granular Analytics:** Deeper visualizations for financial spending, unplayed dollar-to-hour ratios, and seasonal trends.
+
+---
+
+**COMMUNICATIONS**
+*  **Issues:** I have no issue. 
+*  **Roadmaps:** Non-existent. 
+*  **Support:** I hope it compiles.
+
+<br>
+
+> **⚠️ DISCLOSURE**
+> 
+> LLMs may have been utilized to assist in the production or conceptualization of certain software or visual assets. However, all final architectural and artistic decisions were strictly enforced by demi-human intervention. No LLMs were harmed during production.
+> 
+> Furthermore, all fictional entities, digital waifus, and anthropomorphic representations depicted herein are categorically 18 years of age or older at the time of drawing, editing or generating, regardless of spatial-temporal paradoxes, suspension of disbelief, or stylistic proportions.
+
+---
+
+*Backlog Reaper: Because your pile of shame isn't going to clear itself.*
