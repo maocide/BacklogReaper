@@ -270,8 +270,10 @@ def fetch_game_details_worker(game):
         if hltb_results:
             best_match = max(hltb_results, key=lambda x: x.similarity)
             # Store as MINUTES (Integer)
-            main_story = int(best_match.main_story * 60)
-            completionist = int(best_match.completionist * 60)
+            story_hours = getattr(best_match, 'main_story', 0) or getattr(best_match, 'main_extra', 0) or getattr(best_match, 'completionist', 0) or 0
+            comp_hours = getattr(best_match, 'completionist', 0) or getattr(best_match, 'main_extra', 0) or story_hours or 0
+            main_story = int(story_hours * 60)
+            completionist = int(comp_hours * 60)
     except Exception as e:
         print(f"HLTB failed for {name}: {e}")
 

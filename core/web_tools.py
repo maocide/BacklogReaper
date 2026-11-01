@@ -156,26 +156,52 @@ def get_hltb_data(game_name):
     """
     Unified HLTB Data Fetcher.
     1. Checks Local Pre-seeded Database (Kaggle).
-    2. Falls back to Web Search & Scrape if not found.
+    2. If missing OR all local values are 0 (unpolled placeholder), falls back to Web Search & Scrape.
     """
-    # Try Local Lookup
     manager = HLTBManager.get_instance()
     local_data = manager.get_game(game_name)
 
-    if local_data:
-        # print(f"   [HLTB] Found '{game_name}' in local DB.")
-        # Return format matching scrape result for compatibility
+    # Check if local dataset has actual populated non-zero times
+    has_valid_times = local_data and (
+        (local_data.get('main_story') or 0) > 0 or
+        (local_data.get('main_extra') or 0) > 0 or
+        (local_data.get('completionist') or 0) > 0
+    )
+
+    if has_valid_times:
         return [SimpleNamespace(
             game_name=local_data['name'],
-            similarity=1.0, # Exact match (normalized)
+            similarity=1.0,
             main_story=local_data['main_story'],
             main_extra=local_data['main_extra'],
             completionist=local_data['completionist']
         )]
 
-    # Fallback to Web Scrape
-    # print(f"   [HLTB] '{game_name}' not in local DB. Scraping...")
-    return get_hltb_search_scrape(game_name)
+    # Fallback to Web Scrape if missing from local DB OR if local DB had 0s across the board
+    scrape_results = get_hltb_search_scrape(game_name)
+    if scrape_results:
+        # Cache in memory so subsequent queries in the same process avoid re-scraping
+        best = max(scrape_results, key=lambda x: getattr(x, 'similarity', 1.0))
+        norm = manager._normalize(game_name)
+        manager._data[norm] = {
+            "name": getattr(best, 'game_name', game_name),
+            "main_story": getattr(best, 'main_story', 0),
+            "main_extra": getattr(best, 'main_extra', 0),
+            "completionist": getattr(best, 'completionist', 0)
+        }
+        return scrape_results
+
+    # If scrape also found nothing, return the local record if it existed
+    if local_data:
+        return [SimpleNamespace(
+            game_name=local_data['name'],
+            similarity=1.0,
+            main_story=local_data['main_story'],
+            main_extra=local_data['main_extra'],
+            completionist=local_data['completionist']
+        )]
+
+    return []
 
 
 @safe_tool
@@ -389,8 +415,12 @@ def get_hltb_search_scrape(game_name):
             # Reconstruct
             url = f"https://howlongtobeat.com/game/{id_part}"
 
-        # Clean the title (Remove " - HowLongToBeat" and other noise)
-        clean_title = title.split(" - HowLongToBeat")[0].lower().strip()
+        # Clean the title (remove "How long is...", site branding, and subpages)
+        clean_title = title
+        clean_title = re.sub(r'^(how\s+long\s+(is|to\s+beat)\s+)', '', clean_title, flags=re.I)
+        clean_title = re.sub(r'\s*(\||-)\s*howlongtobeat.*$', '', clean_title, flags=re.I)
+        clean_title = re.sub(r'\s*-\s*(reviews|completions|report|overview|forum|threads).*$', '', clean_title, flags=re.I)
+        clean_title = clean_title.rstrip('?').lower().strip()
 
         # Calculate Similarity
         score = difflib.SequenceMatcher(None, clean_target, clean_title).ratio()
@@ -399,13 +429,13 @@ def get_hltb_search_scrape(game_name):
         if clean_target == clean_title:
             score = 1.0
         elif clean_target in clean_title:
-            score += 0.1
+            score = min(1.0, score + 0.15)
 
         if score > highest_score:
             highest_score = score
             best_candidate = url
 
-    if not best_candidate: # or highest_score < 0.15:
+    if not best_candidate or highest_score < 0.4:
         print(f"   [HLTB] No close match found for '{game_name}' (Best: {highest_score:.2f}). Skipping.")
         return []
 
@@ -437,10 +467,9 @@ def get_hltb_search_scrape(game_name):
             # Get text but remove the label itself to avoid confusion
             full_text = container.get_text(" ", strip=True).replace(label, "")
 
-            # IMPROVED REGEX: Look for number + Unit (Hours/Mins)
-            # Matches: "10 Hours", "10½ Hours", "10 Mins"
-            # It ignores independent numbers like "4,029 Polled"
-            pattern = r'(\d+(?:[.,]\d+|½|\s+1/2)?)\s*(Hours?|Mins?)'
+            # IMPROVED REGEX: Look for number + Unit (Hours/Mins/h)
+            # Matches: "10 Hours", "10½ Hours", "10 Mins", "112h"
+            pattern = r'(\d+(?:[.,]\d+|½|\s+1/2)?)\s*(Hours?|Mins?|h\b)'
             match = re.search(pattern, full_text, re.IGNORECASE)
 
             if match:
@@ -458,17 +487,26 @@ def get_hltb_search_scrape(game_name):
 
             return 0
 
+        main_story = extract_hours("Main Story")
         main_extra = extract_hours(r"Main \+ Extra")
         if not main_extra or main_extra == 0:
             main_extra = extract_hours(r"Main \+ Sides")
+        if not main_extra or main_extra == 0:
+            main_extra = extract_hours(r"All PlayStyles")
+
+        # For rogue-lites / bullet heavens / games with no linear campaign where players only logged Main + Sides or All PlayStyles
+        if (not main_story or main_story == 0) and main_extra > 0:
+            main_story = main_extra
+
+        completionist = extract_hours("Completionist")
 
         # Create Dictionary of stats
         data = {
             "game_name": game_name,
             "similarity": highest_score,  # <--- The value you needed
-            "main_story": extract_hours("Main Story"),
+            "main_story": main_story,
             "main_extra": main_extra,
-            "completionist": extract_hours("Completionist")
+            "completionist": completionist
         }
 
         # Convert to Object (SimpleNamespace) so x.similarity works
