@@ -269,6 +269,23 @@ def get_game_news(game_name: str, limit: int = 5) -> dict:
 
 
 @mcp.tool()
+def get_achievements(game_name: str = "", appid: Optional[int] = None, page: Optional[int] = None) -> dict:
+    """
+    Get Steam achievement stats and progress for an owned game.
+    Default (page=None): Returns a dashboard with completion percentage, total achievements,
+    latest unlocks, and recommended easiest missing achievements.
+    If page (0, 1, 2...) is specified: Returns a paginated list of 10 locked achievements sorted by rarity.
+    """
+    target_appid = appid if appid is not None else -1
+    stats = game_intelligence.get_achievement_stats(appid=target_appid, game_name=game_name, page=page)
+    return {
+        "game_name": game_name,
+        "appid": appid,
+        "achievement_data": stats
+    }
+
+
+@mcp.tool()
 def run_system_diagnostics() -> dict:
     """
     Run a full diagnostic health check across all BacklogReaper subsystems,

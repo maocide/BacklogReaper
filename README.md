@@ -412,7 +412,7 @@ Backlog Reaper exposes a native, high-performance **Model Context Protocol (MCP)
 
 * **High-Concurrency SQLite WAL Engine:** External agents can query the vault in parallel while background threads update library metadata without locking conflicts.
 * **Autonomous 20-Minute Steam Sync:** Non-blocking background worker refreshes Steam library state and VibeEngine embeddings on a 20-minute cadence with single-flight mutex locks.
-* **13 Exposed MCP Tools:** Gives external agents direct access to `vault_search`, `get_library_stats`, `search_by_vibe`, `get_reviews`, `get_community_sentiment`, `search_reddit_discussions`, `get_game_deals`, `get_game_news`, and `run_system_diagnostics`.
+* **14 Exposed MCP Tools:** Gives external agents direct access to `vault_search`, `get_library_stats`, `search_by_vibe`, `get_achievements`, `get_reviews`, `get_community_sentiment`, `search_reddit_discussions`, `get_game_deals`, `get_game_news`, and `run_system_diagnostics`.
 
 ### 🔌 Connecting an MCP Client
 
