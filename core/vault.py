@@ -559,9 +559,9 @@ def is_game_owned(appid):
         return False
 
 
-def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, status=None, min_review_score=None, name=None, sort_by='shortest', page=0, page_size=10, seed=None):
+def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, include_unknown_hltb=False, status=None, min_review_score=None, name=None, sort_by='shortest', page=0, page_size=10, seed=None):
     """
-    Filters the vault based on criteria.
+    Filters the vault based on criteria and returns paginated results with metadata.
     """
     if tags is None: tags = []
     if exclude_tags is None: exclude_tags = []
@@ -585,6 +585,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
     all_games = get_all_games()
 
     results = []
+    unknown_hltb_skipped = 0
 
     for game in all_games:
         # STATUS FILTER (Computed on the fly)
@@ -630,8 +631,11 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         # HLTB FILTER (Input is Hours, DB is Minutes)
         main_story = game['hltb_main'] or 0
         if hltb_max is not None:
-            # Skip 0 because 0 usually means "unknown," not "0 minutes long"
-            if main_story == 0 or main_story > hltb_max * 60:
+            if main_story == 0:
+                if not include_unknown_hltb:
+                    unknown_hltb_skipped += 1
+                    continue
+            elif main_story > hltb_max * 60:
                 continue
 
         # REVIEW SCORE FILTER
@@ -680,6 +684,8 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         "keep_keys": [
             "appid",
             "name",
+            "status",
+            "tags",
             "hours",
             "hltb_main",
             "hltb_completionist",
@@ -688,26 +694,46 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         ]
     }
 
+    results = ai_tools.clean_json_for_ai(
+        results,
+        transformations=game_schema["transformations"],
+        keep_keys=game_schema["keep_keys"],
+    )
 
-    results = ai_tools.clean_json_for_ai(results,
-                                                 transformations=game_schema["transformations"],
-                                                 keep_keys=game_schema["keep_keys"])
-
-    # Slice for pagination
+    total_count = len(results)
     if page_size > 0:
+        total_pages = (total_count + page_size - 1) // page_size
         start_idx = page * page_size
         end_idx = start_idx + page_size
-        results = results[start_idx:end_idx]
+        sliced_results = results[start_idx:end_idx]
+    else:
+        total_pages = 1 if total_count > 0 else 0
+        sliced_results = results
 
-    return results
+    return {
+        "results": sliced_results,
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "unknown_hltb_skipped": unknown_hltb_skipped,
+    }
+
 
 def vault_search_batch(game_names: list[str]):
-    # Create a dynamic SQL query
+    if not game_names:
+        return []
+
+    seen_appids = set()
     results = []
 
     for name in game_names:
-        game_result = advanced_search(name=name)
-        results = results + game_result
+        search_payload = advanced_search(name=name)
+        for game in search_payload.get("results", []):
+            appid = game.get("appid")
+            if appid not in seen_appids:
+                seen_appids.add(appid)
+                results.append(game)
 
     return results
 

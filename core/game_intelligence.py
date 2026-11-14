@@ -125,21 +125,43 @@ def search_steam_store(term, sort_by="relevance", limit=10):
     rows = soup.select('#search_resultsRows > a')
 
     for row in rows[:limit]:
-        title = row.select_one('.title').text.strip()
+        title_el = row.select_one('.title')
+        if not title_el:
+            continue
+        title = title_el.text.strip()
 
         # Extract AppID from URL
-        href = row['href']
+        href = row.get('href', '')
         appid_match = re.search(r'/app/(\d+)', href)
         appid = appid_match.group(1) if appid_match else "N/A"
 
-        # Extract Price (Handle sales and free games)
-        price_div = row.select_one('.search_price')
+        # Extract Price & Discount (modern Steam markup uses .discount_block/.discount_final_price)
         price = "N/A"
-        if price_div:
-            # If discounted, text might be "$19.99$9.99". We want the last part.
-            raw_price = price_div.text.strip().split('$')
-            price = f"${raw_price[-1]}" if len(raw_price) > 1 else price_div.text.strip()
-            if "Free" in price: price = "Free"
+        discount = "None"
+        pct_el = row.select_one('.discount_pct')
+        if pct_el:
+            discount = pct_el.text.strip() or "None"
+
+        final_el = row.select_one('.discount_final_price')
+        if final_el:
+            price = final_el.text.strip() or "N/A"
+        else:
+            discount_block = row.select_one('.discount_block')
+            if discount_block:
+                raw_txt = discount_block.text.strip()
+                if "Free" in raw_txt:
+                    price = "Free"
+                elif raw_txt:
+                    price = raw_txt
+            else:
+                # Legacy fallback
+                price_div = row.select_one('.search_price')
+                if price_div:
+                    raw_price = price_div.text.strip().split('$')
+                    price = f"${raw_price[-1]}" if len(raw_price) > 1 else price_div.text.strip()
+
+        if "free" in price.lower():
+            price = "Free"
 
         # Extract Reviews (e.g., "Very Positive")
         review_span = row.select_one('.search_review_summary')
@@ -162,6 +184,7 @@ def search_steam_store(term, sort_by="relevance", limit=10):
             "name": title,
             "release_date": release_date,
             "price": price,
+            "discount": discount,
             "reviews": reviews,
             "link": href,
             "owned": is_owned
@@ -197,9 +220,13 @@ def get_similar_games(game_name):
     # The main "Similar Items" list usually has the id="released" in this specific view.
     container = soup.find('div', id="released")
 
-    # Find all the "capsules" (the clickable game images)
-    # We limit to the first 5 for this example, remove [:5] to get them all
-    items = container.find_all('a', class_='similar_grid_capsule')[:9]
+    if container:
+        items = container.find_all('a', class_='similar_grid_capsule')[:9]
+    else:
+        items = soup.find_all('a', class_='similar_grid_capsule')[:9]
+
+    if not items:
+        return {"error": f"Could not extract 'More Like This' store capsules for '{game_name}'."}
 
     games_found = []
 
@@ -496,8 +523,11 @@ def get_global_game_info(game_name, appid=None):
     else:
         price_str = final_formatted
 
-    if positive is not None and negative is not None and positive + negative != 0:
-        approval = round(positive / (positive + negative), 2)
+    total_reviews = None
+    approval = 0.0
+    if positive is not None and negative is not None and (positive + negative) != 0:
+        total_reviews = positive + negative
+        approval = round((positive / total_reviews) * 100, 1)
 
     # PRICE PER HOUR CALCULATION
     price_per_hour = "N/A (No Data)"
@@ -549,7 +579,7 @@ def get_global_game_info(game_name, appid=None):
         print(f"Error calculating PPH: {e}")
 
     payload = {
-        "title": game_info['name'],
+        "title": game_info.get('name') or app_details.get('name') or game_name,
         "owned": is_owned,
         "description": short_description,
         "market_analysis": {
@@ -562,12 +592,13 @@ def get_global_game_info(game_name, appid=None):
         "price": price_str,
         "discount": discount,
         "best_deal": best_deal,
-        "developer": game_info['developer'],
-        "publisher": game_info['publisher'],
-        "genre": game_info['genre'],
+        "developer": game_info.get('developer') or ", ".join(app_details.get('developers', [])) or "N/A",
+        "publisher": game_info.get('publisher') or ", ".join(app_details.get('publishers', [])) or "N/A",
+        "genre": game_info.get('genre') or ", ".join(g.get('description', '') for g in app_details.get('genres', [])) or "N/A",
         "total_positive": positive,
         "total_negative": negative,
-        "user_score": f"{approval * 100}% Positive",  # Calculated approval
+        "total_reviews": total_reviews,
+        "user_score": f"{approval}% Positive" if total_reviews else "N/A",  # Calculated approval
         "playtime_avg": playtime_avg_str,  # Tells AI if it's replayable
         "median_forever": median_forever_str,
         "how_long_to_beat_hours" : how_long_to_beat_hours, # Various values taken from how long to beat
@@ -1786,12 +1817,18 @@ def get_steam_store_trends(category="specials"):
             else:
                 price_str = f"${final_price:.2f}" if final_price > 0 else "Free"
 
+            appid = item.get('id', '')
+            is_owned = False
+            if str(appid).isdigit():
+                is_owned = vault.is_game_owned(int(appid))
+
             results.append({
-                "appid": item.get('id', ''),
+                "appid": appid,
                 "name": item.get('name', 'Unknown'),
                 "discount": f"{discount}% OFF" if discount > 0 else "None",
                 "price": price_str,
-                "original": f"${original_price:.2f}" if original_price > 0 else "N/A"
+                "original": f"${original_price:.2f}" if original_price > 0 else "N/A",
+                "owned": is_owned
             })
 
         return {

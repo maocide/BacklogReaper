@@ -246,6 +246,7 @@ class Agent:
                     print(f"Agent Calling: {func_name} | PARAMS: {func_args_str}")
 
                     # SAFE JSON PARSING
+                    token_usage = None
                     try:
                         # If string is empty, default to empty dictionary
                         params = json.loads(func_args_str) if func_args_str else {}
@@ -254,31 +255,20 @@ class Agent:
                         action_desc = params.get("action_description", "Channeling the void...")
                         yield "action", action_desc
 
-                        # Execute
-                        tool_result_str = agent_tools.execute_tool({"tool": func_name, "params": params})
+                        # Execute (returns compact Markdown + optional LLM token usage tuple)
+                        tool_result_str, token_usage = agent_tools.execute_tool({"tool": func_name, "params": params})
 
                     except json.JSONDecodeError:
-                        # Catch corrupted JSON from the model and return it AS JSON to the chat history
                         print(f"CRITICAL: Model hallucinated bad JSON for {func_name}: {func_args_str}")
                         yield "action", "Muttering incomprehensible dark incantations..."
-                        tool_result_str = json.dumps({"error": f"Invalid JSON arguments: {func_args_str}"})
+                        tool_result_str = f"### ❌ Invalid Tool Arguments\nCould not parse JSON for `{func_name}`: `{func_args_str}`"
 
                     except Exception as e:
-                        # Catch execution errors and return AS JSON
                         print(f"CRITICAL: Tool execution failed: {e}")
-                        tool_result_str = json.dumps({"error": f"Tool execution failed: {str(e)}"})
+                        tool_result_str = f"### ❌ Tool Execution Failed (`{func_name}`)\n**Error:** {e}"
 
-                    # Will get token usage as prepared by the wrap_output after executing the tool
-                    try:
-                        parsed_res = json.loads(tool_result_str)
-                        if isinstance(parsed_res, dict) and "_token_usage" in parsed_res:
-                            token_usage = parsed_res.pop("_token_usage")
-                            yield "tokens", token_usage
-                            # Repackage the JSON payload minus the _token_usage to save LLM context
-                            tool_result_str = json.dumps(parsed_res)
-                    except Exception as e:
-                        print(f"Token count error for tool: {e}")
-                        pass
+                    if token_usage:
+                        yield "tokens", token_usage
 
                     chat_history.add_message("tool", tool_result_str, tool_call_id=call_id, name=func_name)
 

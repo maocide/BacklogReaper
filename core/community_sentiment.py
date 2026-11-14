@@ -422,7 +422,7 @@ def get_community_sentiment(game_name: str):
     total_in = 0
     total_out = 0
     for res in [chan_results, reddit_results, forums_results]:
-        if "_tokens" in res:
+        if isinstance(res, dict) and "_tokens" in res:
             total_in += res["_tokens"].get("in", 0)
             total_out += res["_tokens"].get("out", 0)
             del res["_tokens"]

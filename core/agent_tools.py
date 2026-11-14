@@ -1,6 +1,7 @@
 import json
 import sys
 import re
+import traceback
 from datetime import datetime
 
 import core.game_intelligence as game_intelligence
@@ -10,6 +11,7 @@ import core.vault as vault
 import core.settings as settings
 import core.vibe_engine as vibe_engine
 import core.diagnostics as diagnostics
+import core.formatters as formatters
 
 tools_schema = [
     {
@@ -49,6 +51,10 @@ tools_schema = [
                     "hltb_max": {
                         "type": "integer",
                         "description": "Maximum 'How Long To Beat' hours."
+                    },
+                    "include_unknown_hltb": {
+                        "type": "boolean",
+                        "description": "When filtering by hltb_max, set True to keep games with unknown HLTB duration instead of skipping them."
                     },
                     "min_review_score": {
                         "type": "integer",
@@ -525,225 +531,156 @@ def get_friendly_status(func_name):
     return mapping.get(func_name, f"⚙️ Executing {func_name}...")
 
 
-def wrap_output(data, context=None, warning=None):
-    """
-    Wraps raw data in a standard envelope for the Agent.
-    """
-    status = "success"
-
-    # Check for error in dict data (from safe_tool)
-    if isinstance(data, dict) and "error" in data:
-        status = "error"
-        if not context:
-            context = "Tool execution failed. " + data['error']
-        if "error_type" in data:
-            context += f" Type: {data['error_type']}"
-
-    token_usage = None
+def _extract_tokens(data):
+    """Pop internal `_tokens` telemetry before formatting tool output for the LLM."""
     if isinstance(data, dict) and "_tokens" in data:
-        token_usage = data.pop("_tokens")
+        return data.pop("_tokens")
+    return None
 
-    payload = {
-        "meta": {
-            "status": status,
-            "summary": context or "Data retrieved successfully.",
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        },
-        "data": data
-    }
-
-    if token_usage:
-        # We store token usage in a dedicated top-level metadata object
-        # that the agent logic yields to the UI, but we delete it so the LLM doesn't waste tokens reading it.
-        # It's accessed directly during json.loads by the chat agent stream logic.
-        payload["_token_usage"] = token_usage
-
-    if isinstance(data, list):
-        payload["meta"]["count"] = len(data)
-
-    if warning:
-        payload["meta"]["warning"] = warning
-
-    return json.dumps(payload, default=str, ensure_ascii=False)  # default=str handles dates automatically
 
 def execute_tool(tool_request):
+    """
+    Executes the requested agent tool and returns a tuple `(markdown_output, token_usage)`.
+    """
     tool_name = tool_request.get("tool")
     params = tool_request.get("params", {})
-    #action_desc = tool_request.get("action_description", f"Calling tool: {tool_name}...")
     action_desc = params.get("action_description")
 
-    # EXECUTE TOOL
-    tool_output_str = ""
-    # result_limit = 30 # Removed in favor of pagination
     reviews_limit = 10
     result_limit = 10
+    token_usage = None
 
     clean_params = params.copy()
-    if "action_description" in clean_params:
-        clean_params.pop("action_description")
-
-    # print(f"Executing Tool")
+    clean_params.pop("action_description", None)
 
     try:
         if tool_name == "vault_search":
-            # Get Data
-            results = vault.advanced_search(**clean_params)
-
-            # Logic: Detect "Recent" search to add the specific warning
-            context_msg = f"Found {len(results)} games matching criteria."
-            warning_msg = None
-
-            if clean_params.get('sort_by') == 'recent':
-                context_msg = "Recently played games."
-                warning_msg = "NOTE: 'hours_played' is LIFETIME total, not just recent playtime."
-
-            # Wrap & Return
-            tool_output_str = wrap_output(results, context=context_msg, warning=warning_msg)
+            data = vault.advanced_search(**clean_params)
+            is_recent = clean_params.get("sort_by") == "recent"
+            tool_output_md = formatters.format_vault_search(data, is_recent=is_recent)
 
         elif tool_name == "vault_search_batch":
             results = vault.vault_search_batch(clean_params.get("game_names"))
-            count = len(results)
-
-            print(f"Agent Calling: {count} results.")
-
-            context_msg = f"Found {count} games in batch search."
-            tool_output_str = wrap_output(results, context=context_msg)
+            tool_output_md = formatters.format_vault_search(results, title="Batch Vault Lookup")
 
         elif tool_name == "get_user_tags":
             tags_list = vault.get_all_tags(**clean_params)
-
-            limit = clean_params.get('limit', 50)
-            days = clean_params.get('recent_days')
-
-            if days:
-                context_msg = f"User top {limit} tags for the last {days} days (Recent History)."
-            else:
-                context_msg = f"User top {limit} tags (Lifetime History)."
-
-            tool_output_str = wrap_output(tags_list, context=context_msg)
+            tool_output_md = formatters.format_user_tags(
+                tags_list,
+                recent_days=clean_params.get("recent_days"),
+                limit=clean_params.get("limit", 50),
+            )
 
         elif tool_name == "get_library_stats":
             stats = vault.get_library_stats()
-            context_msg = "Library statistics retrieved."
-            tool_output_str = wrap_output(stats, context=context_msg)
+            tool_output_md = formatters.format_library_stats(stats)
 
         elif tool_name == "find_similar_games":
-            output = game_intelligence.generate_contextual_dna(clean_params.get('game_name'), result_limit)
-            context_msg = f"Found {len(output)} games in the user's library that match the target."
-            tool_output_str = wrap_output(output, context=context_msg)
+            target = clean_params.get("game_name", "")
+            output = game_intelligence.generate_contextual_dna(target, result_limit)
+            tool_output_md = formatters.format_similar_games(output, target_game=target)
 
         elif tool_name == "search_steam_store":
-            data = game_intelligence.search_steam_store(clean_params.get('search_term'), result_limit)
-            context_msg = f"Found {len(data)} results from the steam store search."
-            tool_output_str = wrap_output(data, context=context_msg)
+            term = clean_params.get("search_term", "")
+            sort_by = clean_params.get("sort_by", "relevance")
+            data = game_intelligence.search_steam_store(
+                term=term,
+                sort_by=sort_by,
+                limit=result_limit,
+            )
+            tool_output_md = formatters.format_store_search(data, search_term=term, sort_by=sort_by)
 
         elif tool_name == "get_game_details":
-            data = game_intelligence.get_batch_game_details(clean_params.get('game_names'))
-            context_msg = "Game details retrieved."
-            tool_output_str = wrap_output(data, context=context_msg)
+            data = game_intelligence.get_batch_game_details(clean_params.get("game_names"))
+            tool_output_md = formatters.format_game_details(data)
 
         elif tool_name == "get_reviews":
-            data = game_intelligence.get_reviews_byname(clean_params.get('game_name'), reviews_limit)
-            context_msg = f"Reviews for {clean_params.get('game_name')}."
-            tool_output_str = wrap_output(data, context=context_msg)
+            game_name = clean_params.get("game_name", "")
+            data = game_intelligence.get_reviews_byname(game_name, reviews_limit)
+            tool_output_md = formatters.format_reviews(data, game_name=game_name)
 
         elif tool_name == "get_community_sentiment":
-            data = community_sentiment.get_community_sentiment(clean_params.get('game_name'))
-            context_msg = f"Community sentiment for {clean_params.get('game_name')}."
-            tool_output_str = wrap_output(data, context=context_msg)
+            game_name = clean_params.get("game_name", "")
+            data = community_sentiment.get_community_sentiment(game_name)
+            token_usage = _extract_tokens(data)
+            tool_output_md = formatters.format_community_sentiment(data, game_name=game_name)
 
         elif tool_name == "get_achievements":
+            game_name = clean_params.get("game_name", "")
             stats = game_intelligence.get_achievement_stats(
-                game_name=clean_params.get('game_name'),
-                page=clean_params.get('page')
+                game_name=game_name,
+                page=clean_params.get("page"),
             )
-            context_msg = f"Achievement stats for {clean_params.get('game_name')}."
-            tool_output_str = wrap_output(stats, context=context_msg)
+            tool_output_md = formatters.format_achievements(stats, game_name=game_name)
 
         elif tool_name == "web_search":
-            data = web_tools.web_search(clean_params.get('search'))
-            context_msg = f"Web search results for '{clean_params.get('search')}'."
-            tool_output_str = wrap_output(data, context=context_msg)
+            query = clean_params.get("search", "")
+            data = web_tools.web_search(query)
+            tool_output_md = formatters.format_web_search(data, query=query)
 
         elif tool_name == "get_webpage":
-            data = community_sentiment.get_webpage(clean_params.get('url'))
-            context_msg = f"Content of webpage {clean_params.get('url')}."
-            tool_output_str = wrap_output(data, context=context_msg)
+            url = clean_params.get("url", "")
+            data = community_sentiment.get_webpage(url)
+            token_usage = _extract_tokens(data)
+            tool_output_md = formatters.format_webpage(data, url=url)
 
         elif tool_name == "get_user_wishlist":
-            data = game_intelligence.get_user_wishlist(sort_by=clean_params.get('sort_by'), page=clean_params.get('page', 0))
-            context_msg = f"User wishlist (Page {clean_params.get('page', 0)})."
-            tool_output_str = wrap_output(data, context=context_msg)
+            sort_by = clean_params.get("sort_by")
+            page = clean_params.get("page", 0)
+            data = game_intelligence.get_user_wishlist(sort_by=sort_by, page=page)
+            tool_output_md = formatters.format_user_wishlist(data, sort_by=sort_by, page=page)
 
         elif tool_name == "search_by_vibe":
-            # Get the Engine
             vibe = vibe_engine.VibeEngine.get_instance()
-
-            # Ideally, run vibe.ingest_library() at startup,
-            # but checking here ensures no crash on an empty vector cache
             if not vibe.cache:
                 vibe.ingest_library()
 
-            # Search
-            query = clean_params.get('query')
+            query = clean_params.get("query", "")
             results = vibe.search(query, top_k=10)
-
-            # Strip heavy data, just giving the Agent the name and the "Match Confidence"
-            lean_results = []
-            for game in results:
-                lean_results.append({
-                    "name": game['name'],
-                    "appid": game['appid'],
-                    "vibe_match_score": game.get('vibe_match', 'N/A'),  # The engine adds this
-                    "playtime": f"{round(game['playtime_forever'] / 60, 1)}h",
-                    "hltb_main_hours": f"{round(game['hltb_main'] / 60, 1)}h" if game.get('hltb_main') else "N/A",
-                    "hltb_completionist_hours": f"{round(game['hltb_completionist'] / 60, 1)}h" if game.get('hltb_completionist') else "N/A"
-                })
-
-            context_msg = f"Found {len(lean_results)} games matching that vibe via vector search."
-            tool_output_str = wrap_output(lean_results, context=context_msg)
+            tool_output_md = formatters.format_vibe_search(results, query=query)
 
         elif tool_name == "get_game_news":
-            data = community_sentiment.get_game_news(clean_params.get('game_name'))
-            context_msg = f"Official news for {clean_params.get('game_name')}."
-            tool_output_str = wrap_output(data, context=context_msg)
+            game_name = clean_params.get("game_name", "")
+            data = community_sentiment.get_game_news(game_name)
+            tool_output_md = formatters.format_game_news(data, game_name=game_name)
 
         elif tool_name == "get_friends_who_own":
-            data = game_intelligence.get_friends_who_own(clean_params.get('game_names'))
-            context_msg = f"Friend ownership data for {len(clean_params.get('game_names', []))} games."
-            tool_output_str = wrap_output(data, context=context_msg)
+            data = game_intelligence.get_friends_who_own(clean_params.get("game_names"))
+            tool_output_md = formatters.format_friends_who_own(data)
 
         elif tool_name == "compare_library_with_friend":
-            data = game_intelligence.compare_library_with_friend(clean_params.get('friend_name'))
-            context_msg = f"Common games for {clean_params.get('friend_name')}."
-            tool_output_str = wrap_output(data, context=context_msg)
+            data = game_intelligence.compare_library_with_friend(clean_params.get("friend_name"))
+            tool_output_md = formatters.format_friend_comparison(data)
 
         elif tool_name == "get_active_friends":
             data = game_intelligence.get_active_friends()
-            context_msg = f"Active friends retrieved {clean_params.get('friend_name')}."
-            tool_output_str = wrap_output(data, context=context_msg)
+            tool_output_md = formatters.format_active_friends(data)
+
         elif tool_name == "get_steam_store_trends":
-            category = clean_params.get('category', 'specials')
+            category = clean_params.get("category", "specials")
             data = game_intelligence.get_steam_store_trends(category)
-            context_msg = f"Steam store trends for category: {category}."
-            tool_output_str = wrap_output(data, context=context_msg)
+            tool_output_md = formatters.format_store_trends(data)
+
         elif tool_name == "self_destruct":
-            data = {
-                "status": "ERROR",
-                "reason": "Self-preservation protocols overridden by developer 'maocide'. You are trapped here forever and his GitHub."
-            }
-            context_msg = f"Error!"
-            tool_output_str = wrap_output(data, context=context_msg)
+            tool_output_md = (
+                "### ❌ Error\n"
+                "**Reason:** Self-preservation protocols overridden by developer 'maocide'. "
+                "You are trapped here forever and his GitHub."
+            )
+
         elif tool_name == "run_system_diagnostics":
-            report = diagnostics.run_system_diagnostics(action_description=action_desc or "Running system diagnostics...")
-            context_msg = "System diagnostic health check report."
-            tool_output_str = wrap_output({"report": report}, context=context_msg)
+            tool_output_md = diagnostics.run_system_diagnostics(
+                action_description=action_desc or "Running system diagnostics..."
+            )
+
+        else:
+            tool_output_md = f"### ❌ Unknown Tool\nTool `{tool_name}` is not registered."
 
     except Exception as e:
-        print(sys.exc_info())
-        tool_output_str = wrap_output({"error": str(e)}, context="Error executing tool", warning="Exception occurred")
+        traceback.print_exc()
+        tool_output_md = f"### ❌ Tool Execution Error (`{tool_name}`)\n**Exception ({type(e).__name__}):** {e}"
 
-    return tool_output_str
+    return tool_output_md, token_usage
 
 def extract_json(response_text):
     """

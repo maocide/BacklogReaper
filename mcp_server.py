@@ -17,6 +17,7 @@ import core.game_intelligence as game_intelligence
 import core.community_sentiment as community_sentiment
 import core.web_tools as web_tools
 import core.diagnostics as diagnostics
+import core.formatters as formatters
 from core.vibe_engine import VibeEngine
 from mcp.server.mcpserver import MCPServer
 
@@ -101,175 +102,150 @@ def vault_search(
     min_playtime: Optional[int] = None,
     max_playtime: Optional[int] = None,
     hltb_max: Optional[int] = None,
+    include_unknown_hltb: bool = False,
     min_review_score: Optional[int] = None,
     name: Optional[str] = None,
     sort_by: str = "shortest",
     page: int = 0,
     seed: Optional[int] = None
-) -> dict:
+) -> str:
     """
-    Search the user's owned Steam game backlog with rich filters.
+    Search the user's owned Steam game backlog with rich filters (returns Markdown).
     Filter by tags, completion status (Unplayed, Bounced, Testing, Completionist, Seasoned, Abandoned, Mastered, etc.),
     playtime hours, HLTB story length, or Steam review percentage.
     """
-    results = vault.advanced_search(
+    payload = vault.advanced_search(
         tags=tags,
         exclude_tags=exclude_tags,
         status=status,
         min_playtime=min_playtime,
         max_playtime=max_playtime,
         hltb_max=hltb_max,
+        include_unknown_hltb=include_unknown_hltb,
         min_review_score=min_review_score,
         name=name,
         sort_by=sort_by,
         page=page,
-        seed=seed
+        seed=seed,
     )
-    return {
-        "count": len(results),
-        "page": page,
-        "results": results
-    }
+    return formatters.format_vault_search(payload, is_recent=(sort_by == "recent"))
 
 
 @mcp.tool()
-def vault_search_batch(game_names: List[str]) -> dict:
+def vault_search_batch(game_names: List[str]) -> str:
     """
     Verify ownership or look up multiple games by title in the user's local Steam library.
     """
     results = vault.vault_search_batch(game_names)
-    return {
-        "count": len(results),
-        "results": results
-    }
+    return formatters.format_vault_search(results, title="Batch Vault Lookup")
 
 
 @mcp.tool()
-def get_library_stats() -> dict:
+def get_library_stats() -> str:
     """
     Get aggregated audit statistics for the user's Steam library.
     Includes total games owned, total hours played, shame percentage (unplayed games),
     completion rates, and top genre breakdown.
     """
-    return vault.get_library_stats()
+    stats = vault.get_library_stats()
+    return formatters.format_library_stats(stats)
 
 
 @mcp.tool()
-def get_user_tags(recent_days: Optional[int] = None, limit: int = 50) -> dict:
+def get_user_tags(recent_days: Optional[int] = None, limit: int = 50) -> str:
     """
     Retrieve the user's top played genres.
     Leave recent_days empty for lifetime stats, or pass a number (e.g. 30 or 60)
     to see what genres the user has been playing recently.
     """
     tags = vault.get_all_tags(recent_days=recent_days, limit=limit)
-    return {
-        "period": f"last_{recent_days}_days" if recent_days else "lifetime",
-        "tags": tags
-    }
+    return formatters.format_user_tags(tags, recent_days=recent_days, limit=limit)
 
 
 @mcp.tool()
-def find_similar_games(game_name: str, limit: int = 10) -> dict:
+def find_similar_games(game_name: str, limit: int = 10) -> str:
     """
     Find games in the user's OWNED backlog that match a target title.
     Uses hybrid matching: gameplay mechanics (tags) + atmospheric DNA (SentenceTransformer vibe embeddings).
     """
     matches = game_intelligence.generate_contextual_dna(game_name, limit)
-    return {
-        "target_game": game_name,
-        "matches": matches
-    }
+    return formatters.format_similar_games(matches, target_game=game_name)
 
 
 @mcp.tool()
-def search_steam_store(search_term: str, limit: int = 10) -> dict:
+def search_steam_store(search_term: str, sort_by: str = "relevance", limit: int = 10) -> str:
     """
-    Search the general Steam store catalog for game titles, AppIDs, and basic metadata.
+    Search the general Steam store catalog for game titles, AppIDs, prices, and ownership flags.
+    Use sort_by='recent' for newly released titles matching the search term.
     """
-    results = game_intelligence.search_steam_store(search_term, limit)
-    return {
-        "search_term": search_term,
-        "results": results
-    }
+    results = game_intelligence.search_steam_store(term=search_term, sort_by=sort_by, limit=limit)
+    return formatters.format_store_search(results, search_term=search_term, sort_by=sort_by)
 
 
 @mcp.tool()
-def get_game_details(game_names: List[str]) -> dict:
+def get_game_details(game_names: List[str]) -> str:
     """
     Fetch comprehensive game intel from Steam and CheapShark:
-    pricing, discount percentage, DLCs, system specs, description, and deals.
+    pricing, discount percentage, DLCs, HLTB estimates, description, and deals.
     """
     details = game_intelligence.get_batch_game_details(game_names)
-    return {
-        "results": details
-    }
+    return formatters.format_game_details(details)
 
 
 @mcp.tool()
-def get_reviews(game_name: str, limit: int = 10) -> dict:
+def get_reviews(game_name: str, limit: int = 10) -> str:
     """
     Fetch actual Steam player reviews, sentiment score percentage, and review highlights for a game.
     """
     reviews = game_intelligence.get_reviews_byname(game_name, limit)
-    return {
-        "game_name": game_name,
-        "reviews": reviews
-    }
+    return formatters.format_reviews(reviews, game_name=game_name)
 
 
 @mcp.tool()
-def get_community_sentiment(game_name: str) -> dict:
+def get_community_sentiment(game_name: str) -> str:
     """
     Deep multi-community consensus report:
     Synthesizes current discourse across Steam Community Forums, 4chan (/v/ and /vg/),
     and Reddit gamer discussions.
     """
-    return community_sentiment.get_community_sentiment(game_name)
+    data = community_sentiment.get_community_sentiment(game_name)
+    if isinstance(data, dict):
+        data.pop("_tokens", None)
+    return formatters.format_community_sentiment(data, game_name=game_name)
 
 
 @mcp.tool()
-def search_reddit_discussions(game_name: str, limit: int = 5) -> dict:
+def search_reddit_discussions(game_name: str, limit: int = 5) -> str:
     """
     Directly extracts authentic Reddit gamer reviews, threads, and discourse for a game
     via clean search syndication (bypassing anti-bot filters and Turnstile).
     """
     results = web_tools.search_reddit_discussions(game_name, limit=limit)
-    return {
-        "game_name": game_name,
-        "count": len(results),
-        "discussions": results
-    }
+    return formatters.format_reddit_discussions(results, game_name=game_name)
 
 
 @mcp.tool()
-def get_game_deals(game_name: str) -> dict:
+def get_game_deals(game_name: str) -> str:
     """
     Search CheapShark for current discounts, lowest historic prices, and store deals for a game.
     """
     app_info = game_intelligence.get_steam_app_info(game_name)
     appid = app_info["id"][0] if app_info and "id" in app_info else None
     deals = game_intelligence.get_game_deals(game_name, appid)
-    return {
-        "game_name": game_name,
-        "appid": appid,
-        "deal_info": deals
-    }
+    return formatters.format_game_deals(deals, game_name=game_name, appid=appid)
 
 
 @mcp.tool()
-def get_game_news(game_name: str, limit: int = 5) -> dict:
+def get_game_news(game_name: str, limit: int = 5) -> str:
     """
     Retrieve latest official Steam patch notes, developer events, and announcements for a game.
     """
     news = community_sentiment.get_game_news(game_name, limit=limit)
-    return {
-        "game_name": game_name,
-        "news": news
-    }
+    return formatters.format_game_news(news, game_name=game_name)
 
 
 @mcp.tool()
-def get_achievements(game_name: str = "", appid: Optional[int] = None, page: Optional[int] = None) -> dict:
+def get_achievements(game_name: str = "", appid: Optional[int] = None, page: Optional[int] = None) -> str:
     """
     Get Steam achievement stats and progress for an owned game.
     Default (page=None): Returns a dashboard with completion percentage, total achievements,
@@ -278,24 +254,17 @@ def get_achievements(game_name: str = "", appid: Optional[int] = None, page: Opt
     """
     target_appid = appid if appid is not None else -1
     stats = game_intelligence.get_achievement_stats(appid=target_appid, game_name=game_name, page=page)
-    return {
-        "game_name": game_name,
-        "appid": appid,
-        "achievement_data": stats
-    }
+    return formatters.format_achievements(stats, game_name=game_name)
 
 
 @mcp.tool()
-def run_system_diagnostics() -> dict:
+def run_system_diagnostics() -> str:
     """
     Run a full diagnostic health check across all BacklogReaper subsystems,
     databases, APIs (Steam Store, Steam Reviews, CheapShark, Steam News),
     and web search scraping syndication.
     """
-    report = diagnostics.run_system_diagnostics("MCP Diagnostic Run")
-    return {
-        "report": report
-    }
+    return diagnostics.run_system_diagnostics("MCP Diagnostic Run")
 
 
 # ==========================================

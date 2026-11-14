@@ -180,6 +180,11 @@ def execute_test(name: str, func: Callable, args: List, kwargs: Dict) -> Dict:
             status = "FAIL"
             message = str(result["error"])
 
+        # Check empty search results envelope
+        elif isinstance(result, dict) and "results" in result and not result["results"]:
+            status = "WARNING"
+            message = "Returned 0 results"
+
         # Check empty data
         elif not result and not isinstance(result, bool):
             status = "WARNING"
