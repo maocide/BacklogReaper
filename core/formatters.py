@@ -192,6 +192,7 @@ def format_similar_games(matches: Any, target_game: str = "") -> str:
         [
             m.get("appid", "N/A"),
             m.get("name", "Unknown"),
+            m.get("status", "N/A"),
             m.get("match_score", "N/A"),
             m.get("hours", "0h"),
             _format_hltb_pair(m.get("hltb_main_hours"), m.get("hltb_completionist_hours")),
@@ -200,7 +201,7 @@ def format_similar_games(matches: Any, target_game: str = "") -> str:
         for m in matches
     ]
     return f"{header}\n**Matches Found:** {len(matches)}\n\n" + _table(
-        ["AppID", "Title", "DNA Match", "Playtime", "HLTB (Main/Comp)", "Tags"],
+        ["AppID", "Title", "Status", "DNA Match", "Playtime", "HLTB (Main/Comp)", "Tags"],
         rows,
     )
 
@@ -225,6 +226,7 @@ def format_vibe_search(results: Any, query: str = "") -> str:
         rows.append([
             g.get("appid", "N/A"),
             g.get("name", "Unknown"),
+            g.get("status", "N/A"),
             g.get("vibe_match", g.get("vibe_match_score", "N/A")),
             pt_str,
             f"{m_str} / {c_str}",
@@ -232,7 +234,7 @@ def format_vibe_search(results: Any, query: str = "") -> str:
         ])
 
     return f"{header}\n**Matches:** {len(results)}\n\n" + _table(
-        ["AppID", "Title", "Vibe Match", "Playtime", "HLTB (Main/Comp)", "Tags"],
+        ["AppID", "Title", "Status", "Vibe Match", "Playtime", "HLTB (Main/Comp)", "Tags"],
         rows,
     )
 

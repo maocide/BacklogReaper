@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 from thefuzz import fuzz
 import core.vault as vault
 import core.vibe_engine as vibe_engine
+import core.text_utils as text_utils
 from core.ai_tools import clean_json_for_ai
 from core.vault import calculate_status
 import concurrent.futures
@@ -652,9 +653,10 @@ def get_batch_game_details(game_names: list[str]) -> list:
 
 
 @safe_tool
-def generate_contextual_dna(game_name, limit=10):
+def generate_contextual_dna(game_name, limit=10, status=None):
     """
-    Hybrid Search: Combines Tag Intersection (Gameplay) + Vector Vibe (Atmosphere).
+    Hybrid Search: Combines Tag Intersection (Gameplay) + Vector Vibe (Atmosphere),
+    with optional backlog `status` filtering (e.g. ['Unplayed']).
     """
     # Get Target Data
     target_payload = get_global_game_info(game_name)
@@ -663,6 +665,8 @@ def generate_contextual_dna(game_name, limit=10):
 
     target_tags_list = target_payload.get('tags', [])
     target_tags_set = {t.lower() for t in target_tags_list}
+    target_norm = text_utils.normalize_title(target_payload.get('name') or game_name)
+    req_status = {s.lower() for s in status} if status else None
 
     # Prepare Vibe Query
     # We repeat the tags to scream at the AI that the GENRE matters
@@ -684,10 +688,15 @@ def generate_contextual_dna(game_name, limit=10):
     scored_games = []
 
     for game in library:
-        if game['name'].lower() == game_name.lower(): continue
+        if text_utils.normalize_title(game['name']) == target_norm or game['name'].lower() == game_name.lower():
+            continue
+
+        game_status = calculate_status(game)
+        if req_status and game_status.lower() not in req_status:
+            continue
 
         # SCORE A: TAG MATCH (Gameplay)
-        game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',')}
+        game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',') if t.strip()}
         if not game_tags:
             tag_score = 0
         else:
@@ -706,6 +715,7 @@ def generate_contextual_dna(game_name, limit=10):
         if final_score > 0.25:
             scored_games.append({
                 "game": game,
+                "status": game_status,
                 "score": final_score,
                 "tag_overlap": len(target_tags_set.intersection(game_tags))
             })
@@ -719,6 +729,7 @@ def generate_contextual_dna(game_name, limit=10):
         results.append({
             "name": g['name'],
             "appid": g['appid'],
+            "status": item['status'],
             "match_score": f"{int(item['score'] * 100)}%",
             "hltb_main_hours": f"{round(g['hltb_main'] / 60, 1)}h" if g.get('hltb_main') else "N/A",
             "hltb_completionist_hours": f"{round(g['hltb_completionist'] / 60, 1)}h" if g.get('hltb_completionist') else "N/A",
@@ -889,10 +900,8 @@ def get_steam_app_info(game_name: str):
 
     steam = Steam(settings.STEAM_API_KEY)
 
-    # Steam's search suggest endpoint is notoriously bad with punctuation.
-    # We clean up common punctuation to improve hit rates.
-    search_term = re.sub(r'[-_:]', ' ', game_name)
-    search_term = re.sub(r'\s+', ' ', search_term).strip()
+    # Strip trademark symbols & punctuation noise for Steam's suggest endpoint.
+    search_term = text_utils.normalize_title(game_name, convert_roman=False) or game_name.strip()
 
     # Fetch list of candidates (Steam usually returns 5-20 results)
     results = steam.apps.search_games(search_term)
@@ -905,28 +914,20 @@ def get_steam_app_info(game_name: str):
     best_match = None
     highest_score = 0.0
 
-    # Clean the input once
-    target_clean = game_name.lower().strip()
+    target_norm = text_utils.normalize_title(game_name, convert_roman=True)
 
     print(f" -> Analyzing {len(candidates)} candidates...")
 
     for app in candidates:
         title = app['name']
-        title_clean = title.lower().strip()
+        title_norm = text_utils.normalize_title(title, convert_roman=True)
 
-        # Exact Match
-        if title_clean == target_clean:
+        # Normalized Exact Match (handles ™/® and Roman numerals like Dark Souls 3 <-> III)
+        if title_norm and title_norm == target_norm:
             print(f" -> EXACT MATCH FOUND: {title} ({app['id']})")
             return app
 
-        # Close Enough Metric (0.0 to 1.0)
-        # SequenceMatcher calculates how many edits it takes to turn A into B
-        score = difflib.SequenceMatcher(None, target_clean, title_clean).ratio()
-
-        # Specific fix for strings contained completely ("Witcher 3" vs "The Witcher 3")
-        if target_clean in title_clean:
-            score += 0.1  # Boost partial contains
-
+        score = text_utils.score_title_match(game_name, title)
         print(f"    - Checking: '{title}' | Score: {score:.2f}")
 
         if score > highest_score:

@@ -25,6 +25,8 @@ backlog_vault.db-*
 settings.json
 secret.key
 vibe_cache.json
+tag_embeddings_cache.json
+steam_tags_cache.json
 data/
 exports/
 

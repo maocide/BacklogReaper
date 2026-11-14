@@ -98,6 +98,7 @@ def _background_sync_worker(interval_seconds: int = 1200):
 def vault_search(
     tags: Optional[List[str]] = None,
     exclude_tags: Optional[List[str]] = None,
+    tag_mode: str = "all",
     status: Optional[List[str]] = None,
     min_playtime: Optional[int] = None,
     max_playtime: Optional[int] = None,
@@ -110,13 +111,16 @@ def vault_search(
     seed: Optional[int] = None
 ) -> str:
     """
-    Search the user's owned Steam game backlog with rich filters (returns Markdown).
-    Filter by tags, completion status (Unplayed, Bounced, Testing, Completionist, Seasoned, Abandoned, Mastered, etc.),
-    playtime hours, HLTB story length, or Steam review percentage.
+    Search the user's owned Steam game backlog with structured filters (returns Markdown).
+    Automatically projects natural tag queries/jargon ('bullet heaven', 'deckbuilder', 'survivor-like')
+    onto canonical vault tags and normalizes titles ('Dark Souls 3' -> 'DARK SOULS III').
+    tag_mode: 'all' (default) matches every requested tag group; 'any' matches any group.
+    sort_by: 'relevance', 'shortest', 'longest', 'recent', 'name', 'score_best', 'score_worst', or 'random'.
     """
     payload = vault.advanced_search(
         tags=tags,
         exclude_tags=exclude_tags,
+        tag_mode=tag_mode,
         status=status,
         min_playtime=min_playtime,
         max_playtime=max_playtime,
@@ -163,13 +167,34 @@ def get_user_tags(recent_days: Optional[int] = None, limit: int = 50) -> str:
 
 
 @mcp.tool()
-def find_similar_games(game_name: str, limit: int = 10) -> str:
+def find_similar_games(game_name: str, limit: int = 10, status: Optional[List[str]] = None) -> str:
     """
     Find games in the user's OWNED backlog that match a target title.
     Uses hybrid matching: gameplay mechanics (tags) + atmospheric DNA (SentenceTransformer vibe embeddings).
+    Pass status (e.g. ['Unplayed', 'Bounced']) to restrict matches to unfinished games.
     """
-    matches = game_intelligence.generate_contextual_dna(game_name, limit)
+    matches = game_intelligence.generate_contextual_dna(game_name, limit, status=status)
     return formatters.format_similar_games(matches, target_game=game_name)
+
+
+@mcp.tool()
+def search_by_vibe(
+    query: str,
+    status: Optional[List[str]] = None,
+    hltb_max: Optional[int] = None,
+    limit: int = 10
+) -> str:
+    """
+    Search the user's owned library by abstract mood, atmosphere, or narrative feel using embeddings.
+    Use vault_search for crisp genres/tags; use search_by_vibe for themes/vibes like
+    'melancholic rainy cyberpunk detective' or 'cozy late-night puzzle relaxing'.
+    Optionally filter by backlog status (e.g. ['Unplayed']) or maximum HLTB hours.
+    """
+    vibe = VibeEngine.get_instance()
+    if not vibe.cache:
+        vibe.ingest_library()
+    results = vibe.search(query, top_k=limit, status=status, hltb_max=hltb_max)
+    return formatters.format_vibe_search(results, query=query)
 
 
 @mcp.tool()

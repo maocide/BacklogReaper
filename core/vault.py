@@ -9,6 +9,7 @@ from steam_web_api import Steam
 
 import core.ai_tools as ai_tools
 import core.settings as settings
+import core.text_utils as text_utils
 from core.web_tools import get_store_data
 from core.web_tools import get_hltb_data
 import core.paths as paths
@@ -559,76 +560,142 @@ def is_game_owned(appid):
         return False
 
 
-def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtime=None, hltb_max=None, include_unknown_hltb=False, status=None, min_review_score=None, name=None, sort_by='shortest', page=0, page_size=10, seed=None):
-    """
-    Filters the vault based on criteria and returns paginated results with metadata.
-    """
-    if tags is None: tags = []
-    if exclude_tags is None: exclude_tags = []
-    if status is None: status = []
+def get_distinct_tags():
+    """Return sorted unique canonical tags present in the local library DB."""
+    try:
+        with get_connection() as conn:
+            c = conn.cursor()
+            c.execute("SELECT tags FROM games WHERE tags IS NOT NULL AND tags != ''")
+            rows = c.fetchall()
+    except sqlite3.OperationalError:
+        return []
 
-    # Normalize inputs for matching
-    req_tags = {t.lower() for t in tags}
-    ex_tags = {t.lower() for t in exclude_tags}
+    seen = set()
+    for row in rows:
+        for t in (row['tags'] or "").split(','):
+            cleaned = t.strip()
+            if cleaned:
+                seen.add(cleaned)
+    return sorted(seen)
+
+
+def _format_vault_entry(game, game_status, last_played_str, name_score=0.0, tag_relevance=0):
+    entry = dict(game)
+    entry['status'] = game_status
+    entry['hours'] = game['playtime_forever']
+    entry['hltb_main'] = game['hltb_main'] if game['hltb_main'] else None
+    entry['hltb_completionist'] = game['hltb_completionist'] if game['hltb_completionist'] else None
+    entry['last_played'] = last_played_str
+    entry['_name_score'] = name_score
+    entry['_tag_relevance'] = tag_relevance
+    return entry
+
+
+def advanced_search(
+    tags=None,
+    exclude_tags=None,
+    tag_mode='all',
+    min_playtime=None,
+    max_playtime=None,
+    hltb_max=None,
+    include_unknown_hltb=False,
+    status=None,
+    min_review_score=None,
+    name=None,
+    sort_by='shortest',
+    page=0,
+    page_size=10,
+    seed=None,
+):
+    """
+    Filter the vault with tag-vector projection (`tag_mode='all'|'any'`), 3-tier title
+    resolution (normalized -> fuzzy -> semantic fallback), HLTB guards, and pagination.
+    """
+    if tags is None:
+        tags = []
+    if exclude_tags is None:
+        exclude_tags = []
+    if status is None:
+        status = []
+
     req_status = {s.lower() for s in status}
+    tag_mode = (tag_mode or 'all').lower()
+    if tag_mode not in ('all', 'any'):
+        tag_mode = 'all'
 
-    # The AI often sends 0 when it means "unlimited" or "don't care", must convert it
-    if min_playtime == 0: min_playtime = None
-    if max_playtime == 0: max_playtime = None
-    if hltb_max == 0: hltb_max = None
-    if min_review_score == 0: min_review_score = None
+    # Normalize AI 0-sentinels as unlimited
+    if min_playtime == 0:
+        min_playtime = None
+    if max_playtime == 0:
+        max_playtime = None
+    if hltb_max == 0:
+        hltb_max = None
+    if min_review_score == 0:
+        min_review_score = None
 
+    # Lazy import avoids top-level circular dependency with core.vibe_engine
+    from core.vibe_engine import TAG_ALIASES, VibeEngine
 
+    distinct_tags = get_distinct_tags() if (tags or exclude_tags) else []
 
-    # Fetch ALL games
-    # We fetch all because string processing is more robust than SQLite 'LIKE', might optimize if needed
+    # Resolve exclude tags deterministically (normalized + collapsed + alias targets)
+    ex_tags = set()
+    if exclude_tags:
+        norm_lookup = {text_utils.normalize_tag_key(t): t.lower() for t in distinct_tags}
+        col_lookup = {text_utils.collapse_tag_key(t): t.lower() for t in distinct_tags}
+        for raw_ex in exclude_tags:
+            nkey = text_utils.normalize_tag_key(raw_ex)
+            ckey = text_utils.collapse_tag_key(raw_ex)
+            ex_tags.add(raw_ex.strip().lower())
+            if nkey in norm_lookup:
+                ex_tags.add(norm_lookup[nkey])
+            if ckey in col_lookup:
+                ex_tags.add(col_lookup[ckey])
+            for alias_target in TAG_ALIASES.get(nkey, []):
+                ex_tags.add(alias_target.lower())
+
+    # Resolve include tags via grouped tag-vector projection
+    raw_req_lower = {t.strip().lower() for t in tags if (t or "").strip()}
+    tag_groups = []
+    expanded_tags = {}
+    if tags:
+        vibe = VibeEngine.get_instance()
+        tag_groups, expanded_tags = vibe.resolve_vault_tags(tags, distinct_tags=distinct_tags)
+
     all_games = get_all_games()
-
+    eligible_pool = []
     results = []
     unknown_hltb_skipped = 0
 
-    for game in all_games:
-        # STATUS FILTER (Computed on the fly)
-        game_status = calculate_status(game)
-        last_played_str = format_time_ago(game.get('rtime_last_played', 0))
+    q_norm = text_utils.normalize_title(name, convert_roman=True) if name else ""
+    q_nums = text_utils.extract_sequel_numbers(name) if name else set()
 
+    for game in all_games:
+        game_status = calculate_status(game)
         if req_status and game_status.lower() not in req_status:
             continue
 
-        # NAME FILTER (Fuzzy Match)
-        if name:
-             game_name_lower = game['name'].lower()
-             target_name_lower = name.lower()
-
-             # Check for substring match
-             is_substring = target_name_lower in game_name_lower
-
-             # Check for fuzzy match using difflib
-             similarity = difflib.SequenceMatcher(None, target_name_lower, game_name_lower).ratio()
-             is_fuzzy = similarity > 0.6
-
-             if not (is_substring or is_fuzzy):
-                 continue
-
-        # TAGS FILTER
-        game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',')}
-
-        # Check Excludes
-        if not ex_tags.isdisjoint(game_tags):
+        game_tags = {t.strip().lower() for t in (game['tags'] or "").split(',') if t.strip()}
+        if ex_tags and not ex_tags.isdisjoint(game_tags):
             continue
 
-        # Check Includes
-        #if req_tags and not req_tags.issubset(game_tags):
-        #    continue
-        if len(req_tags) and len(req_tags.difference(game_tags)) == len(req_tags): # if it has no requested tags then skip
-            continue
+        tag_relevance = 0
+        if tag_groups:
+            group_hits = [not grp.isdisjoint(game_tags) for grp in tag_groups]
+            if tag_mode == 'any':
+                if not any(group_hits):
+                    continue
+            else:
+                if not all(group_hits):
+                    continue
+            tag_relevance = (len(raw_req_lower & game_tags) * 2) + sum(1 for h in group_hits if h)
 
-        # PLAYTIME FILTER (in Minutes)
         pt = game['playtime_forever']
-        if min_playtime is not None and pt < min_playtime * 60: continue
-        if max_playtime is not None and pt > max_playtime * 60: continue
+        if min_playtime is not None and pt < min_playtime * 60:
+            continue
+        if max_playtime is not None and pt > max_playtime * 60:
+            continue
 
-        # HLTB FILTER (Input is Hours, DB is Minutes)
         main_story = game['hltb_main'] or 0
         if hltb_max is not None:
             if main_story == 0:
@@ -638,25 +705,58 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
             elif main_story > hltb_max * 60:
                 continue
 
-        # REVIEW SCORE FILTER
         if min_review_score is not None:
-             score = game.get('review_score', -2)
-             if score != -2 and score < min_review_score and score != -1: # -1 is used for BETA/DEMO of a game, we skip.
-                 continue
+            score = game.get('review_score', -2)
+            if score != -2 and score < min_review_score and score != -1:
+                continue
 
-        # Passed filters, add to results
-        game['status'] = game_status
-        game['hours'] = game['playtime_forever']
-        game['hltb_main'] = game['hltb_main'] if game['hltb_main'] else None
-        game['hltb_completionist'] = game['hltb_completionist'] if game['hltb_completionist'] else None
-        game['last_played'] = last_played_str
+        last_played_str = format_time_ago(game.get('rtime_last_played', 0))
+        eligible_pool.append((game, game_status, last_played_str, tag_relevance))
 
-        results.append(game)
+        if name:
+            c_norm = text_utils.normalize_title(game['name'], convert_roman=True)
+            c_nums = text_utils.extract_sequel_numbers(game['name'])
+            is_exact = (q_norm == c_norm) and bool(q_norm)
+            is_sub = text_utils.contains_normalized_phrase(q_norm, c_norm) and (not q_nums or q_nums.issubset(c_nums))
+            match_score = text_utils.score_title_match(name, game['name'])
+            if not (is_exact or is_sub or match_score >= 0.62):
+                continue
+            results.append(_format_vault_entry(game, game_status, last_played_str, name_score=match_score, tag_relevance=tag_relevance))
+        else:
+            results.append(_format_vault_entry(game, game_status, last_played_str, name_score=0.0, tag_relevance=tag_relevance))
+
+    # Tier-3 Semantic Title Fallback (strict >= 0.72 similarity + sequel-digit guard)
+    if name and not results and eligible_pool:
+        pool_games = [item[0] for item in eligible_pool]
+        pool_meta = {int(item[0]['appid']): item for item in eligible_pool}
+        vibe = VibeEngine.get_instance()
+        semantic_hits = vibe.search_titles(name, pool_games, threshold=0.72, top_k=5)
+        for hit in semantic_hits:
+            meta = pool_meta.get(int(hit['appid']))
+            if meta:
+                g, g_status, lp_str, t_rel = meta
+                results.append(
+                    _format_vault_entry(
+                        g,
+                        g_status,
+                        lp_str,
+                        name_score=hit.get('title_similarity', 0.72),
+                        tag_relevance=t_rel,
+                    )
+                )
 
     # Final Sorting
-    if sort_by == 'shortest':
-        # Safely handle None or 0 values
-        results.sort(key=lambda x: x['hltb_main'] if x.get('hltb_main') and x['hltb_main'] > 0 else float('inf'))
+    if sort_by == 'relevance':
+        results.sort(
+            key=lambda x: (
+                -x.get('_name_score', 0.0),
+                -x.get('_tag_relevance', 0),
+                -(x.get('review_score') if isinstance(x.get('review_score'), (int, float)) else -1),
+                x.get('name', ''),
+            )
+        )
+    elif sort_by == 'shortest':
+        results.sort(key=lambda x: (x['hltb_main'] if x.get('hltb_main') and x['hltb_main'] > 0 else float('inf'), -x.get('_tag_relevance', 0)))
     elif sort_by == 'longest':
         results.sort(key=lambda x: x.get('hltb_main') or 0, reverse=True)
     elif sort_by == 'name':
@@ -669,18 +769,16 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         results.sort(key=lambda x: x['review_score'], reverse=False)
     elif sort_by == 'random':
         if seed is not None:
-             random.Random(seed).shuffle(results)
+            random.Random(seed).shuffle(results)
         else:
-             random.shuffle(results)
+            random.shuffle(results)
 
     game_schema = {
-        # TRANSFORMATIONS: 'field_name': 'rule'
         "transformations": {
             "hours": "minutes_to_hours",
             "hltb_main": "minutes_to_hours_or_na",
             "hltb_completionist": "minutes_to_hours_or_na",
         },
-        # ALLOWLIST: Only keep these fields
         "keep_keys": [
             "appid",
             "name",
@@ -717,6 +815,7 @@ def advanced_search(tags=None, exclude_tags=None, min_playtime=None, max_playtim
         "page_size": page_size,
         "total_pages": total_pages,
         "unknown_hltb_skipped": unknown_hltb_skipped,
+        "expanded_tags": expanded_tags,
     }
 
 
@@ -728,7 +827,7 @@ def vault_search_batch(game_names: list[str]):
     results = []
 
     for name in game_names:
-        search_payload = advanced_search(name=name)
+        search_payload = advanced_search(name=name, sort_by='relevance', page_size=5)
         for game in search_payload.get("results", []):
             appid = game.get("appid")
             if appid not in seen_appids:

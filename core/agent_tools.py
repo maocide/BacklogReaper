@@ -18,19 +18,24 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "vault_search",
-            "description": "Query the user's local database (Steam library) to find owned games based on specific criteria like tags, playtime, or review scores. Use this to verify ownership or find backlog games.",
+            "description": "Query the user's owned Steam backlog by structured tags, completion status, playtime, HLTB length, review score, or game title. Automatically projects natural genre queries/slang (e.g. 'bullet heaven', 'deckbuilder', 'survivor-like') onto your library tags and handles trademarks/Roman numerals in titles.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "tags": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of genres or tags to include (e.g. ['Horror', 'FPS'])."
+                        "description": "List of genres/tags to include (e.g. ['Horror', 'Deckbuilder']). Each tag expands semantically to close vault tags."
                     },
                     "exclude_tags": {
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of genres or tags to exclude."
+                    },
+                    "tag_mode": {
+                        "type": "string",
+                        "enum": ["all", "any"],
+                        "description": "'all' (default) requires every requested tag group to match; 'any' matches games fitting at least one group."
                     },
                     "status": {
                         "type": "array",
@@ -62,12 +67,12 @@ tools_schema = [
                     },
                     "name": {
                         "type": "string",
-                        "description": "Filter by game title (fuzzy match)."
+                        "description": "Filter by game title (normalized, Roman numeral & semantic fallback)."
                     },
                     "sort_by": {
                         "type": "string",
-                        "enum": ["random", "shortest", "longest", "recent", "name", "score_best", "score_worst"],
-                        "description": "Sorting criteria. Default is 'shortest'."
+                        "enum": ["relevance", "random", "shortest", "longest", "recent", "name", "score_best", "score_worst"],
+                        "description": "Sorting criteria. Default is 'shortest'; use 'relevance' for title or multi-tag precision."
                     },
                     "page": {
                         "type": "integer",
@@ -150,13 +155,21 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "find_similar_games",
-            "description": "Finds games in the user's LOCAL library that match a target game. Uses a HYBRID ENGINE: matches Gameplay Mechanics (Tags) AND Atmosphere/Vibe (Vector Embeddings). Use this whenever the user says 'I like X, what else do I own like that?'",
+            "description": "Finds games in the user's OWNED library matching a reference game's Gameplay Mechanics (Tags) AND Atmosphere/Vibe (Embeddings). Use this for 'I liked X, what else do I own like that?'",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "game_name": {
                         "type": "string",
                         "description": "The name of the game to compare against (e.g., 'Hotline Miami')."
+                    },
+                    "status": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["Unplayed", "Bounced", "Testing", "Completionist", "Invested", "Seasoned", "Started", "Abandoned", "Forgotten", "Hooked", "Mastered", "Played"]
+                        },
+                        "description": "Optional status filter (e.g. ['Unplayed', 'Bounced']) to find similar backlog games."
                     },
                     "action_description": {
                         "type": "string",
@@ -171,13 +184,25 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "search_by_vibe",
-            "description": "Finds games matching a specific mood, emotion, or abstract feeling. CRITICAL: Do not just pass abstract emotions. Translate the user's feeling into concrete Steam tags, genres, and gameplay styles mixed with the mood. Example: If user wants to 'vent anger', use query: 'violent gore blood fast-paced shooter hack and slash dark'. If user wants to 'relax', use 'cozy peaceful base-building relaxing soundtrack casual'.",
+            "description": "Finds owned games matching an abstract mood, theme, or non-tag vibe (e.g. 'melancholic rain-soaked detective story'). Use vault_search for crisp genre/tag combinations; use search_by_vibe for emotional tone and aesthetic feel.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "A dense string of concrete tags, genres, and vibes."
+                        "description": "A rich description of concrete mechanics, themes, and atmospheric vibe."
+                    },
+                    "status": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["Unplayed", "Bounced", "Testing", "Completionist", "Invested", "Seasoned", "Started", "Abandoned", "Forgotten", "Hooked", "Mastered", "Played"]
+                        },
+                        "description": "Optional status filter (e.g. ['Unplayed'])."
+                    },
+                    "hltb_max": {
+                        "type": "integer",
+                        "description": "Optional maximum main-story HLTB hours."
                     },
                     "action_description": {
                         "type": "string",
@@ -577,7 +602,8 @@ def execute_tool(tool_request):
 
         elif tool_name == "find_similar_games":
             target = clean_params.get("game_name", "")
-            output = game_intelligence.generate_contextual_dna(target, result_limit)
+            status_filter = clean_params.get("status")
+            output = game_intelligence.generate_contextual_dna(target, result_limit, status=status_filter)
             tool_output_md = formatters.format_similar_games(output, target_game=target)
 
         elif tool_name == "search_steam_store":
@@ -636,7 +662,12 @@ def execute_tool(tool_request):
                 vibe.ingest_library()
 
             query = clean_params.get("query", "")
-            results = vibe.search(query, top_k=10)
+            results = vibe.search(
+                query,
+                top_k=10,
+                status=clean_params.get("status"),
+                hltb_max=clean_params.get("hltb_max"),
+            )
             tool_output_md = formatters.format_vibe_search(results, query=query)
 
         elif tool_name == "get_game_news":
