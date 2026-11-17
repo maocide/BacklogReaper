@@ -775,3 +775,45 @@ def format_game_evaluation(data: Any, game_name: str = "") -> str:
         lines.append(format_community_sentiment(sentiment, game_name=canon_name))
 
     return "\n".join(lines)
+
+
+def format_game_wiki(data: Any, game_name: str = "") -> str:
+    """Format the compiled Game Wiki & Lore Dossier into Markdown."""
+    err = _format_error(f"Game Wiki ({game_name})", data)
+    if err:
+        return err
+
+    dossier = data.get("dossier")
+    if dossier:
+        sources = data.get("sources", [])
+        if sources:
+            src_lines = ["\n---\n### 📚 Sources Consulted:"]
+            for s in sources:
+                title = s.get("title", "Source")
+                url = s.get("url", "")
+                src_lines.append(f"- [{title}]({url})" if url else f"- {title}")
+            return dossier + "\n" + "\n".join(src_lines)
+        return dossier
+
+    return f"### 📖 Game Wiki: {game_name}\nNo wiki dossier could be compiled."
+
+
+def format_game_wiki(data: Any, game_name: str = "") -> str:
+    """Format the compiled Game Wiki & Lore Dossier into Markdown."""
+    err = _format_error(f"Game Wiki ({game_name})", data)
+    if err:
+        return err
+
+    dossier = data.get("dossier")
+    if dossier:
+        sources = data.get("sources", [])
+        if sources:
+            src_lines = ["\n---\n### 📚 Sources Consulted:"]
+            for s in sources:
+                title = s.get("title", "Source")
+                url = s.get("url", "")
+                src_lines.append(f"- [{title}]({url})" if url else f"- {title}")
+            return dossier + "\n" + "\n".join(src_lines)
+        return dossier
+
+    return f"### 📖 Game Wiki: {game_name}\nNo wiki dossier could be compiled."

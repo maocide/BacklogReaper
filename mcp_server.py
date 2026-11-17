@@ -265,6 +265,19 @@ def evaluate_game(game_name: str, deep: bool = False) -> str:
 
 
 @mcp.tool()
+def compile_game_wiki(game_name: str) -> str:
+    """
+    Compile a dense, factual Game Wiki and Lore Dossier for an unplayed, new, or obscure game.
+    Synthesizes Steam Community Guides (builds, classes, combat mechanics), HowLongToBeat completion estimates,
+    and community lore wikis via multi-stage selection and sub-LLM synthesis.
+    """
+    report = game_intelligence.compile_game_wiki(game_name=game_name)
+    if isinstance(report, dict):
+        report.pop("_tokens", None)
+    return formatters.format_game_wiki(report, game_name=game_name)
+
+
+@mcp.tool()
 def get_community_sentiment(game_name: str) -> str:
     """
     Deep multi-community consensus report:

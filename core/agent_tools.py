@@ -332,6 +332,27 @@ tools_schema = [
     {
         "type": "function",
         "function": {
+            "name": "compile_game_wiki",
+            "description": "Compiles a comprehensive, factual Game Wiki & Lore Dossier for any game (including brand new, obscure, or Early Access releases) by pulling verified Steam Community Guides, community wikis, HowLongToBeat completion times, and Store specifications.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {
+                        "type": "string",
+                        "description": "The exact name of the game to compile a wiki and lore dossier for."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["game_name", "action_description"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_community_sentiment",
             "description": "Scrapes external discussions (Reddit, 4chan, Steam Forums) to find 'real' uncensored opinions, leaks, or controversy about a game.",
             "parameters": {
@@ -589,6 +610,7 @@ def get_friendly_status(func_name):
         "get_game_details": "📋 Fetching deep intel...",
         "get_reviews": "🗣️ Reading player reviews...",
         "evaluate_game": "🔎 Investigating full dossier...",
+        "compile_game_wiki": "📖 Compiling game wiki & lore dossier...",
         "get_community_sentiment": "🔥 Scouring the internet for drama...",
         "web_search": "🌐 Searching the web...",
         "get_webpage": "📃 Reading webpage content...",
@@ -694,6 +716,12 @@ def execute_tool(tool_request):
             data = game_intelligence.evaluate_game(game_name, deep=deep)
             token_usage = _extract_tokens(data)
             tool_output_md = formatters.format_game_evaluation(data, game_name=game_name)
+
+        elif tool_name == "compile_game_wiki":
+            game_name = clean_params.get("game_name", "")
+            data = game_intelligence.compile_game_wiki(game_name=game_name)
+            token_usage = _extract_tokens(data)
+            tool_output_md = formatters.format_game_wiki(data, game_name=game_name)
 
         elif tool_name == "get_community_sentiment":
             game_name = clean_params.get("game_name", "")
