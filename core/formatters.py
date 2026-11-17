@@ -327,7 +327,10 @@ def format_reviews(data: Any, game_name: str = "") -> str:
         return err
 
     summary = data.get("summary", {}) if isinstance(data, dict) else {}
+    telemetry = data.get("telemetry", {}) if isinstance(data, dict) else {}
     reviews = data.get("reviews", []) if isinstance(data, dict) else []
+    digest = data.get("summary_digest") if isinstance(data, dict) else None
+    digest_err = data.get("digest_error") if isinstance(data, dict) else None
 
     title = f"### 🗣️ Steam Reviews: {game_name}" if game_name else "### 🗣️ Steam Reviews"
     lines = [title]
@@ -340,27 +343,79 @@ def format_reviews(data: Any, game_name: str = "") -> str:
             f"**Global Summary:** {summary.get('review_score_desc', 'Unknown')} ({pct}) — "
             f"**{pos}** positive / **{neg}** negative (**{tot}** total)"
         )
-    lines.append(f"**Sampled Quotes:** {data.get('fetch_positive', 0)} positive & {data.get('fetch_negative', 0)} negative")
+
+    if isinstance(telemetry, dict) and telemetry.get("sample_size", 0) > 0:
+        n = telemetry["sample_size"]
+        med_h = telemetry.get("median_playtime_at_review_hours")
+        med_str = f"`{med_h}h`" if med_h is not None else "N/A"
+        under_1h = telemetry.get("low_playtime_under_1h_pct")
+        under_1h_str = f"{under_1h}%" if under_1h is not None else "N/A"
+        lines.append(f"\n**Recent Sample Telemetry** (last {n} global reviews):")
+        lines.append(
+            f"- **Recent Positivity:** {telemetry.get('sample_positive_pct', 'N/A')}% | "
+            f"**Steam Direct Purchases:** {telemetry.get('steam_purchase_pct', 'N/A')}% | "
+            f"**Non-Steam / Free:** {telemetry.get('non_steam_or_free_pct', 'N/A')}%"
+        )
+        lines.append(
+            f"- **Playtime at Review:** Median {med_str} | **<1h Playtime:** {under_1h_str} | "
+            f"**Refunded:** {telemetry.get('refunded_pct', 0.0)}%"
+        )
+        hist_line = (
+            f"- **Reviewer History:** {telemetry.get('low_history_accounts_pct', 'N/A')}% accounts with ≤2 reviews | "
+            f"**Early Access:** {telemetry.get('early_access_pct', 0.0)}%"
+        )
+        peak = telemetry.get("peak_day")
+        if isinstance(peak, dict):
+            hist_line += f" | **Peak Day:** {peak.get('count')} on {peak.get('date')}"
+        lines.append(hist_line)
+
+    if digest:
+        lines.append("\n#### 📝 Review Consensus Digest")
+        lines.append(digest)
+    elif digest_err:
+        lines.append(f"\n> ⚠️ Sub-LLM digest unavailable ({digest_err}); showing raw sampled quotes.")
+
+    lines.append(f"\n**Sampled Quotes:** {data.get('fetch_positive', 0)} positive & {data.get('fetch_negative', 0)} negative")
 
     if not reviews:
         lines.append("\nNo review text returned.")
         return "\n".join(lines)
 
+    quote_limit = 260 if digest else 500
     for idx, r in enumerate(reviews, 1):
         verdict = "👍 Recommended" if r.get("voted_up") else "👎 Not Recommended"
         pt_rev = r.get("playtime_at_review", "N/A")
-        pt_rev_str = f"{pt_rev}h" if isinstance(pt_rev, (int, float)) else str(pt_rev)
+        pt_rev_str = f"{pt_rev}h" if isinstance(pt_rev, (int, float)) else str(pt_rev or "N/A")
         date_str = r.get("timestamp_created", "Unknown date")
+
+        if r.get("received_for_free"):
+            src_label = "Free Copy"
+        elif r.get("steam_purchase") is False:
+            src_label = "Non-Steam Key"
+        elif r.get("steam_purchase") is True:
+            src_label = "Steam Purchase"
+        else:
+            src_label = "Unknown Source"
+
         flags = []
+        acct_n = r.get("author_num_reviews")
+        if isinstance(acct_n, int):
+            flags.append(f"{acct_n} acct rev{'s' if acct_n != 1 else ''}")
+        if r.get("written_during_early_access"):
+            flags.append("Early Access")
+        if r.get("primarily_steam_deck"):
+            flags.append("Steam Deck")
         if r.get("refunded"):
             flags.append("Refunded")
         if r.get("votes_up"):
             flags.append(f"{r['votes_up']} helpful")
         meta_extra = f" | {', '.join(flags)}" if flags else ""
         text = str(r.get("review", "")).strip().replace("\r\n", " ").replace("\n", " ")
-        if len(text) > 500:
-            text = text[:497] + "..."
-        lines.append(f"\n**{idx}. {verdict}** (`{pt_rev_str}` at review | {date_str}{meta_extra})\n> {text}")
+        if len(text) > quote_limit:
+            text = text[: quote_limit - 3] + "..."
+        lines.append(
+            f"\n**{idx}. {verdict}** (`{src_label}` • `{pt_rev_str}` at review | {date_str}{meta_extra})\n> {text}"
+        )
 
     return "\n".join(lines)
 
@@ -458,6 +513,10 @@ def format_achievements(stats: Any, game_name: str = "") -> str:
         return err
 
     title = stats.get("game") or game_name or "Game"
+    if stats.get("view") == "no_achievements":
+        msg = stats.get("message") or "This game does not have Steam Achievements."
+        return f"### 🏆 Achievements: {title}\n{msg}"
+
     if stats.get("view") == "locked_list":
         page = stats.get("page", 0)
         total_locked = stats.get("total_locked", 0)
@@ -654,3 +713,40 @@ def format_webpage(data: Any, url: str = "") -> str:
 
     content = data.get("content", "") if isinstance(data, dict) else str(data)
     return f"### 📃 Webpage Content: {url}\n\n{content}"
+
+
+def format_game_evaluation(data: Any, game_name: str = "") -> str:
+    """Format composite evaluate_game() intelligence into one unified Markdown dossier."""
+    err = _format_error(f"Game Evaluation ({game_name})", data)
+    if err:
+        return err
+
+    canon_name = data.get("game_name") or game_name
+    appid = data.get("appid", "N/A")
+    vault_status = data.get("vault_status")
+    ownership_badge = "`[IN LIBRARY]`" if vault_status else "`[UNOWNED]`"
+
+    lines = [f"## 🔎 Evaluation Dossier: {canon_name} (`AppID: {appid}`) {ownership_badge}"]
+    if vault_status:
+        lines.append(
+            f"- **Backlog Status:** `{vault_status.get('status', 'N/A')}` | "
+            f"**Your Playtime:** `{vault_status.get('hours', 0)}h` | "
+            f"**Last Played:** {vault_status.get('last_played', 'Never')}"
+        )
+
+    details = data.get("details")
+    if details:
+        lines.append("")
+        lines.append(format_game_details([details] if isinstance(details, dict) else details))
+
+    reviews = data.get("reviews")
+    if reviews:
+        lines.append("\n---\n")
+        lines.append(format_reviews(reviews, game_name=canon_name))
+
+    sentiment = data.get("community_sentiment")
+    if sentiment:
+        lines.append("\n---\n")
+        lines.append(format_community_sentiment(sentiment, game_name=canon_name))
+
+    return "\n".join(lines)

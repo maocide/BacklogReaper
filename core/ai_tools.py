@@ -3,7 +3,12 @@ import core.settings as settings
 import datetime
 
 
-def aiCall(data, system, return_tokens=False):
+def get_summarizer_model() -> str:
+    """Return configured dedicated summarizer model, falling back to OPENAI_MODEL."""
+    return getattr(settings, "OPENAI_SUMMARIZER_MODEL", "") or settings.OPENAI_MODEL
+
+
+def aiCall(data, system, return_tokens=False, model=None):
     """
     Calls the OpenAI API to analyze the provided data.
 
@@ -11,15 +16,17 @@ def aiCall(data, system, return_tokens=False):
         data: The data to be analyzed.
         system: The request to be sent to the AI.
         return_tokens (bool): Whether to return a tuple containing the token usage.
+        model (str | None): Optional model override (defaults to settings.OPENAI_MODEL).
 
     Returns:
         The content of the AI's response, or a tuple containing (content, in_tokens, out_tokens) if return_tokens is True.
     """
 
     client = OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL, timeout=240.0)
+    target_model = model or settings.OPENAI_MODEL
 
     response = client.chat.completions.create(
-        model=settings.OPENAI_MODEL,
+        model=target_model,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": data},

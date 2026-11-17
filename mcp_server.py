@@ -218,12 +218,25 @@ def get_game_details(game_names: List[str]) -> str:
 
 
 @mcp.tool()
-def get_reviews(game_name: str, limit: int = 10) -> str:
+def get_reviews(game_name: str, limit: int = 10, summarize: bool = False) -> str:
     """
-    Fetch actual Steam player reviews, sentiment score percentage, and review highlights for a game.
+    Fetch actual Steam player reviews, recent telemetry metrics, sentiment summary, and optional sub-LLM consensus digest.
     """
-    reviews = game_intelligence.get_reviews_byname(game_name, limit)
+    reviews = game_intelligence.get_reviews_byname(game_name, count=limit, summarize=summarize)
+    if isinstance(reviews, dict):
+        reviews.pop("_tokens", None)
     return formatters.format_reviews(reviews, game_name=game_name)
+
+
+@mcp.tool()
+def evaluate_game(game_name: str, deep: bool = False) -> str:
+    """
+    One-shot game evaluation combining library ownership, Store/CheapShark/HLTB details, review telemetry, and optional deep digest + community sentiment.
+    """
+    report = game_intelligence.evaluate_game(game_name=game_name, deep=deep)
+    if isinstance(report, dict):
+        report.pop("_tokens", None)
+    return formatters.format_game_evaluation(report, game_name=game_name)
 
 
 @mcp.tool()

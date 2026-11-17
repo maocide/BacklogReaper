@@ -142,3 +142,43 @@ def score_title_match(query: str, candidate: str) -> float:
     q_nums = extract_sequel_numbers(query)
     c_nums = extract_sequel_numbers(candidate)
     return apply_sequel_digit_guard(score, q_nums, c_nums)
+
+
+_DISAMBIGUATION_STOPWORDS: Set[str] = {
+    "a", "an", "and", "at", "by", "for", "from", "in", "of", "on", "or", "the", "to", "with", "edition", "game"
+}
+
+
+def text_mentions_game(game_name: str, *text_parts: str) -> bool:
+    """
+    Check whether a forum/Reddit thread genuinely discusses `game_name`, rejecting
+    loose partial-word hits (e.g. 'Conquest of Azeroth' for 'Conquest Dark').
+    """
+    q_norm = normalize_title(game_name, convert_roman=True)
+    if not q_norm:
+        return False
+
+    combined = normalize_title(" ".join(p for p in text_parts if p), convert_roman=True)
+    if not combined:
+        return False
+
+    # Exact normalized title phrase present on word boundaries
+    if re.search(rf"(?:^|\b){re.escape(q_norm)}(?:\b|$)", combined):
+        return True
+
+    # URL-slug fallback (e.g. reddit URL containing 'conquest_dark' or 'conquestdark')
+    collapsed_query = collapse_tag_key(q_norm)
+    collapsed_text = collapse_tag_key(" ".join(p for p in text_parts if p))
+    if len(collapsed_query) >= 6 and collapsed_query in collapsed_text:
+        return True
+
+    # For longer multi-word titles (3+ significant tokens, e.g. omitting stopwords/colons),
+    # allow unordered token coverage; short 1-2 word titles require phrase or slug match
+    # to avoid false positives like "Conquest too dark?" matching "Conquest Dark".
+    q_tokens = [tok for tok in q_norm.split() if len(tok) >= 2 and tok not in _DISAMBIGUATION_STOPWORDS]
+    if len(q_tokens) >= 3:
+        combined_tokens = set(combined.split())
+        if all(tok in combined_tokens for tok in q_tokens):
+            return True
+
+    return False

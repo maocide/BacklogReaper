@@ -2,6 +2,7 @@ import concurrent
 import concurrent.futures
 import json
 import re
+import urllib.parse
 from datetime import datetime
 
 import requests
@@ -9,10 +10,11 @@ import trafilatura
 from basc_py4chan import Board
 from bs4 import BeautifulSoup
 
-from core.ai_tools import aiCall
+from core.ai_tools import aiCall, get_summarizer_model
 from core.safe_tool import safe_tool
 from core.web_tools import web_search, search_reddit_discussions, get_steam_bypass, get_steam_bypass_with_referer
 import core.game_intelligence as game_intelligence
+import core.text_utils as text_utils
 from thefuzz import fuzz
 from curl_cffi import requests
 
@@ -75,7 +77,12 @@ Keep in mind the nature of the place 'steamcommunity.com' when making your uncen
 The JSON formatted TOPICS will follow."""
     json_forum_topics = json.dumps(results)
 
-    analysis, in_tokens, out_tokens = aiCall(json_forum_topics, ai_system_prompt, return_tokens=True)
+    analysis, in_tokens, out_tokens = aiCall(
+        json_forum_topics,
+        ai_system_prompt,
+        return_tokens=True,
+        model=get_summarizer_model(),
+    )
     # print(f"Steam forum analysis: \n{analysis}\n")
 
     # Standardized return
@@ -161,7 +168,12 @@ def get_webpage(url):
 2. **Format:** Do NOT use bolding or headers. Use ONLY newlines and dashes (-) to separate distinct points. Keep it dense but structured.
 3. **Safety:** Do not sanitize the meaning, but condense the ranting."""
 
-                summary, in_tokens, out_tokens = aiCall(text, ai_system_prompt, return_tokens=True)
+                summary, in_tokens, out_tokens = aiCall(
+                    text,
+                    ai_system_prompt,
+                    return_tokens=True,
+                    model=get_summarizer_model(),
+                )
 
                 return {
                     "content": f"[SUMMARY OF WEBPAGE]:\n{summary}",
@@ -184,11 +196,11 @@ def get_webpage(url):
 def scrape_reddit_search(game_name):
     """
     Scrapes Reddit discussions and sentiment for a game.
-    First attempts direct public JSON endpoint (via curl_cffi).
-    If blocked by Cloudflare/Anti-Bot filters (HTTP 403/429/humanity gate),
-    automatically falls back to search syndication to extract authentic gamer discourse.
+    First attempts direct public JSON endpoint (via curl_cffi) with exact title quoting
+    and relevance validation, falling back to clean search syndication on blocks/misses.
     """
-    url = f"https://www.reddit.com/search.json?q={game_name}&sort=relevance&t=year&limit=5"
+    encoded_query = urllib.parse.quote_plus(f'"{game_name}"')
+    url = f"https://www.reddit.com/search.json?q={encoded_query}&sort=relevance&t=year&limit=8"
 
     posts = None
     try:
@@ -205,9 +217,15 @@ def scrape_reddit_search(game_name):
     if posts:
         for post in posts:
             p = post.get('data', {})
-            body = p.get('selftext', '')
+            title = p.get('title', 'No Title')
+            raw_body = p.get('selftext', '')
+            post_url = p.get('url', '')
+            if not text_utils.text_mentions_game(game_name, title, raw_body, post_url):
+                continue
+
+            body = raw_body
             if not body:
-                url_preview = p.get('url_overridden_by_dest', p.get('url', ''))
+                url_preview = p.get('url_overridden_by_dest', post_url)
                 if url_preview:
                     body = f"[Link/Image Post]: {url_preview}"
 
@@ -216,22 +234,24 @@ def scrape_reddit_search(game_name):
                 body = body[:500] + "... [TRUNCATED]"
 
             results.append({
-                'title': p.get('title', 'No Title'),
+                'title': title,
                 'score': p.get('score', 0),
                 'comments': p.get('num_comments', 0),
                 'subreddit': p.get('subreddit_name_prefixed', 'r/gaming'),
                 'body': body,
-                'url': p.get('url', '')
+                'url': post_url
             })
+            if len(results) >= 5:
+                break
 
-    # If direct Reddit was blocked (403/Turnstile) or returned empty, trigger discussion extractor
+    # If direct Reddit was blocked (403/Turnstile) or returned off-topic posts, engage syndication
     if not results:
-        print("Reddit direct API blocked by bot filters. Engaging discussion syndication bypass...")
+        print("Reddit direct API empty/off-topic/blocked. Engaging discussion syndication fallback...")
         results = search_reddit_discussions(game_name, limit=5)
 
     if not results:
         print("Reddit discourse could not be retrieved.")
-        return {"error": "No Reddit threads or discussions found."}
+        return {"error": "No relevant Reddit threads or discussions found."}
 
     return {"results": results}
 
@@ -307,6 +327,11 @@ def find_4chan_thread(board_name: str, topic_search: str, threshold: float = 0.7
 
         combined_text = f"{subject} {comment}"
 
+        # Require genuine title/token mention before counting fuzzy score (stops partial matches like
+        # 'Conquest of Azeroth' masquerading as 'Conquest Dark').
+        if not text_utils.text_mentions_game(topic_search, subject, comment):
+            continue
+
         # partial_ratio returns a score from 0 to 100
         score = fuzz.partial_ratio(search_lower, combined_text) / 100.0
 
@@ -365,7 +390,12 @@ def scrape_4chan_thread_with_ai(search: str) -> dict:
         ai_request += ai_question
         data = thread_contents
 
-        response, in_tokens, out_tokens = aiCall(data=data, system=ai_request, return_tokens=True)
+        response, in_tokens, out_tokens = aiCall(
+            data=data,
+            system=ai_request,
+            return_tokens=True,
+            model=get_summarizer_model(),
+        )
 
     else:
         response = "No results found."

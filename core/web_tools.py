@@ -13,6 +13,7 @@ from core.safe_tool import safe_tool
 from types import SimpleNamespace
 import kagglehub
 import core.paths as paths
+import core.text_utils as text_utils
 
 def get_steam_bypass():
     """
@@ -280,6 +281,8 @@ def search_reddit_discussions(game_name: str, limit: int = 5) -> list:
                 continue
             # Filter generic subreddit index / rule / wiki pages
             if any(junk in href.lower() for junk in ["/about/", "/rules", "/wiki/", "/top/"]):
+                continue
+            if not text_utils.text_mentions_game(game_name, title, body, href):
                 continue
 
             seen_urls.add(href)
