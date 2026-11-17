@@ -239,25 +239,43 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "search_steam_store",
-            "description": "Search the external Steam store for games not in the user's library. Use this to find prices or review scores. To act as a 'Release Radar', pass a genre to search_term and set sort_by to 'recent'.",
+            "description": "Search the official Steam Store catalog for games matching keywords, genre/mechanic tags, or sales filters. Supports ownership filtering and sorting by recent releases, top reviews, lowest price, or relevance.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "search_term": {
                         "type": "string",
-                        "description": "The keyword, game title, or genre to search for."
+                        "description": "Optional keyword or game title. Can be omitted if searching by tags or specials."
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional list of genre or gameplay tags (e.g. ['bullet heaven', 'action roguelike']). Projected semantically onto official Steam tag IDs."
+                    },
+                    "specials_only": {
+                        "type": "boolean",
+                        "description": "If true, returns only games currently discounted or on sale."
                     },
                     "sort_by": {
                         "type": "string",
-                        "enum": ["relevance", "recent"],
-                        "description": "Default is 'relevance'. Use 'recent' to find brand new releases for the given search term."
+                        "enum": ["relevance", "recent", "reviews", "lowest_price"],
+                        "description": "Sort order: 'relevance' (default), 'recent' (newest releases), 'reviews' (highest rated), or 'lowest_price'."
+                    },
+                    "ownership": {
+                        "type": "string",
+                        "enum": ["all", "unowned", "owned"],
+                        "description": "Filter by user library ownership: 'all' (default), 'unowned' (only games user doesn't own), or 'owned'."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default 10)."
                     },
                     "action_description": {
                         "type": "string",
                         "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
                     }
                 },
-                "required": ["search_term", "action_description"],
+                "required": ["action_description"],
             }
         }
     },
@@ -638,13 +656,26 @@ def execute_tool(tool_request):
 
         elif tool_name == "search_steam_store":
             term = clean_params.get("search_term", "")
+            tags = clean_params.get("tags")
+            specials_only = bool(clean_params.get("specials_only", False))
             sort_by = clean_params.get("sort_by", "relevance")
+            ownership = clean_params.get("ownership", "all")
             data = game_intelligence.search_steam_store(
                 term=term,
+                tags=tags,
+                specials_only=specials_only,
                 sort_by=sort_by,
+                ownership=ownership,
                 limit=result_limit,
             )
-            tool_output_md = formatters.format_store_search(data, search_term=term, sort_by=sort_by)
+            tool_output_md = formatters.format_store_search(
+                data,
+                search_term=term,
+                sort_by=sort_by,
+                tags=tags,
+                specials_only=specials_only,
+                ownership=ownership,
+            )
 
         elif tool_name == "get_game_details":
             data = game_intelligence.get_batch_game_details(clean_params.get("game_names"))

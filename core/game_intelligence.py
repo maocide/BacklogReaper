@@ -7,8 +7,9 @@ import urllib
 import urllib.parse
 from collections import Counter
 from pprint import pprint
+import time
 from time import sleep
-from typing import Any
+from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import unquote
 import concurrent
 import requests
@@ -104,30 +105,94 @@ def get_steam_avatar(username_or_id):
 
     return None
 
-@safe_tool
-def search_steam_store(term, sort_by="relevance", limit=10):
-    """
-    Scrapes the Steam Search page for games matching the term.
-    Use sort_by='recent' to find brand new releases for a specific genre or term.
-    Returns: List of dicts {name, price, reviews, link}
-    """
-    # URL Encode the search term
-    encoded_term = urllib.parse.quote(term)
-    url = f"https://store.steampowered.com/search/?term={encoded_term}&category1=998"  # 998 = Games only (no DLC)
+_wishlist_ids_cache = {"fetched_at": 0.0, "appids": set()}
 
-    # Inject the sorting parameter if requested
-    if sort_by == "recent":
-        url += "&sort_by=Released_DESC"
+
+def get_wishlist_appids(force_refresh: bool = False) -> Set[int]:
+    """Retrieve and cache the user's Steam Wishlist AppIDs for fast O(1) badge lookups."""
+    global _wishlist_ids_cache, steam_id
+    now = time.time()
+    if not force_refresh and _wishlist_ids_cache["appids"] and (now - _wishlist_ids_cache["fetched_at"]) < 300:
+        return _wishlist_ids_cache["appids"]
+
+    try:
+        if not steam_id:
+            steam_id = resolve_steam_id(settings.STEAM_USER)
+        if steam_id:
+            steam = Steam(settings.STEAM_API_KEY)
+            raw = steam.users.get_profile_wishlist(steam_id)
+            if isinstance(raw, list):
+                ids = {int(x["appid"]) for x in raw if isinstance(x, dict) and "appid" in x and str(x["appid"]).isdigit()}
+                _wishlist_ids_cache["fetched_at"] = now
+                _wishlist_ids_cache["appids"] = ids
+                return ids
+    except Exception as e:
+        print(f"Warning: Failed to fetch wishlist appids: {e}")
+    return _wishlist_ids_cache["appids"]
+
+
+def is_game_wishlisted(appid: Any) -> bool:
+    """Return True if the game is present on the user's Steam Wishlist."""
+    if not appid or not str(appid).isdigit():
+        return False
+    return int(appid) in get_wishlist_appids()
+
+
+@safe_tool
+def search_steam_store(
+    term: str = "",
+    tags: Optional[List[str]] = None,
+    specials_only: bool = False,
+    sort_by: str = "relevance",
+    ownership: str = "all",
+    limit: int = 10,
+):
+    """
+    Scrapes the Steam Search page for games matching keywords, genre/mechanic tags, and sales filters.
+    - term: keyword/title query (optional if tags or specials_only are provided)
+    - tags: genre/mechanic tags projected onto official Steam tag IDs via VibeEngine
+    - specials_only: if True, returns only games currently discounted or on sale (&specials=1)
+    - sort_by: 'relevance' (default), 'recent' (Released_DESC), 'reviews' (Reviews_DESC), 'lowest_price' (Price_ASC)
+    - ownership: 'all' (default), 'unowned' (only unowned games), or 'owned'
+    - limit: max results to return
+    """
+    query_parts = ["category1=998"]  # Games only (no DLC/soundtracks)
+
+    clean_term = (term or "").strip()
+    if clean_term:
+        encoded_term = urllib.parse.quote(clean_term)
+        query_parts.append(f"term={encoded_term}")
+
+    # Resolve semantic tags to Steam tag IDs via VibeEngine
+    if tags:
+        vibe = vibe_engine.VibeEngine.get_instance()
+        resolved_tags = vibe.resolve_steam_tag_ids(tags)
+        tag_ids = [str(t["tagid"]) for t in resolved_tags if "tagid" in t]
+        if tag_ids:
+            query_parts.append(f"tags={','.join(tag_ids)}")
+
+    if specials_only:
+        query_parts.append("specials=1")
+
+    sort_lower = (sort_by or "relevance").lower()
+    if sort_lower in ("recent", "release_date", "new"):
+        query_parts.append("sort_by=Released_DESC")
+    elif sort_lower in ("reviews", "score", "rating"):
+        query_parts.append("sort_by=Reviews_DESC")
+    elif sort_lower in ("lowest_price", "price_asc", "price"):
+        query_parts.append("sort_by=Price_ASC")
+
+    url = f"https://store.steampowered.com/search/?{'&'.join(query_parts)}"
 
     headers, cookies = get_steam_bypass()
-
     response = requests.get(url, headers=headers, cookies=cookies, timeout=10)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     results = []
     rows = soup.select('#search_resultsRows > a')
+    wishlist_ids = get_wishlist_appids()
 
-    for row in rows[:limit]:
+    for row in rows:
         title_el = row.select_one('.title')
         if not title_el:
             continue
@@ -137,6 +202,20 @@ def search_steam_store(term, sort_by="relevance", limit=10):
         href = row.get('href', '')
         appid_match = re.search(r'/app/(\d+)', href)
         appid = appid_match.group(1) if appid_match else "N/A"
+
+        # Check ownership and wishlist status
+        is_owned = False
+        is_wishlisted = False
+        if appid and appid.isdigit():
+            aid = int(appid)
+            is_owned = vault.is_game_owned(aid)
+            is_wishlisted = aid in wishlist_ids
+
+        # Filter by library ownership if requested
+        if ownership == "unowned" and is_owned:
+            continue
+        if ownership == "owned" and not is_owned:
+            continue
 
         # Extract Price & Discount (modern Steam markup uses .discount_block/.discount_final_price)
         price = "N/A"
@@ -157,7 +236,6 @@ def search_steam_store(term, sort_by="relevance", limit=10):
                 elif raw_txt:
                     price = raw_txt
             else:
-                # Legacy fallback
                 price_div = row.select_one('.search_price')
                 if price_div:
                     raw_price = price_div.text.strip().split('$')
@@ -166,17 +244,11 @@ def search_steam_store(term, sort_by="relevance", limit=10):
         if "free" in price.lower():
             price = "Free"
 
-        # Extract Reviews (e.g., "Very Positive")
+        # Extract Reviews
         review_span = row.select_one('.search_review_summary')
         reviews = "Unknown"
         if review_span:
-            # The data-tooltip-html attribute often has the detailed score
             reviews = review_span.get('data-tooltip-html', '').split('<br>')[0]
-
-        # Check ownership (Safe cast)
-        is_owned = False
-        if appid and appid.isdigit():
-            is_owned = vault.is_game_owned(int(appid))
 
         # Extract Release Date
         released_div = row.select_one('.search_released')
@@ -190,8 +262,12 @@ def search_steam_store(term, sort_by="relevance", limit=10):
             "discount": discount,
             "reviews": reviews,
             "link": href,
-            "owned": is_owned
+            "owned": is_owned,
+            "on_wishlist": is_wishlisted,
         })
+
+        if len(results) >= limit:
+            break
 
     return results
 

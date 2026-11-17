@@ -239,22 +239,47 @@ def format_vibe_search(results: Any, query: str = "") -> str:
     )
 
 
-def format_store_search(results: Any, search_term: str = "", sort_by: str = "relevance") -> str:
+def format_store_search(
+    results: Any,
+    search_term: str = "",
+    sort_by: str = "relevance",
+    tags: Optional[List[str]] = None,
+    specials_only: bool = False,
+    ownership: str = "all",
+) -> str:
     err = _format_error("Steam Store Search", results)
     if err:
         return err
 
-    header = f"### 🛍️ Steam Store Search: '{search_term}' (sort: `{sort_by}`)"
+    parts = []
+    if search_term:
+        parts.append(f"term: '{search_term}'")
+    if tags:
+        parts.append(f"tags: {tags}")
+    if specials_only:
+        parts.append("deals only")
+    if ownership and ownership != "all":
+        parts.append(f"ownership: `{ownership}`")
+    parts.append(f"sort: `{sort_by}`")
+
+    header = f"### 🛍️ Steam Store Search ({', '.join(parts)})"
     if not results:
         return f"{header}\n\nNo store results found."
 
     rows = []
     for r in results:
-        badge = "`[IN LIBRARY]`" if r.get("owned") else "Unowned"
+        if r.get("owned"):
+            badge = "`[IN LIBRARY]`"
+        elif r.get("on_wishlist"):
+            badge = "`[ON WISHLIST]`"
+        else:
+            badge = "Unowned"
+
         disc = r.get("discount")
         price_str = r.get("price", "N/A")
         if disc and disc not in ("None", "0%", "0"):
             price_str = f"{price_str} ({disc})"
+
         rows.append([
             r.get("appid", "N/A"),
             r.get("name", "Unknown"),
@@ -265,7 +290,7 @@ def format_store_search(results: Any, search_term: str = "", sort_by: str = "rel
         ])
 
     return f"{header}\n**Results:** {len(results)}\n\n" + _table(
-        ["AppID", "Title", "Price", "Reviews", "Released", "Ownership"],
+        ["AppID", "Title", "Price", "Reviews", "Released", "Status"],
         rows,
     )
 

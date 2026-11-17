@@ -198,13 +198,38 @@ def search_by_vibe(
 
 
 @mcp.tool()
-def search_steam_store(search_term: str, sort_by: str = "relevance", limit: int = 10) -> str:
+def search_steam_store(
+    search_term: str = "",
+    tags: Optional[List[str]] = None,
+    specials_only: bool = False,
+    sort_by: str = "relevance",
+    ownership: str = "all",
+    limit: int = 10,
+) -> str:
     """
-    Search the general Steam store catalog for game titles, AppIDs, prices, and ownership flags.
-    Use sort_by='recent' for newly released titles matching the search term.
+    Search official Steam Store catalog with optional semantic tag projection, discounts, ownership filtering, and sorting.
+    - search_term: keywords/title (optional if tags or specials_only are provided)
+    - tags: list of gameplay/genre tags (e.g. ['bullet heaven', 'action roguelike'])
+    - specials_only: True to only show games currently discounted
+    - sort_by: 'relevance' (default), 'recent', 'reviews', or 'lowest_price'
+    - ownership: 'all' (default), 'unowned', or 'owned'
     """
-    results = game_intelligence.search_steam_store(term=search_term, sort_by=sort_by, limit=limit)
-    return formatters.format_store_search(results, search_term=search_term, sort_by=sort_by)
+    results = game_intelligence.search_steam_store(
+        term=search_term,
+        tags=tags,
+        specials_only=specials_only,
+        sort_by=sort_by,
+        ownership=ownership,
+        limit=limit,
+    )
+    return formatters.format_store_search(
+        results,
+        search_term=search_term,
+        sort_by=sort_by,
+        tags=tags,
+        specials_only=specials_only,
+        ownership=ownership,
+    )
 
 
 @mcp.tool()
