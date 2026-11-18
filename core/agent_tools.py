@@ -341,6 +341,11 @@ tools_schema = [
                         "type": "string",
                         "description": "The exact name of the game to compile a wiki and lore dossier for."
                     },
+                    "mode": {
+                        "type": "string",
+                        "enum": ["compact", "full"],
+                        "description": "Detail mode. 'compact' (default) returns a punchy brief under 600 words with meta, loop, top builds, and pro tips. 'full' compiles an exhaustive 5-section encyclopedia."
+                    },
                     "action_description": {
                         "type": "string",
                         "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
@@ -719,7 +724,8 @@ def execute_tool(tool_request):
 
         elif tool_name == "compile_game_wiki":
             game_name = clean_params.get("game_name", "")
-            data = game_intelligence.compile_game_wiki(game_name=game_name)
+            mode = clean_params.get("mode", "compact")
+            data = game_intelligence.compile_game_wiki(game_name=game_name, mode=mode)
             token_usage = _extract_tokens(data)
             tool_output_md = formatters.format_game_wiki(data, game_name=game_name)
 

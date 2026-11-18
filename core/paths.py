@@ -58,6 +58,7 @@ def ensure_dirs():
     # Create required subdirectories
     directories = [
         base / "data" / "chats",
+        base / "data" / "game_wikis",
         base / "exports",
         base / "characters"
     ]
