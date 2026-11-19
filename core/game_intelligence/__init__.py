@@ -1,13 +1,14 @@
 """
-Unified Game Intelligence Facade.
-Provides backwards-compatible interface consolidating:
-- core.steam_store (Catalog, Search, Wishlist, Pricing, AppDetails, Trends)
-- core.review_forensics (Reviews, Telemetry, Bot Detection, Review Summaries)
-- core.steam_social (Friends, Avatar, Library Comparisons)
-- core.game_wiki (Guides, Web Wikis, Dossier Compilation, Disk Caching)
+Unified Game Intelligence Subpackage.
+Consolidates domain-specific intelligence modules under clean, modular namespaces:
+- core.game_intelligence.store (Catalog, Search, Wishlist, Pricing, AppDetails, Trends)
+- core.game_intelligence.achievements (Schema Cache, Player Unlocks, Session Milestones, Analytics)
+- core.game_intelligence.social (Friends, Avatar, Library Comparisons, User Activity)
+- core.game_intelligence.reviews (Review Forensics, Telemetry, Bot Detection, Review Summaries)
+- core.game_intelligence.wiki (Guides, Web Wikis, Dossier Compilation, Disk Caching)
 """
 
-from core.steam_store import (
+from core.game_intelligence.store import (
     resolve_steam_id,
     get_steam_avatar,
     get_wishlist_appids,
@@ -24,12 +25,26 @@ from core.steam_store import (
     get_global_game_info,
     get_batch_game_details,
     generate_contextual_dna,
-    get_achievement_stats,
     get_user_wishlist,
     get_steam_store_trends,
 )
 
-from core.review_forensics import (
+from core.game_intelligence.achievements import (
+    get_achievement_stats,
+    get_game_achievement_schema,
+    get_player_achievements_raw,
+    get_session_achievements,
+)
+
+from core.game_intelligence.social import (
+    process_friends_list,
+    get_friends_who_own,
+    compare_library_with_friend,
+    get_active_friends,
+    get_user_activity,
+)
+
+from core.game_intelligence.reviews import (
     get_current_os_for_steam,
     _normalize_review_record,
     _compute_review_telemetry,
@@ -40,15 +55,7 @@ from core.review_forensics import (
     evaluate_game,
 )
 
-from core.steam_social import (
-    process_friends_list,
-    get_friends_who_own,
-    compare_library_with_friend,
-    get_active_friends,
-    get_user_activity,
-)
-
-from core.game_wiki import (
+from core.game_intelligence.wiki import (
     get_steam_guides_index,
     get_steam_guide_details,
     get_web_wiki_index,
@@ -79,9 +86,19 @@ __all__ = [
     "get_global_game_info",
     "get_batch_game_details",
     "generate_contextual_dna",
-    "get_achievement_stats",
     "get_user_wishlist",
     "get_steam_store_trends",
+    # Achievements
+    "get_achievement_stats",
+    "get_game_achievement_schema",
+    "get_player_achievements_raw",
+    "get_session_achievements",
+    # Steam Social & User Activity
+    "process_friends_list",
+    "get_friends_who_own",
+    "compare_library_with_friend",
+    "get_active_friends",
+    "get_user_activity",
     # Review Forensics
     "get_current_os_for_steam",
     "_normalize_review_record",
@@ -91,12 +108,6 @@ __all__ = [
     "_summarize_reviews_with_llm",
     "get_reviews_byname",
     "evaluate_game",
-    # Steam Social
-    "process_friends_list",
-    "get_friends_who_own",
-    "compare_library_with_friend",
-    "get_active_friends",
-    "get_user_activity",
     # Game Wiki & Lore
     "get_steam_guides_index",
     "get_steam_guide_details",

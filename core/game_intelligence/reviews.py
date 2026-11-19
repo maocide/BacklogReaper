@@ -19,7 +19,7 @@ from thefuzz import fuzz
 from core.ai_tools import aiCall, clean_json_for_ai, get_summarizer_model
 from core.safe_tool import safe_tool
 import core.settings as settings
-from core.steam_store import (
+from core.game_intelligence.store import (
     get_global_game_info,
     get_reviews,
     get_reviews_summary,

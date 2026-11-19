@@ -14,7 +14,8 @@ from steam_web_api import Steam
 from core.ai_tools import clean_json_for_ai
 from core.safe_tool import safe_tool
 import core.settings as settings
-from core.steam_store import (
+import core.game_intelligence.achievements as achievements
+from core.game_intelligence.store import (
     get_steam_app_info,
     get_steam_avatar,
     resolve_steam_id,
@@ -553,7 +554,6 @@ def get_user_activity(
 
     # 4. Inspect Session Achievements
     sessions_payload = []
-    schema_cache = {}
 
     for s_idx, cluster in enumerate(session_clusters):
         session_start = cluster[-1]["rtime_last_played"]
@@ -566,62 +566,20 @@ def get_user_activity(
             lp = gm["rtime_last_played"]
             total_h = round((gm.get("playtime_forever") or 0) / 60.0, 1)
 
+            ach_info = achievements.get_session_achievements(gid, lp, steam_id=steam_id)
+
             game_ach_summary = {
                 "appid": gid,
                 "name": gname,
                 "last_played_ts": lp,
                 "last_played_str": vault.format_time_ago(lp),
                 "total_hours": total_h,
-                "has_achievements": False,
-                "total_unlocked": 0,
-                "total_available": 0,
-                "completion_pct": 0.0,
-                "session_unlocks": [],
+                "has_achievements": ach_info["has_achievements"],
+                "total_unlocked": ach_info["total_unlocked"],
+                "total_available": ach_info["total_available"],
+                "completion_pct": ach_info["completion_pct"],
+                "session_unlocks": ach_info["session_unlocks"][:6],
             }
-
-            try:
-                ach_url = f"https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid={gid}&key={settings.STEAM_API_KEY}&steamid={steam_id}"
-                r_ach = requests.get(ach_url, timeout=5)
-                if r_ach.status_code == 200:
-                    a_data = r_ach.json().get("playerstats", {})
-                    achs = a_data.get("achievements", [])
-                    if achs:
-                        game_ach_summary["has_achievements"] = True
-                        game_ach_summary["total_available"] = len(achs)
-                        unlocked = [a for a in achs if a.get("achieved") == 1 and a.get("unlocktime", 0) > 0]
-                        game_ach_summary["total_unlocked"] = len(unlocked)
-                        if len(achs) > 0:
-                            game_ach_summary["completion_pct"] = round((len(unlocked) / len(achs)) * 100.0, 1)
-
-                        # Unlocks within session window: from (lp - 14400s) to (lp + 600s)
-                        session_raw = [a for a in unlocked if (lp - 14400) <= a["unlocktime"] <= (lp + 600)]
-
-                        if session_raw:
-                            if gid not in schema_cache:
-                                schema_cache[gid] = {}
-                                s_url = f"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={settings.STEAM_API_KEY}&appid={gid}"
-                                r_s = requests.get(s_url, timeout=5)
-                                if r_s.status_code == 200:
-                                    s_json = r_s.json().get("game", {}).get("availableGameStats", {})
-                                    for item in s_json.get("achievements", []):
-                                        schema_cache[gid][item["name"]] = {
-                                            "name": item.get("displayName", item["name"]),
-                                            "desc": item.get("description", "")
-                                        }
-
-                            session_raw.sort(key=lambda x: x["unlocktime"], reverse=True)
-                            for s_item in session_raw[:6]:
-                                aname = s_item.get("apiname", "")
-                                meta = schema_cache[gid].get(aname, {})
-                                u_ts = s_item.get("unlocktime", 0)
-                                game_ach_summary["session_unlocks"].append({
-                                    "apiname": aname,
-                                    "name": meta.get("name", aname),
-                                    "desc": meta.get("desc", ""),
-                                    "unlock_time": datetime.fromtimestamp(u_ts).strftime("%H:%M") if u_ts else ""
-                                })
-            except Exception:
-                pass
 
             cluster_games.append(game_ach_summary)
 

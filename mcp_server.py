@@ -265,17 +265,19 @@ def evaluate_game(game_name: str, deep: bool = False) -> str:
 
 
 @mcp.tool()
-def compile_game_wiki(game_name: str, mode: str = "full") -> str:
+def compile_game_wiki(game_name: str, mode: str = "full", question: Optional[str] = None) -> str:
     """
-    Compile a dense, factual Game Wiki and Lore Dossier for an unplayed, new, or obscure game.
+    Compile a dense, factual Game Wiki and Lore Dossier or answer a targeted tactical guide question
+    (builds, boss tactics, mechanics) for an unplayed, new, or obscure game.
     Synthesizes Steam Community Guides (builds, classes, combat mechanics), HowLongToBeat completion estimates,
-    and community lore wikis via multi-stage selection and sub-LLM synthesis.
+    and community wikis via multi-stage selection and sub-LLM synthesis.
 
     Args:
         game_name: Title of the game to compile.
         mode: 'full' (dense 5-section encyclopedia) or 'compact' (concise high-signal brief under 600 words).
+        question: Optional specific tactical question or build request (e.g. 'Best Sorceress build', 'How to beat Act 2 boss').
     """
-    report = game_intelligence.compile_game_wiki(game_name=game_name, mode=mode)
+    report = game_intelligence.compile_game_wiki(game_name=game_name, mode=mode, question=question)
     if isinstance(report, dict):
         report.pop("_tokens", None)
     return formatters.format_game_wiki(report, game_name=game_name)

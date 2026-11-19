@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
+import urllib.parse
 from urllib.parse import unquote
 
 from ddgs import DDGS
@@ -21,7 +22,7 @@ from core.ai_tools import aiCall, clean_json_for_ai, get_summarizer_model
 import core.paths as paths
 import core.text_utils as text_utils
 from core.safe_tool import safe_tool
-from core.steam_store import get_steam_app_details, get_steam_app_info
+from core.game_intelligence.store import get_steam_app_details, get_steam_app_info
 from core.web_tools import get_hltb_data, get_steam_bypass, get_steam_bypass_with_referer
 
 
@@ -103,41 +104,60 @@ def save_wiki_to_cache(appid: int, game_name: str, dossier: str, hltb: dict, sou
     return path
 
 
-def get_steam_guides_index(appid: int, limit: int = 8) -> List[dict]:
-    """Scrape top-rated Steam community guides index (file IDs, titles, preview URLs)."""
+def get_steam_guides_index(appid: int, limit: int = 8, query: Optional[str] = None) -> List[dict]:
+    """
+    Scrape Steam community guides index (file IDs, titles, preview URLs).
+    Anchors to all-time top-rated community compendiums, and if query is provided,
+    merges any targeted search matches without risking a 0-guide blackout.
+    """
     headers, cookies = get_steam_bypass_with_referer(appid)
-    url = f"https://steamcommunity.com/app/{appid}/guides/?browsefilter=toprated&p=1"
-    try:
-        r = requests.get(url, headers=headers, cookies=cookies, timeout=10)
-        if r.status_code != 200:
-            return []
-        soup = BeautifulSoup(r.text, 'html.parser')
-        guides = []
-        seen = set()
-        for a in soup.find_all('a', href=True):
-            href = a['href']
-            if 'sharedfiles/filedetails/?id=' in href:
-                m = re.search(r'id=(\d+)', href)
-                if not m:
-                    continue
-                gid = m.group(1)
-                if gid in seen:
-                    continue
-                seen.add(gid)
-                title_text = a.get_text(separator=' ', strip=True)
-                if not title_text:
-                    continue
-                guides.append({
-                    "id": gid,
-                    "title": title_text[:140],
-                    "url": f"https://steamcommunity.com/sharedfiles/filedetails/?id={gid}"
-                })
-                if len(guides) >= limit:
-                    break
-        return guides
-    except Exception as e:
-        print(f"Warning: Failed to fetch Steam guides index for {appid}: {e}")
-        return []
+    guides: List[dict] = []
+    seen = set()
+
+    def _scrape_url(url: str, max_take: int):
+        try:
+            r = requests.get(url, headers=headers, cookies=cookies, timeout=10)
+            if r.status_code != 200:
+                return
+            soup = BeautifulSoup(r.text, 'html.parser')
+            count = 0
+            for a in soup.find_all('a', href=True):
+                href = a['href']
+                if 'sharedfiles/filedetails/?id=' in href:
+                    m = re.search(r'id=(\d+)', href)
+                    if not m:
+                        continue
+                    gid = m.group(1)
+                    if gid in seen:
+                        continue
+                    seen.add(gid)
+                    title_text = a.get_text(separator=' ', strip=True)
+                    if not title_text:
+                        continue
+                    guides.append({
+                        "id": gid,
+                        "title": title_text[:140],
+                        "url": f"https://steamcommunity.com/sharedfiles/filedetails/?id={gid}"
+                    })
+                    count += 1
+                    if count >= max_take:
+                        break
+        except Exception as e:
+            print(f"Warning: Failed to fetch Steam guides from {url}: {e}")
+
+    # 1. If query is provided, probe targeted search first (up to 4 guides)
+    if query:
+        q_enc = urllib.parse.quote(query)
+        search_url = f"https://steamcommunity.com/app/{appid}/guides/?searchText={q_enc}&browsefilter=toprated&p=1"
+        _scrape_url(search_url, max_take=4)
+
+    # 2. Always backfill with top-rated community compendiums up to limit
+    remaining = limit - len(guides)
+    if remaining > 0:
+        top_url = f"https://steamcommunity.com/app/{appid}/guides/?browsefilter=toprated&p=1"
+        _scrape_url(top_url, max_take=remaining)
+
+    return guides
 
 
 def get_steam_guide_details(guide_ids: List[str]) -> List[dict]:
@@ -201,11 +221,14 @@ def get_web_wiki_index(game_name: str, limit: int = 5) -> List[dict]:
         return []
 
 
-def get_web_mechanics_index(game_name: str, limit: int = 4) -> List[dict]:
-    """Fallback search for gameplay mechanics and guide articles if Steam guides are absent."""
-    query = f'"{game_name}" (gameplay OR mechanics OR build OR guide) -site:steampowered.com'
+def get_web_mechanics_index(game_name: str, limit: int = 4, query: Optional[str] = None) -> List[dict]:
+    """Fallback search or targeted query for gameplay mechanics and guide articles."""
+    if query:
+        query_str = f'"{game_name}" {query} -site:steampowered.com'
+    else:
+        query_str = f'"{game_name}" (gameplay OR mechanics OR build OR guide) -site:steampowered.com'
     try:
-        results = DDGS().text(query, max_results=limit * 2)
+        results = DDGS().text(query_str, max_results=limit * 2)
         out = []
         for r in results:
             title = r.get("title", "")
@@ -250,16 +273,27 @@ def _select_wiki_sources_with_llm(
     game_name: str,
     mechanics_candidates: List[dict],
     lore_candidates: List[dict],
+    question: Optional[str] = None,
 ) -> Tuple[List[dict], List[dict], int, int]:
     """
     Sub-LLM Selector: Evaluates candidates from the Dual-Lane Index and picks
     the top 1-2 mechanics sources and top 1 lore source, filtering out translation mods and spam.
+    If question is provided, prioritizes sources answering the specific ask.
     """
     in_tok, out_tok = 0, 0
     if not mechanics_candidates and not lore_candidates:
         return [], [], 0, 0
 
-    selector_system = f"""You are a research selector choosing the best source material for a video game wiki and lore dossier on '{game_name}'.
+    if question:
+        selector_system = f"""You are a research selector choosing the best source material to answer the question: '{question}' for the video game '{game_name}'.
+Review the candidate lists below:
+1. 'mechanics_candidates': Select up to 2 best sources that specifically address or explain: '{question}'. (Ignore joke/meme guides, translation mod notes, or video spam).
+2. 'lore_candidates': Select up to 1 source if relevant to '{question}', otherwise leave empty.
+
+Respond STRICTLY with valid JSON:
+{{"selected_mechanics_ids": ["<id or url>", ...], "selected_lore_urls": ["<url>"]}}"""
+    else:
+        selector_system = f"""You are a research selector choosing the best source material for a video game wiki and lore dossier on '{game_name}'.
 Review the candidate lists below:
 1. 'mechanics_candidates': Select up to 2 best sources for gameplay mechanics, beginner loop, character classes, or buildcrafting. (Ignore joke/meme guides, translation mod notes, or video spam).
 2. 'lore_candidates': Select up to 1 best source for world lore, factions, narrative setting, or universe premise.
@@ -301,11 +335,14 @@ Respond STRICTLY with valid JSON:
 
     # Heuristic fallback if LLM returned empty or failed
     if not selected_mech and mechanics_candidates:
-        ranked = sorted(
-            mechanics_candidates,
-            key=lambda c: any(k in (c.get("title", "") + " " + c.get("desc", "")).lower() for k in ["guide", "build", "basic", "mechanic", "class", "weapon"]),
-            reverse=True
-        )
+        q_tokens = [t.lower() for t in re.findall(r'\w+', question or '') if len(t) > 3]
+        def _score_mech(c):
+            text = (c.get("title", "") + " " + c.get("desc", "") + " " + c.get("snippet", "")).lower()
+            if q_tokens:
+                return sum(1 for tok in q_tokens if tok in text)
+            return sum(1 for k in ["guide", "build", "basic", "mechanic", "class", "weapon"] if k in text)
+
+        ranked = sorted(mechanics_candidates, key=_score_mech, reverse=True)
         selected_mech = ranked[:2]
 
     if not selected_lore and lore_candidates:
@@ -320,15 +357,23 @@ Respond STRICTLY with valid JSON:
 
 
 @safe_tool
-def compile_game_wiki(game_name: str, mode: str = "full", force_refresh: bool = False, max_age_days: float = 7.0) -> dict:
+def compile_game_wiki(
+    game_name: str,
+    mode: str = "full",
+    question: Optional[str] = None,
+    force_refresh: bool = False,
+    max_age_days: float = 7.0,
+) -> dict:
     """
-    Compiles a comprehensive, factual Game Wiki & Lore Dossier for any game (including brand new releases)
-    by pulling Steam Community Guides, community wikis, HowLongToBeat completion times, and Store specifications
-    via a multi-stage selector and sub-LLM synthesis pipeline.
+    Compiles a comprehensive Game Wiki & Lore Dossier or tactical guide for any game.
+    When question is omitted: builds a general wiki dossier (compact or full) and caches to disk.
+    When question is provided: executes an ad-hoc investigation directly targeting the question
+    (builds, boss tactics, mechanics) using targeted Steam guides and web sources without polluting the cache.
 
     Args:
         game_name: Title of the video game to investigate.
         mode: 'full' (dense 5-section encyclopedia) or 'compact' (concise high-signal brief under 600 words).
+        question: Optional specific question or tactical guide ask (e.g. 'Best Sorceress build', 'How to beat Act 2 boss').
         force_refresh: When True, bypasses local markdown cache in data/game_wikis/.
         max_age_days: Cache validity window (default 7 days).
     """
@@ -340,8 +385,8 @@ def compile_game_wiki(game_name: str, mode: str = "full", force_refresh: bool = 
     canonical_name = app_info.get('name', [game_name])[0] if isinstance(app_info.get('name'), list) else app_info.get('name', game_name)
     mode_clean = (mode or "full").lower().strip()
 
-    # Check local markdown cache first (O(1) hit for BakaBot / agent tools)
-    if not force_refresh:
+    # For general wiki (question=None), check local markdown cache first (O(1) hit for BakaBot / agent tools)
+    if not question and not force_refresh:
         cached_result = load_cached_wiki(appid, canonical_name, mode=mode_clean, max_age_days=max_age_days)
         if cached_result:
             return cached_result
@@ -349,12 +394,16 @@ def compile_game_wiki(game_name: str, mode: str = "full", force_refresh: bool = 
     total_in = 0
     total_out = 0
 
-    # Stage 1: Parallel Fetch of Store Specs, HLTB, Steam Guides Index, and Web Lore Index
+    # Stage 1: Parallel Fetch
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         f_store = executor.submit(get_steam_app_details, appid)
         f_hltb = executor.submit(get_hltb_data, canonical_name)
-        f_guides = executor.submit(get_steam_guides_index, appid, limit=8)
-        f_lore = executor.submit(get_web_wiki_index, canonical_name, limit=5)
+        if question:
+            f_guides = executor.submit(get_steam_guides_index, appid, limit=8, query=question)
+            f_lore = executor.submit(get_web_mechanics_index, canonical_name, limit=5, query=question)
+        else:
+            f_guides = executor.submit(get_steam_guides_index, appid, limit=8)
+            f_lore = executor.submit(get_web_wiki_index, canonical_name, limit=5)
 
         store_data = f_store.result() or {}
         raw_hltb = f_hltb.result() or []
@@ -374,11 +423,11 @@ def compile_game_wiki(game_name: str, mode: str = "full", force_refresh: bool = 
     # If Steam has 0 guides, engage web mechanics fallback
     mechanics_candidates = guides_index
     if not mechanics_candidates:
-        mechanics_candidates = get_web_mechanics_index(canonical_name, limit=5)
+        mechanics_candidates = get_web_mechanics_index(canonical_name, limit=5, query=question if question else None)
 
     # Stage 2: Smart Sub-LLM Selector
     selected_mech, selected_lore, sel_in, sel_out = _select_wiki_sources_with_llm(
-        canonical_name, mechanics_candidates, lore_index
+        canonical_name, mechanics_candidates, lore_index, question=question
     )
     total_in += sel_in
     total_out += sel_out
@@ -425,6 +474,13 @@ def compile_game_wiki(game_name: str, mode: str = "full", force_refresh: bool = 
         "detailed_description": re.sub(r'<[^>]+>', ' ', (store_data.get("about_the_game") or store_data.get("detailed_description", ""))[:1800]),
     }
 
+    base_context = ""
+    if question:
+        cached_gen = load_cached_wiki(appid, canonical_name, mode="compact", max_age_days=max_age_days) or \
+                     load_cached_wiki(appid, canonical_name, mode="full", max_age_days=max_age_days)
+        if cached_gen and cached_gen.get("dossier"):
+            base_context = f"\nEXISTING GENERAL DOSSIER CONTEXT:\n{cached_gen['dossier'][:1200]}\n"
+
     combined_input = f"""
 GAME INTEL:
 - Title: {store_meta['title']} (AppID: {store_meta['appid']})
@@ -434,7 +490,7 @@ GAME INTEL:
 - HowLongToBeat: Main Story {hltb_data.get('main_story', 'N/A')}h | Main+Extra {hltb_data.get('main_extra', 'N/A')}h | Completionist {hltb_data.get('completionist', 'N/A')}h
 - Official Overview: {store_meta['short_description']}
 - Official Feature Details: {store_meta['detailed_description'][:1200]}
-
+{base_context}
 COMMUNITY MECHANICS & BUILDS:
 {chr(10).join(mechanics_content_blocks) if mechanics_content_blocks else "No community build guides available. Rely on official features."}
 
@@ -442,7 +498,27 @@ WORLD LORE & FACTIONS:
 {chr(10).join(lore_content_blocks) if lore_content_blocks else "No extended lore wiki pages found. Rely on official premise."}
 """
 
-    if mode == "compact":
+    if question:
+        synth_system = f"""You are an elite video game intelligence researcher and tactical coach.
+Your mission is to directly, accurately, and thoroughly answer the user's specific question for '{canonical_name}':
+QUESTION: "{question}"
+
+Synthesize the provided official specs, HowLongToBeat estimates, community guides, and web sources into an actionable, high-signal tactical guide or answer.
+
+Required Structure:
+# {canonical_name} — Tactical Guide: {question}
+
+## 🎯 Direct Answer & Core Strategy
+Direct, concise answer to the question with key principles and summary.
+
+## ⚙️ Tactical Breakdown & Synergies
+Specific item choices, weapon scaling, talent/trait picks, stat priorities, or phase-by-phase tactics as applicable.
+
+## 💡 Pro Tips & Common Pitfalls
+Pitfalls to avoid and high-level execution tips from top players.
+
+Tone: Actionable, factual, deeply technical. Avoid fluff and corporate marketing speech."""
+    elif mode == "compact":
         synth_system = f"""You are an elite video game intelligence researcher compiling a Compact Game Wiki & Lore Brief for an AI agent.
 Synthesize the provided official specs, HowLongToBeat estimates, community guides, and lore text for '{canonical_name}' into a concise, high-signal Markdown summary (under 600 words).
 
@@ -500,17 +576,22 @@ Tone: Dense, objective, factual. Eliminate PR marketing adjectives, hype, and co
     except Exception as e:
         dossier_text = f"### 📖 {canonical_name} Dossier\nFailed to synthesize dossier: {e}\n\n**Official Premise:**\n{store_meta['short_description']}"
 
-    # Persist the dossier to disk cache for future O(1) reads and tool grepping
-    cache_path = save_wiki_to_cache(appid, canonical_name, dossier_text, hltb_data, sources_consulted, mode=mode_clean)
+    # Persist the dossier to disk cache only for general dossiers (no ad-hoc cache pollution)
+    if not question:
+        cache_path = save_wiki_to_cache(appid, canonical_name, dossier_text, hltb_data, sources_consulted, mode=mode_clean)
+        cache_path_str = str(cache_path)
+    else:
+        cache_path_str = None
 
     return {
         "game": canonical_name,
         "appid": appid,
         "mode": mode_clean,
+        "question": question,
         "dossier": dossier_text,
         "hltb": hltb_data,
         "sources": sources_consulted,
         "cached": False,
-        "cache_path": str(cache_path),
+        "cache_path": cache_path_str,
         "_tokens": {"in": total_in, "out": total_out}
     }
