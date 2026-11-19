@@ -45,6 +45,7 @@ from core.steam_social import (
     get_friends_who_own,
     compare_library_with_friend,
     get_active_friends,
+    get_user_activity,
 )
 
 from core.game_wiki import (
@@ -95,6 +96,7 @@ __all__ = [
     "get_friends_who_own",
     "compare_library_with_friend",
     "get_active_friends",
+    "get_user_activity",
     # Game Wiki & Lore
     "get_steam_guides_index",
     "get_steam_guide_details",

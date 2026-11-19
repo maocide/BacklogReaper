@@ -800,3 +800,56 @@ def format_game_wiki(data: Any, game_name: str = "") -> str:
         return dossier + "\n" + "\n".join(extra_lines)
 
     return f"### 📖 Game Wiki: {game_name}\nNo wiki dossier could be compiled."
+
+
+def format_user_activity(data: Any) -> str:
+    """Format live Steam activity and recent gaming sessions with milestones into Markdown."""
+    err = _format_error("User Activity", data)
+    if err:
+        return err
+
+    lines = []
+    live = data.get("live_status", {})
+    if live.get("status") == "in_game":
+        gname = live.get("game", "Unknown Game")
+        hours_str = f" ({live.get('total_hours')}h in vault)" if live.get("total_hours") is not None else ""
+        lines.append(f"### 🎮 Live Status: Playing **{gname}**{hours_str}")
+    elif live.get("online"):
+        lines.append(f"### 🟢 Live Status: Online ({live.get('persona_state', 'Idle')})")
+    else:
+        lines.append("### ⚪ Live Status: Offline / Invisible")
+
+    sessions = data.get("sessions", [])
+    if not sessions:
+        return "\n".join(lines)
+
+    lines.append("\n#### 🕹️ Recent Gaming Sessions & Milestones:")
+
+    for s in sessions:
+        s_idx = s.get("session_index", 1)
+        t_str = s.get("session_time_str", "Recent")
+        games = s.get("games", [])
+
+        lines.append(f"\n**Session {s_idx} ({t_str}):**")
+        for g in games:
+            gname = g.get("name")
+            ghours = g.get("total_hours", 0)
+            comp_pct = g.get("completion_pct", 0)
+            unlocked_cnt = g.get("total_unlocked", 0)
+            total_cnt = g.get("total_available", 0)
+            unlocks = g.get("session_unlocks", [])
+
+            if not g.get("has_achievements"):
+                lines.append(f"- **{gname}** ({ghours}h total) — *Early Access / No achievements configured*")
+            elif not unlocks:
+                lines.append(f"- **{gname}** ({ghours}h total) — *No achievements unlocked this session* ({unlocked_cnt}/{total_cnt}, {comp_pct}%)")
+            else:
+                lines.append(f"- **{gname}** ({ghours}h total | Progress: {unlocked_cnt}/{total_cnt}, {comp_pct}%):")
+                for u in unlocks:
+                    u_name = u.get("name", u.get("apiname", "Achievement"))
+                    u_desc = u.get("desc", "")
+                    desc_str = f": *{u_desc}*" if u_desc else ""
+                    lines.append(f"  - 🏆 **{u_name}** ({u.get('unlock_time')}){desc_str}")
+
+    return "\n".join(lines)
+

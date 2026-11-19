@@ -464,6 +464,31 @@ tools_schema = [
     {
         "type": "function",
         "function": {
+            "name": "get_user_activity",
+            "description": "Inspect the user's live Steam presence (currently playing title and playtime) and temporal recent gaming sessions from their backlog vault, including games played and achievements unlocked during those sessions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "include_sessions": {
+                        "type": "boolean",
+                        "description": "When True (default), clusters recent games and includes unlocked achievements. When False, checks only live in-game presence."
+                    },
+                    "max_sessions": {
+                        "type": "integer",
+                        "description": "Number of recent gaming sessions to investigate (default 3, max 5)."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["action_description"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_game_news",
             "description": "Get the latest official news, patch notes, and events for a game from Steam. Use this when the user asks 'What's new in X?' or 'Is there an event?'.",
             "parameters": {
@@ -606,6 +631,7 @@ def get_friendly_status(func_name):
         "get_library_stats": "📊 Auditing your entire life...",
         "find_similar_games": "🔍 Matching games in your vault...",
         "get_achievements": "🏆 Checking your trophy cabinet...",
+        "get_user_activity": "🎮 Checking your recent gaming activity & milestones...",
         "get_user_wishlist": "🌠 Judging your wishlist...",
         "search_by_vibe": "✨ Vibe searching your games...",
         "self_destruct": "💣 Attempting self destruction...",
@@ -742,6 +768,12 @@ def execute_tool(tool_request):
                 page=clean_params.get("page"),
             )
             tool_output_md = formatters.format_achievements(stats, game_name=game_name)
+
+        elif tool_name == "get_user_activity":
+            include_sessions = bool(clean_params.get("include_sessions", True))
+            max_sessions = int(clean_params.get("max_sessions", 3))
+            data = game_intelligence.get_user_activity(include_sessions=include_sessions, max_sessions=max_sessions)
+            tool_output_md = formatters.format_user_activity(data)
 
         elif tool_name == "web_search":
             query = clean_params.get("search", "")

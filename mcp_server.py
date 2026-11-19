@@ -338,6 +338,21 @@ def get_achievements(game_name: str = "", appid: Optional[int] = None, page: Opt
 
 
 @mcp.tool()
+def get_user_activity(include_sessions: bool = True, max_sessions: int = 3) -> str:
+    """
+    Check the user's live Steam gaming presence (in-game title and playtime)
+    and investigate recent gaming sessions from their backlog vault, including
+    games played and achievements unlocked during those sessions.
+
+    Args:
+        include_sessions: When True (default), clusters recent games and includes unlocked achievements. When False, checks only live presence.
+        max_sessions: Number of recent gaming sessions to investigate (default 3, max 5).
+    """
+    data = game_intelligence.get_user_activity(include_sessions=include_sessions, max_sessions=max_sessions)
+    return formatters.format_user_activity(data)
+
+
+@mcp.tool()
 def run_system_diagnostics() -> str:
     """
     Run a full diagnostic health check across all BacklogReaper subsystems,

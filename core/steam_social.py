@@ -3,12 +3,15 @@ Steam Social, Friends, Multiplayer Ownership Checks, and Library Comparisons.
 """
 
 import concurrent.futures
+from datetime import datetime
 import json
 import time
 from typing import Any, Dict, List, Optional
 
+import requests
 from steam_web_api import Steam
 
+from core.ai_tools import clean_json_for_ai
 from core.safe_tool import safe_tool
 import core.settings as settings
 from core.steam_store import (
@@ -431,3 +434,207 @@ def get_active_friends():
                                   keep_keys=friends_schema["keep_keys"])
 
     return result
+
+
+@safe_tool
+def get_user_activity(
+    include_sessions: bool = True,
+    max_sessions: int = 3,
+    session_gap_hours: int = 8
+) -> dict:
+    """
+    Checks the user's live Steam presence (in-game title & AppID) and investigates
+    recent gaming sessions from the Vault, clustering close playtimes (within session_gap_hours)
+    and reporting achievements unlocked during those sessions.
+    """
+    steam_id = resolve_steam_id(settings.STEAM_USER)
+    if not steam_id:
+        return {"error": "Could not resolve Steam ID for user."}
+
+    # 1. Live Status Probe
+    live_status = {"online": False, "status": "offline_or_invisible", "game": None, "appid": None}
+    try:
+        url = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
+        params = {"key": settings.STEAM_API_KEY, "steamids": steam_id}
+        resp = requests.get(url, params=params, timeout=5)
+        if resp.status_code == 200:
+            players = resp.json().get("response", {}).get("players", [])
+            if players:
+                p = players[0]
+                p_state = p.get("personastate", 0)
+                game_title = p.get("gameextrainfo")
+                game_id = p.get("gameid")
+
+                state_map = {
+                    0: "Offline / Invisible",
+                    1: "Online",
+                    2: "Busy",
+                    3: "Away",
+                    4: "Snooze",
+                    5: "Looking to trade",
+                    6: "Looking to play",
+                }
+
+                if game_id:
+                    total_hours = None
+                    try:
+                        g_entry = vault.get_game_by_appid(int(game_id))
+                        if g_entry:
+                            total_hours = round((g_entry.get("playtime_forever") or 0) / 60.0, 1)
+                    except Exception:
+                        pass
+
+                    live_status = {
+                        "online": True,
+                        "status": "in_game",
+                        "game": game_title or f"AppID {game_id}",
+                        "appid": int(game_id) if str(game_id).isdigit() else game_id,
+                        "total_hours": total_hours,
+                    }
+                else:
+                    live_status = {
+                        "online": p_state > 0,
+                        "status": "not_in_game" if p_state > 0 else "offline_or_invisible",
+                        "persona_state": state_map.get(p_state, "Unknown"),
+                        "game": None,
+                        "appid": None,
+                    }
+    except Exception as e:
+        live_status["error"] = str(e)
+
+    if not include_sessions:
+        return {"live_status": live_status, "sessions": []}
+
+    # 2. Query Recent Games from Vault Database
+    recent_games = []
+    try:
+        with vault.get_connection() as conn:
+            c = conn.cursor()
+            rows = c.execute(
+                "SELECT appid, name, playtime_forever, rtime_last_played FROM games "
+                "WHERE rtime_last_played > 0 ORDER BY rtime_last_played DESC LIMIT 15"
+            ).fetchall()
+            recent_games = [
+                {
+                    "appid": r["appid"],
+                    "name": r["name"],
+                    "playtime_forever": r["playtime_forever"],
+                    "rtime_last_played": r["rtime_last_played"]
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        return {"live_status": live_status, "sessions": [], "error": f"Failed reading vault: {e}"}
+
+    if not recent_games:
+        return {"live_status": live_status, "sessions": []}
+
+    # 3. Temporal Clustering into Sessions
+    session_clusters = []
+    current_cluster = []
+    gap_seconds = max(session_gap_hours, 1) * 3600
+
+    for g in recent_games:
+        if not current_cluster:
+            current_cluster.append(g)
+        else:
+            prev_lp = current_cluster[-1]["rtime_last_played"]
+            diff = prev_lp - g["rtime_last_played"]
+            if diff <= gap_seconds:
+                current_cluster.append(g)
+            else:
+                session_clusters.append(current_cluster)
+                current_cluster = [g]
+                if len(session_clusters) >= max_sessions:
+                    break
+
+    if current_cluster and len(session_clusters) < max_sessions:
+        session_clusters.append(current_cluster)
+
+    # 4. Inspect Session Achievements
+    sessions_payload = []
+    schema_cache = {}
+
+    for s_idx, cluster in enumerate(session_clusters):
+        session_start = cluster[-1]["rtime_last_played"]
+        session_end = cluster[0]["rtime_last_played"]
+
+        cluster_games = []
+        for gm in cluster:
+            gid = gm["appid"]
+            gname = gm["name"]
+            lp = gm["rtime_last_played"]
+            total_h = round((gm.get("playtime_forever") or 0) / 60.0, 1)
+
+            game_ach_summary = {
+                "appid": gid,
+                "name": gname,
+                "last_played_ts": lp,
+                "last_played_str": vault.format_time_ago(lp),
+                "total_hours": total_h,
+                "has_achievements": False,
+                "total_unlocked": 0,
+                "total_available": 0,
+                "completion_pct": 0.0,
+                "session_unlocks": [],
+            }
+
+            try:
+                ach_url = f"https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid={gid}&key={settings.STEAM_API_KEY}&steamid={steam_id}"
+                r_ach = requests.get(ach_url, timeout=5)
+                if r_ach.status_code == 200:
+                    a_data = r_ach.json().get("playerstats", {})
+                    achs = a_data.get("achievements", [])
+                    if achs:
+                        game_ach_summary["has_achievements"] = True
+                        game_ach_summary["total_available"] = len(achs)
+                        unlocked = [a for a in achs if a.get("achieved") == 1 and a.get("unlocktime", 0) > 0]
+                        game_ach_summary["total_unlocked"] = len(unlocked)
+                        if len(achs) > 0:
+                            game_ach_summary["completion_pct"] = round((len(unlocked) / len(achs)) * 100.0, 1)
+
+                        # Unlocks within session window: from (lp - 14400s) to (lp + 600s)
+                        session_raw = [a for a in unlocked if (lp - 14400) <= a["unlocktime"] <= (lp + 600)]
+
+                        if session_raw:
+                            if gid not in schema_cache:
+                                schema_cache[gid] = {}
+                                s_url = f"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={settings.STEAM_API_KEY}&appid={gid}"
+                                r_s = requests.get(s_url, timeout=5)
+                                if r_s.status_code == 200:
+                                    s_json = r_s.json().get("game", {}).get("availableGameStats", {})
+                                    for item in s_json.get("achievements", []):
+                                        schema_cache[gid][item["name"]] = {
+                                            "name": item.get("displayName", item["name"]),
+                                            "desc": item.get("description", "")
+                                        }
+
+                            session_raw.sort(key=lambda x: x["unlocktime"], reverse=True)
+                            for s_item in session_raw[:6]:
+                                aname = s_item.get("apiname", "")
+                                meta = schema_cache[gid].get(aname, {})
+                                u_ts = s_item.get("unlocktime", 0)
+                                game_ach_summary["session_unlocks"].append({
+                                    "apiname": aname,
+                                    "name": meta.get("name", aname),
+                                    "desc": meta.get("desc", ""),
+                                    "unlock_time": datetime.fromtimestamp(u_ts).strftime("%H:%M") if u_ts else ""
+                                })
+            except Exception:
+                pass
+
+            cluster_games.append(game_ach_summary)
+
+        sessions_payload.append({
+            "session_index": s_idx + 1,
+            "session_time_str": vault.format_time_ago(session_end),
+            "session_end_ts": session_end,
+            "session_start_ts": session_start,
+            "games": cluster_games
+        })
+
+    return {
+        "live_status": live_status,
+        "sessions": sessions_payload
+    }
+
