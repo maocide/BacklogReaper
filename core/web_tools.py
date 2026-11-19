@@ -8,6 +8,7 @@ import ddgs
 import requests
 from bs4 import BeautifulSoup
 from ddgs import DDGS
+import trafilatura
 
 from core.safe_tool import safe_tool
 from types import SimpleNamespace
@@ -246,6 +247,32 @@ def web_search(query, max_results=10):
         })
 
     return data
+
+
+def extract_page_markdown(url: str, max_chars: int = 3500) -> str:
+    """
+    Downloads and extracts clean article markdown from any webpage using trafilatura.
+    Strips comments, normalizes whitespace, and limits character count.
+    """
+    try:
+        downloaded = trafilatura.fetch_url(url)
+        if not downloaded:
+            return ""
+        extracted = trafilatura.extract(
+            downloaded,
+            include_comments=False,
+            include_tables=True,
+            include_links=False,
+            output_format="markdown",
+        )
+        if not extracted:
+            return ""
+        clean = re.sub(r'\n{3,}', '\n\n', extracted).strip()
+        return clean[:max_chars] if max_chars else clean
+    except Exception as e:
+        print(f"Warning: Failed to extract markdown from {url}: {e}")
+        return ""
+
 
 def search_reddit_discussions(game_name: str, limit: int = 5) -> list:
     """

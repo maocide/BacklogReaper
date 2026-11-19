@@ -6,13 +6,18 @@ import urllib.parse
 from datetime import datetime
 
 import requests
-import trafilatura
 from basc_py4chan import Board
 from bs4 import BeautifulSoup
 
 from core.ai_tools import aiCall, get_summarizer_model
 from core.safe_tool import safe_tool
-from core.web_tools import web_search, search_reddit_discussions, get_steam_bypass, get_steam_bypass_with_referer
+from core.web_tools import (
+    extract_page_markdown,
+    get_steam_bypass,
+    get_steam_bypass_with_referer,
+    search_reddit_discussions,
+    web_search,
+)
 import core.game_intelligence as game_intelligence
 import core.text_utils as text_utils
 from thefuzz import fuzz
@@ -140,18 +145,8 @@ def get_webpage(url):
                 return {"error": "Page is dynamic/JavaScript rendered and cannot be read, or is empty."}
 
         else:
-            # STANDARD URLS (Let Trafilatura do its magic)
-            downloaded = trafilatura.fetch_url(url)
-            if downloaded is None:
-                return {"error": "Could not retrieve the webpage (Network error)."}
-
-            text = trafilatura.extract(
-                downloaded,
-                include_comments=False,
-                include_tables=False,
-                include_links=True,
-                output_format="markdown"
-            )
+            # STANDARD URLS (Consolidated web_tools extractor)
+            text = extract_page_markdown(url, max_chars=raw_char_limit)
 
         if not text:
             return {"error": "Page content was empty or unreadable."}

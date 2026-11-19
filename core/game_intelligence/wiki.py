@@ -16,14 +16,20 @@ from urllib.parse import unquote
 
 from ddgs import DDGS
 import requests
-import trafilatura
 
 from core.ai_tools import aiCall, clean_json_for_ai, get_summarizer_model
 import core.paths as paths
 import core.text_utils as text_utils
 from core.safe_tool import safe_tool
 from core.game_intelligence.store import get_steam_app_details, get_steam_app_info
-from core.web_tools import get_hltb_data, get_steam_bypass, get_steam_bypass_with_referer
+from core.web_tools import (
+    extract_page_markdown,
+    get_hltb_data,
+    get_steam_bypass,
+    get_steam_bypass_with_referer,
+)
+
+_extract_page_markdown = extract_page_markdown
 
 
 def _sanitize_slug(name: str) -> str:
@@ -104,6 +110,47 @@ def save_wiki_to_cache(appid: int, game_name: str, dossier: str, hltb: dict, sou
     return path
 
 
+def scrape_steam_guides_page(
+    url: str,
+    headers: dict,
+    cookies: dict,
+    limit: int = 8,
+    seen: Optional[set] = None
+) -> List[dict]:
+    """Scrapes a Steam Community Guide browse or search page and extracts guide card metadata."""
+    if seen is None:
+        seen = set()
+    guides = []
+    try:
+        r = requests.get(url, headers=headers, cookies=cookies, timeout=10)
+        if r.status_code != 200:
+            return []
+        soup = BeautifulSoup(r.text, 'html.parser')
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            if 'sharedfiles/filedetails/?id=' in href:
+                m = re.search(r'id=(\d+)', href)
+                if not m:
+                    continue
+                gid = m.group(1)
+                if gid in seen:
+                    continue
+                seen.add(gid)
+                title_text = a.get_text(separator=' ', strip=True)
+                if not title_text:
+                    continue
+                guides.append({
+                    "id": gid,
+                    "title": title_text[:140],
+                    "url": f"https://steamcommunity.com/sharedfiles/filedetails/?id={gid}"
+                })
+                if len(guides) >= limit:
+                    break
+    except Exception as e:
+        print(f"Warning: Failed to fetch Steam guides from {url}: {e}")
+    return guides
+
+
 def get_steam_guides_index(appid: int, limit: int = 8, query: Optional[str] = None) -> List[dict]:
     """
     Scrape Steam community guides index (file IDs, titles, preview URLs).
@@ -111,51 +158,22 @@ def get_steam_guides_index(appid: int, limit: int = 8, query: Optional[str] = No
     merges any targeted search matches without risking a 0-guide blackout.
     """
     headers, cookies = get_steam_bypass_with_referer(appid)
-    guides: List[dict] = []
     seen = set()
-
-    def _scrape_url(url: str, max_take: int):
-        try:
-            r = requests.get(url, headers=headers, cookies=cookies, timeout=10)
-            if r.status_code != 200:
-                return
-            soup = BeautifulSoup(r.text, 'html.parser')
-            count = 0
-            for a in soup.find_all('a', href=True):
-                href = a['href']
-                if 'sharedfiles/filedetails/?id=' in href:
-                    m = re.search(r'id=(\d+)', href)
-                    if not m:
-                        continue
-                    gid = m.group(1)
-                    if gid in seen:
-                        continue
-                    seen.add(gid)
-                    title_text = a.get_text(separator=' ', strip=True)
-                    if not title_text:
-                        continue
-                    guides.append({
-                        "id": gid,
-                        "title": title_text[:140],
-                        "url": f"https://steamcommunity.com/sharedfiles/filedetails/?id={gid}"
-                    })
-                    count += 1
-                    if count >= max_take:
-                        break
-        except Exception as e:
-            print(f"Warning: Failed to fetch Steam guides from {url}: {e}")
+    guides: List[dict] = []
 
     # 1. If query is provided, probe targeted search first (up to 4 guides)
     if query:
         q_enc = urllib.parse.quote(query)
         search_url = f"https://steamcommunity.com/app/{appid}/guides/?searchText={q_enc}&browsefilter=toprated&p=1"
-        _scrape_url(search_url, max_take=4)
+        targeted = scrape_steam_guides_page(search_url, headers, cookies, limit=4, seen=seen)
+        guides.extend(targeted)
 
     # 2. Always backfill with top-rated community compendiums up to limit
     remaining = limit - len(guides)
     if remaining > 0:
         top_url = f"https://steamcommunity.com/app/{appid}/guides/?browsefilter=toprated&p=1"
-        _scrape_url(top_url, max_take=remaining)
+        top_rated = scrape_steam_guides_page(top_url, headers, cookies, limit=remaining, seen=seen)
+        guides.extend(top_rated)
 
     return guides
 
@@ -245,28 +263,6 @@ def get_web_mechanics_index(game_name: str, limit: int = 4, query: Optional[str]
     except Exception as e:
         print(f"Warning: Web mechanics search error for {game_name}: {e}")
         return []
-
-
-def _extract_page_markdown(url: str, max_chars: int = 3500) -> str:
-    """Download and extract clean article markdown from a URL using trafilatura."""
-    try:
-        downloaded = trafilatura.fetch_url(url)
-        if not downloaded:
-            return ""
-        extracted = trafilatura.extract(
-            downloaded,
-            include_comments=False,
-            include_tables=True,
-            include_links=False,
-            output_format="markdown",
-        )
-        if not extracted:
-            return ""
-        clean = re.sub(r'\n{3,}', '\n\n', extracted).strip()
-        return clean[:max_chars]
-    except Exception as e:
-        print(f"Warning: Failed to extract markdown from {url}: {e}")
-        return ""
 
 
 def _select_wiki_sources_with_llm(

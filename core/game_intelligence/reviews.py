@@ -12,7 +12,6 @@ import statistics
 import time
 from typing import Any, Dict, List, Optional
 
-from bs4 import BeautifulSoup
 import requests
 from thefuzz import fuzz
 
