@@ -1325,6 +1325,60 @@ def _parse_review_tooltip(tooltip: Optional[str]) -> Tuple[Optional[str], Option
     return label, None, None
 
 
+def _parse_explore_popular_new(html: str) -> List[Dict[str, Any]]:
+    """
+    Parses Steam's unauthenticated curated 'Popular New Releases' tab
+    (#tab_newreleases_content) from https://store.steampowered.com/explore/new/.
+    Returns lightweight dicts with appid, name, price, discount_pct, capsule_url, and tag_ids.
+    """
+    if not html:
+        return []
+
+    soup = BeautifulSoup(html, "html.parser")
+    pop_tab = soup.select_one("#tab_newreleases_content")
+    if not pop_tab:
+        return []
+
+    results: List[Dict[str, Any]] = []
+    for item in pop_tab.select("a.tab_item"):
+        aid_raw = item.get("data-ds-appid")
+        if not aid_raw or not aid_raw.isdigit():
+            continue
+
+        name_el = item.select_one(".tab_item_name")
+        name = name_el.text.strip() if name_el else "Unknown Game"
+
+        img_el = item.select_one("img.tab_item_cap_img")
+        capsule_url = img_el.get("src", "") if img_el else ""
+
+        disc_el = item.select_one(".discount_pct")
+        discount_pct = 0
+        if disc_el:
+            txt = disc_el.text.strip().replace("-", "").replace("%", "")
+            if txt.isdigit():
+                discount_pct = int(txt)
+
+        price_el = item.select_one(".discount_final_price")
+        price_str = price_el.text.strip() if price_el else "TBA"
+
+        tag_ids_raw = item.get("data-ds-tagids", "[]")
+        try:
+            tag_ids = json.loads(tag_ids_raw)
+        except Exception:
+            tag_ids = []
+
+        results.append({
+            "appid": int(aid_raw),
+            "name": name,
+            "price": price_str,
+            "discount_pct": discount_pct,
+            "capsule_url": capsule_url,
+            "tag_ids": tag_ids,
+        })
+
+    return results
+
+
 @safe_tool
 def get_personalized_calendar(
     days_ahead: int = 14,
@@ -1336,22 +1390,25 @@ def get_personalized_calendar(
     - Horizon 1: Released in the Last 7 Days (card grid with discounts, prices, taste alignment)
     - Horizon 2: Released in the Last 30 Days (monthly highlights)
     - Horizon 3: Upcoming Week Schedule (Monday-Sunday day columns with today highlighted, plus next-week horizon)
-    Scores and ranks drops against the user's recent and lifetime gaming taste profile and wishlist.
+    Scores and ranks drops against the user's recent and lifetime gaming taste profile, curated
+    Steam Popular New Releases, review traction, and wishlist.
     """
     # 1. Taste Profile Forensics
     taste_profile, id_to_name, tag_weights = get_user_taste_profile(top_n_tags=top_taste_tags)
 
     # 2. Multi-Feed Query Orchestration
-    urls: List[str] = [
+    explore_new_url = "https://store.steampowered.com/explore/new/"
+    search_urls: List[str] = [
         "https://store.steampowered.com/search/results/?category1=998&filter=popularcomingsoon&snr=1_7_7_230_7",
-        "https://store.steampowered.com/search/results/?category1=998&filter=popularnew&snr=1_7_7_230_7",
     ]
 
-    # Add tag-specific streams for top affinity tags
-    for tag in taste_profile[:3]:
+    # Add tag-specific streams for top 5 affinity tags
+    for tag in taste_profile[:5]:
         tid = tag["tagid"]
-        urls.append(f"https://store.steampowered.com/search/results/?category1=998&tags={tid}&sort_by=Released_DESC&snr=1_7_7_230_7")
-        urls.append(f"https://store.steampowered.com/search/results/?category1=998&tags={tid}&filter=popularcomingsoon&snr=1_7_7_230_7")
+        search_urls.append(f"https://store.steampowered.com/search/results/?category1=998&tags={tid}&sort_by=Released_DESC&snr=1_7_7_230_7")
+        search_urls.append(f"https://store.steampowered.com/search/results/?category1=998&tags={tid}&filter=popularcomingsoon&snr=1_7_7_230_7")
+
+    all_urls = [explore_new_url] + search_urls
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
@@ -1368,8 +1425,11 @@ def get_personalized_calendar(
             print(f"Warning: Calendar feed fetch failed for {url}: {e}")
         return ""
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-        html_pages = list(executor.map(_fetch_feed, urls))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        fetched_pages = list(executor.map(_fetch_feed, all_urls))
+
+    explore_new_html = fetched_pages[0]
+    html_pages = fetched_pages[1:]
 
     # 3. Parse and Deduplicate
     wishlist_ids = get_wishlist_appids()
@@ -1445,6 +1505,8 @@ def get_personalized_calendar(
                     traction_modifier = 35.0
                 elif review_pct < 50 and review_count >= 10:
                     traction_modifier = -40.0
+                elif review_pct < 65 and review_count >= 10:
+                    traction_modifier = -15.0
 
             is_wishlisted = aid in wishlist_ids
             is_owned = vault.is_game_owned(aid)
@@ -1463,6 +1525,7 @@ def get_personalized_calendar(
                 "discount_pct": discount_pct,
                 "capsule_url": capsule_url,
                 "is_early_access": is_early_access,
+                "is_popular_new": False,
                 "review_summary": review_summary,
                 "review_pct": review_pct,
                 "review_count": review_count,
@@ -1471,6 +1534,54 @@ def get_personalized_calendar(
                 "matched_tags": matched_tags,
                 "taste_score": round(taste_score, 1),
             }
+
+    # 3b. Cross-reference & enrich with Steam's curated Popular New Releases (/explore/new/)
+    for pop_item in _parse_explore_popular_new(explore_new_html):
+        aid = pop_item["appid"]
+        if aid in parsed_games:
+            parsed_games[aid]["is_popular_new"] = True
+            parsed_games[aid]["taste_score"] = round(parsed_games[aid]["taste_score"] + 35.0, 1)
+            continue
+
+        row_tag_ids = pop_item["tag_ids"]
+        matched_pairs = [
+            (id_to_name[t], tag_weights[t])
+            for t in row_tag_ids
+            if t in id_to_name and t in tag_weights
+        ]
+        matched_pairs.sort(key=lambda x: x[1], reverse=True)
+        matched_tags = [name_t for name_t, _ in matched_pairs]
+        base_taste_score = sum(
+            weight * (0.5 ** idx) for idx, (_, weight) in enumerate(matched_pairs)
+        )
+        is_wishlisted = aid in wishlist_ids
+        if base_taste_score <= 0 and not is_wishlisted:
+            continue
+
+        is_early_access = _EARLY_ACCESS_TAG_ID in row_tag_ids
+        is_owned = vault.is_game_owned(aid)
+        taste_score = base_taste_score + 35.0 + (100.0 if is_wishlisted else 0.0)
+
+        parsed_games[aid] = {
+            "appid": aid,
+            "name": pop_item["name"],
+            "release_raw": "Popular New",
+            "date": None,
+            "weekday": None,
+            "days_diff": -1,  # Eligible for Horizon 1 (Last 7 Days) without faking a Horizon 3 weekday
+            "price": pop_item["price"],
+            "discount_pct": pop_item["discount_pct"],
+            "capsule_url": pop_item["capsule_url"],
+            "is_early_access": is_early_access,
+            "is_popular_new": True,
+            "review_summary": None,
+            "review_pct": None,
+            "review_count": None,
+            "is_wishlisted": is_wishlisted,
+            "is_owned": is_owned,
+            "matched_tags": matched_tags,
+            "taste_score": round(taste_score, 1),
+        }
 
     # 4. Partition into Three Horizons
     # Horizon 1: Last 7 Days (-7 <= days_diff <= 0)
