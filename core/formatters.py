@@ -855,75 +855,83 @@ def format_user_activity(data: Any) -> str:
 
 
 def format_personalized_calendar(data: Any) -> str:
-    """Format personalized release calendar and multi-horizon schedules into high-signal Markdown."""
+    """Format personalized release calendar and multi-horizon schedules into compact, high-signal Markdown."""
     err = _format_error("Personalized Calendar", data)
     if err:
         return err
 
+    def _badge(g: dict, include_date: bool = False) -> str:
+        parts = []
+        price = g.get("price", "TBA")
+        disc = g.get("discount_pct", 0)
+        parts.append(f"{price} -{disc}%" if disc > 0 else price)
+
+        if g.get("is_early_access"):
+            parts.append("EA")
+
+        pct = g.get("review_pct")
+        cnt = g.get("review_count")
+        if pct is not None and cnt is not None:
+            parts.append(f"{pct}%/{cnt}")
+
+        if include_date and g.get("release_raw"):
+            parts.append(g["release_raw"].split(",")[0].strip())
+
+        return " | ".join(parts)
+
     lines = []
     taste = data.get("taste_profile", [])
     taste_str = ", ".join(t.get("name", "") for t in taste[:5])
-    lines.append("### 🗓️ Personalized Release Calendar")
+    lines.append("### Personalized Release Calendar")
     if taste_str:
-        lines.append(f"*Tailored to your current gameplay affinities: **{taste_str}***\n")
+        lines.append(f"Affinities (50/50): {taste_str} (Note: Early Access marked [EA], unmarked = Full 1.0)\n")
 
-    # Horizon 1: Last 7 Days
+    # Horizon 1: Last 7 Days (Top 8 high-signal drops)
     h1 = data.get("horizon_1_last_7_days", [])
     if h1:
-        lines.append("#### 🚀 Released in the Last 7 Days (Fresh Drops):")
-        for g in h1[:10]:
-            name = g.get("name", "Unknown")
-            aid = g.get("appid")
-            rel = g.get("release_raw", "")
-            price = g.get("price", "TBA")
-            disc = g.get("discount_pct", 0)
-            disc_str = f" **-{disc}%**" if disc > 0 else ""
-            wl_str = " ⭐ [Wishlisted]" if g.get("is_wishlisted") else ""
-            owned_str = " (Owned)" if g.get("is_owned") else ""
+        lines.append("#### Last 7 Days Highlights")
+        for g in h1[:8]:
+            wl = " [WL]" if g.get("is_wishlisted") else ""
+            owned = " [Owned]" if g.get("is_owned") else ""
             tags = g.get("matched_tags", [])
-            tag_str = f" — *{', '.join(tags[:3])}*" if tags else ""
+            tag_str = f" — {', '.join(tags[:2])}" if tags else ""
+            lines.append(f"- {g.get('name')} ({g.get('appid')}){wl}{owned} [{_badge(g, include_date=True)}]{tag_str}")
 
-            lines.append(f"- **{name}** (`{aid}`){wl_str}{owned_str} [{price}{disc_str} | {rel}]{tag_str}")
-
-    # Horizon 3: Current Week Schedule
+    # Horizon 3: Current Week Schedule (Compact day-by-day, up to 5 max per active day)
     h3 = data.get("horizon_3_upcoming_week", {})
     days = h3.get("days", [])
     if days:
-        lines.append("\n#### 📅 Current Week Schedule:")
+        lines.append("\n#### This Week")
         for d in days:
-            day_name = d.get("weekday", "")
-            d_date = d.get("display_date", "")
-            is_today = d.get("is_today", False)
-            tag_today = " 👈 **[TODAY]**" if is_today else ""
             games = d.get("games", [])
+            is_today = d.get("is_today", False)
+            if not games and not is_today:
+                continue
 
-            if games:
-                lines.append(f"\n**{day_name} ({d_date}){tag_today}:**")
-                for g in games[:5]:
-                    name = g.get("name", "Unknown")
-                    aid = g.get("appid")
-                    price = g.get("price", "TBA")
-                    disc = g.get("discount_pct", 0)
-                    disc_str = f" **-{disc}%**" if disc > 0 else ""
-                    wl_str = " ⭐" if g.get("is_wishlisted") else ""
-                    tags = g.get("matched_tags", [])
-                    tag_str = f" — *{', '.join(tags[:2])}*" if tags else ""
-                    lines.append(f"  - `{aid}` **{name}**{wl_str} ({price}{disc_str}){tag_str}")
-            elif is_today:
-                lines.append(f"\n**{day_name} ({d_date}){tag_today}:** No major tracked releases today.")
+            today_mark = " (TODAY)" if is_today else ""
+            header = f"**{d.get('weekday')} {d.get('display_date')}{today_mark}:**"
+            if not games:
+                lines.append(f"{header} No tracked drops.")
+                continue
 
-    # Beyond Week / Upcoming Highlights
+            lines.append(header)
+            for g in games[:5]:
+                wl = " [WL]" if g.get("is_wishlisted") else ""
+                tags = g.get("matched_tags", [])
+                tag_str = f" ({', '.join(tags[:2])})" if tags else ""
+                lines.append(f"  - {g.get('name')} ({g.get('appid')}){wl} [{_badge(g)}]{tag_str}")
+
+    # Beyond Week / Upcoming Highlights (Top 5)
     beyond = h3.get("beyond_week", [])
     if beyond:
-        lines.append("\n#### 🔮 Upcoming Highlights (Next 14 Days):")
-        for g in beyond[:6]:
-            name = g.get("name", "Unknown")
-            aid = g.get("appid")
-            rel = g.get("release_raw", "")
-            wl_str = " ⭐ [Wishlisted]" if g.get("is_wishlisted") else ""
+        lines.append("\n#### Upcoming (Next 14 Days)")
+        for g in beyond[:5]:
+            wl = " [WL]" if g.get("is_wishlisted") else ""
+            ea = " [EA]" if g.get("is_early_access") else ""
+            rel_short = (g.get("release_raw") or "").split(",")[0].strip()
             tags = g.get("matched_tags", [])
-            tag_str = f" — *{', '.join(tags[:2])}*" if tags else ""
-            lines.append(f"- `{aid}` **{name}**{wl_str} ({rel}){tag_str}")
+            tag_str = f" — {', '.join(tags[:2])}" if tags else ""
+            lines.append(f"- {g.get('name')} ({g.get('appid')}){wl}{ea} [{rel_short}]{tag_str}")
 
     return "\n".join(lines)
 

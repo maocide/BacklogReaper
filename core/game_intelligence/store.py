@@ -1212,10 +1212,13 @@ _GENERIC_STORE_TAGS: Set[str] = {
 }
 
 
+_EARLY_ACCESS_TAG_ID = 493
+
+
 def get_user_taste_profile(top_n_tags: int = 6) -> Tuple[List[Dict[str, Any]], Dict[int, str], Dict[int, float]]:
     """
     Computes normalized dynamic user taste scores:
-    70% weight to 60-day recent playtime trends + 30% weight to lifetime baseline.
+    50% weight to 60-day recent playtime trends + 50% weight to lifetime baseline.
     Filters generic store fluff tags, maps to official Steam tag IDs via popular tags registry.
     Returns (top_tags_list, tag_id_to_name, tag_id_to_weight).
     """
@@ -1238,7 +1241,7 @@ def get_user_taste_profile(top_n_tags: int = 6) -> Tuple[List[Dict[str, Any]], D
         l_norm = (lifetime_map.get(name, 0.0) / max_l * 100.0) if max_l > 0 else 0.0
 
         if max_r > 0 and max_l > 0:
-            score = 0.70 * r_norm + 0.30 * l_norm
+            score = 0.50 * r_norm + 0.50 * l_norm
         elif max_l > 0:
             score = l_norm
         elif max_r > 0:
@@ -1302,6 +1305,24 @@ def _parse_steam_release_date(raw_date: str, today: date) -> Tuple[Optional[str]
         return parsed_date.isoformat(), weekday, days_diff
 
     return None, None, None
+
+
+def _parse_review_tooltip(tooltip: Optional[str]) -> Tuple[Optional[str], Optional[int], Optional[int]]:
+    """
+    Parses Steam search review tooltip HTML like:
+    'Positive<br>95% of the 24 user reviews for this game are positive.'
+    Returns (sentiment_label, positive_pct, review_count).
+    """
+    if not tooltip:
+        return None, None, None
+
+    label = tooltip.split("<br>")[0].strip() if "<br>" in tooltip else None
+    match = re.search(r"(\d+)%\s+of\s+the\s+([\d,]+)\s+user\s+reviews", tooltip)
+    if match:
+        pct = int(match.group(1))
+        count = int(match.group(2).replace(",", ""))
+        return label, pct, count
+    return label, None, None
 
 
 @safe_tool
@@ -1396,14 +1417,40 @@ def get_personalized_calendar(
             except Exception:
                 row_tag_ids = []
 
-            matched_tags = [id_to_name[t] for t in row_tag_ids if t in id_to_name and t in tag_weights]
-            base_taste_score = sum(tag_weights[t] for t in row_tag_ids if t in tag_weights)
+            is_early_access = _EARLY_ACCESS_TAG_ID in row_tag_ids
+
+            matched_pairs = [
+                (id_to_name[t], tag_weights[t])
+                for t in row_tag_ids
+                if t in id_to_name and t in tag_weights
+            ]
+            # Sort matched tags by descending user weight and apply diminishing returns
+            # so tag-stuffed asset flips cannot leapfrog focused high-affinity titles.
+            matched_pairs.sort(key=lambda x: x[1], reverse=True)
+            matched_tags = [name_t for name_t, _ in matched_pairs]
+            base_taste_score = sum(
+                weight * (0.5 ** idx) for idx, (_, weight) in enumerate(matched_pairs)
+            )
+
+            # Community review traction (unrated day-1 drops stay neutral; positive traction gets boosted, bad reception demoted)
+            rev_el = row.select_one(".search_review_summary")
+            tooltip = rev_el.get("data-tooltip-html") if rev_el else None
+            review_summary, review_pct, review_count = _parse_review_tooltip(tooltip)
+
+            traction_modifier = 0.0
+            if review_pct is not None and review_count is not None:
+                if review_pct >= 80 and review_count >= 50:
+                    traction_modifier = 50.0
+                elif review_pct >= 75 and review_count >= 10:
+                    traction_modifier = 35.0
+                elif review_pct < 50 and review_count >= 10:
+                    traction_modifier = -40.0
 
             is_wishlisted = aid in wishlist_ids
             is_owned = vault.is_game_owned(aid)
 
-            # Wishlist boost
-            taste_score = base_taste_score + (100.0 if is_wishlisted else 0.0)
+            # Final score: diminished taste + review traction + wishlist priority
+            taste_score = base_taste_score + traction_modifier + (100.0 if is_wishlisted else 0.0)
 
             parsed_games[aid] = {
                 "appid": aid,
@@ -1415,6 +1462,10 @@ def get_personalized_calendar(
                 "price": price_str,
                 "discount_pct": discount_pct,
                 "capsule_url": capsule_url,
+                "is_early_access": is_early_access,
+                "review_summary": review_summary,
+                "review_pct": review_pct,
+                "review_count": review_count,
                 "is_wishlisted": is_wishlisted,
                 "is_owned": is_owned,
                 "matched_tags": matched_tags,
