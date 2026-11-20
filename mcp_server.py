@@ -355,6 +355,29 @@ def get_user_activity(include_sessions: bool = True, max_sessions: int = 3) -> s
 
 
 @mcp.tool()
+def get_personalized_calendar(days_ahead: int = 14, days_back: int = 30, top_taste_tags: int = 6) -> str:
+    """
+    Fetch a personalized Steam Release Calendar tailored to the user's gaming taste profile
+    (Action Roguelike, Boomer Shooter, FPS, Bullet Hell) and wishlist.
+    Covers three horizons:
+    - Horizon 1: Drops in the last 7 days (fresh releases, discounts, and prices).
+    - Horizon 2: Notable drops in the last 30 days.
+    - Horizon 3: Current week weekday schedule (Monday to Sunday) with today highlighted and upcoming drops.
+
+    Args:
+        days_ahead: Number of days into the future to look for upcoming drops (default 14).
+        days_back: Number of days into the past to check for recent releases (default 30).
+        top_taste_tags: Number of personalized taste tags to query and score against (default 6).
+    """
+    data = game_intelligence.get_personalized_calendar(
+        days_ahead=days_ahead,
+        days_back=days_back,
+        top_taste_tags=top_taste_tags,
+    )
+    return formatters.format_personalized_calendar(data)
+
+
+@mcp.tool()
 def run_system_diagnostics() -> str:
     """
     Run a full diagnostic health check across all BacklogReaper subsystems,

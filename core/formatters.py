@@ -853,3 +853,77 @@ def format_user_activity(data: Any) -> str:
 
     return "\n".join(lines)
 
+
+def format_personalized_calendar(data: Any) -> str:
+    """Format personalized release calendar and multi-horizon schedules into high-signal Markdown."""
+    err = _format_error("Personalized Calendar", data)
+    if err:
+        return err
+
+    lines = []
+    taste = data.get("taste_profile", [])
+    taste_str = ", ".join(t.get("name", "") for t in taste[:5])
+    lines.append("### 🗓️ Personalized Release Calendar")
+    if taste_str:
+        lines.append(f"*Tailored to your current gameplay affinities: **{taste_str}***\n")
+
+    # Horizon 1: Last 7 Days
+    h1 = data.get("horizon_1_last_7_days", [])
+    if h1:
+        lines.append("#### 🚀 Released in the Last 7 Days (Fresh Drops):")
+        for g in h1[:10]:
+            name = g.get("name", "Unknown")
+            aid = g.get("appid")
+            rel = g.get("release_raw", "")
+            price = g.get("price", "TBA")
+            disc = g.get("discount_pct", 0)
+            disc_str = f" **-{disc}%**" if disc > 0 else ""
+            wl_str = " ⭐ [Wishlisted]" if g.get("is_wishlisted") else ""
+            owned_str = " (Owned)" if g.get("is_owned") else ""
+            tags = g.get("matched_tags", [])
+            tag_str = f" — *{', '.join(tags[:3])}*" if tags else ""
+
+            lines.append(f"- **{name}** (`{aid}`){wl_str}{owned_str} [{price}{disc_str} | {rel}]{tag_str}")
+
+    # Horizon 3: Current Week Schedule
+    h3 = data.get("horizon_3_upcoming_week", {})
+    days = h3.get("days", [])
+    if days:
+        lines.append("\n#### 📅 Current Week Schedule:")
+        for d in days:
+            day_name = d.get("weekday", "")
+            d_date = d.get("display_date", "")
+            is_today = d.get("is_today", False)
+            tag_today = " 👈 **[TODAY]**" if is_today else ""
+            games = d.get("games", [])
+
+            if games:
+                lines.append(f"\n**{day_name} ({d_date}){tag_today}:**")
+                for g in games[:5]:
+                    name = g.get("name", "Unknown")
+                    aid = g.get("appid")
+                    price = g.get("price", "TBA")
+                    disc = g.get("discount_pct", 0)
+                    disc_str = f" **-{disc}%**" if disc > 0 else ""
+                    wl_str = " ⭐" if g.get("is_wishlisted") else ""
+                    tags = g.get("matched_tags", [])
+                    tag_str = f" — *{', '.join(tags[:2])}*" if tags else ""
+                    lines.append(f"  - `{aid}` **{name}**{wl_str} ({price}{disc_str}){tag_str}")
+            elif is_today:
+                lines.append(f"\n**{day_name} ({d_date}){tag_today}:** No major tracked releases today.")
+
+    # Beyond Week / Upcoming Highlights
+    beyond = h3.get("beyond_week", [])
+    if beyond:
+        lines.append("\n#### 🔮 Upcoming Highlights (Next 14 Days):")
+        for g in beyond[:6]:
+            name = g.get("name", "Unknown")
+            aid = g.get("appid")
+            rel = g.get("release_raw", "")
+            wl_str = " ⭐ [Wishlisted]" if g.get("is_wishlisted") else ""
+            tags = g.get("matched_tags", [])
+            tag_str = f" — *{', '.join(tags[:2])}*" if tags else ""
+            lines.append(f"- `{aid}` **{name}**{wl_str} ({rel}){tag_str}")
+
+    return "\n".join(lines)
+

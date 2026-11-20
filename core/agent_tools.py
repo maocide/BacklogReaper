@@ -530,6 +530,35 @@ tools_schema = [
     {
         "type": "function",
         "function": {
+            "name": "get_personalized_calendar",
+            "description": "Fetches a personalized Steam Release Calendar tailored to the user's gaming taste profile (Action Roguelike, Boomer Shooter, FPS, etc.) and wishlist. Covers three horizons: Horizon 1 (drops in the last 7 days), Horizon 2 (last 30 days highlights), and Horizon 3 (day-by-day current week schedule with today highlighted and upcoming drops).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "days_ahead": {
+                        "type": "integer",
+                        "description": "How many days into the future to look for upcoming drops (default 14)."
+                    },
+                    "days_back": {
+                        "type": "integer",
+                        "description": "How many days into the past to check for recent releases (default 30)."
+                    },
+                    "top_taste_tags": {
+                        "type": "integer",
+                        "description": "Number of personalized taste tags to query and score against (default 6)."
+                    },
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["action_description"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_friends_who_own",
             "description": "Checks which of the user's Steam friends own specific games. Returns their names, status, and playtime. If the user asks 'What can I play with friends?', you can pass games into this tool to find a match.",
             "parameters": {
@@ -653,6 +682,7 @@ def get_friendly_status(func_name):
         "get_friends_who_own": "👯 Checking friends...",
         "compare_library_with_friend": "👯 Comparing friends' games...",
         "get_active_friends": "👯 Meeting your friends...",
+        "get_personalized_calendar": "🗓️ Compiling your personalized release calendar...",
         "get_steam_store_trends": "🏷️ Checking the Steam storefront...",
         "run_system_diagnostics": "🛠️ Running system diagnostics...",
 
@@ -832,6 +862,17 @@ def execute_tool(tool_request):
             category = clean_params.get("category", "specials")
             data = game_intelligence.get_steam_store_trends(category)
             tool_output_md = formatters.format_store_trends(data)
+
+        elif tool_name == "get_personalized_calendar":
+            days_ahead = int(clean_params.get("days_ahead", 14))
+            days_back = int(clean_params.get("days_back", 30))
+            top_taste_tags = int(clean_params.get("top_taste_tags", 6))
+            data = game_intelligence.get_personalized_calendar(
+                days_ahead=days_ahead,
+                days_back=days_back,
+                top_taste_tags=top_taste_tags,
+            )
+            tool_output_md = formatters.format_personalized_calendar(data)
 
         elif tool_name == "self_destruct":
             tool_output_md = (

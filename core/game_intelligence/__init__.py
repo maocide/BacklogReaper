@@ -27,6 +27,8 @@ from core.game_intelligence.store import (
     generate_contextual_dna,
     get_user_wishlist,
     get_steam_store_trends,
+    get_user_taste_profile,
+    get_personalized_calendar,
 )
 
 from core.game_intelligence.achievements import (
@@ -88,6 +90,8 @@ __all__ = [
     "generate_contextual_dna",
     "get_user_wishlist",
     "get_steam_store_trends",
+    "get_user_taste_profile",
+    "get_personalized_calendar",
     # Achievements
     "get_achievement_stats",
     "get_game_achievement_schema",

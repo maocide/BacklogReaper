@@ -3,7 +3,7 @@ Steam Store, Catalog, Pricing, Deals, and Market Intelligence.
 """
 
 import concurrent.futures
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import difflib
 import json
 import platform
@@ -1199,3 +1199,292 @@ def get_steam_store_trends(category="specials"):
 
     except Exception as e:
         return {"error": f"Could not fetch Steam store trends: {e}"}
+
+
+_GENERIC_STORE_TAGS: Set[str] = {
+    'singleplayer', 'multiplayer', 'indie', 'early access', 'action', 'adventure',
+    'casual', 'simulation', 'strategy', 'rpg', 'co-op', 'online co-op',
+    'first-person', 'third person', 'pvp', '2d', '3d', 'story rich',
+    'atmospheric', 'great soundtrack', 'vr', 'free to play', 'controller',
+    'nudity', 'sexual content', 'anime', 'funny', 'difficult', 'relaxing',
+    'physics', 'exploration', 'linear', 'open world', 'sandbox', 'replay value',
+    'stylized', 'female protagonist', 'pixel graphics', 'competitive', 'esports'
+}
+
+
+def get_user_taste_profile(top_n_tags: int = 6) -> Tuple[List[Dict[str, Any]], Dict[int, str], Dict[int, float]]:
+    """
+    Computes normalized dynamic user taste scores:
+    70% weight to 60-day recent playtime trends + 30% weight to lifetime baseline.
+    Filters generic store fluff tags, maps to official Steam tag IDs via popular tags registry.
+    Returns (top_tags_list, tag_id_to_name, tag_id_to_weight).
+    """
+    recent_tags = vault.get_all_tags(limit=100, recent_days=60)
+    lifetime_tags = vault.get_all_tags(limit=100)
+
+    recent_map = {r['name']: r['active_titles_count'] * 10 + r['lifetime_hours_in_tag'] for r in recent_tags}
+    lifetime_map = {r['name']: r['lifetime_hours_in_tag'] for r in lifetime_tags}
+
+    max_r = max(recent_map.values()) if recent_map else 0.0
+    max_l = max(lifetime_map.values()) if lifetime_map else 0.0
+
+    combined: Dict[str, float] = {}
+    all_names = set(recent_map.keys()) | set(lifetime_map.keys())
+
+    for name in all_names:
+        if name.lower() in _GENERIC_STORE_TAGS:
+            continue
+        r_norm = (recent_map.get(name, 0.0) / max_r * 100.0) if max_r > 0 else 0.0
+        l_norm = (lifetime_map.get(name, 0.0) / max_l * 100.0) if max_l > 0 else 0.0
+
+        if max_r > 0 and max_l > 0:
+            score = 0.70 * r_norm + 0.30 * l_norm
+        elif max_l > 0:
+            score = l_norm
+        elif max_r > 0:
+            score = r_norm
+        else:
+            score = 0.0
+
+        if score > 0:
+            combined[name] = round(score, 1)
+
+    # Sort descending
+    sorted_genres = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:top_n_tags]
+
+    # Map to Steam tag IDs using VibeEngine's popular tags catalog
+    ve = vibe_engine.VibeEngine.get_instance()
+    popular_tags = ve.get_steam_popular_tags()
+    name_to_tid = {t['name'].lower(): t['tagid'] for t in popular_tags}
+    id_to_name = {t['tagid']: t['name'] for t in popular_tags}
+
+    tag_weights: Dict[int, float] = {}
+    resolved_profile: List[Dict[str, Any]] = []
+
+    for name, score in sorted_genres:
+        tid = name_to_tid.get(name.lower())
+        if not tid:
+            match_res = ve.resolve_steam_tag_ids([name], threshold=0.7)
+            if match_res:
+                tid = match_res[0].get('tagid')
+                id_to_name[tid] = match_res[0].get('name', name)
+        if tid:
+            tag_weights[tid] = score
+            resolved_profile.append({
+                "name": name,
+                "tagid": tid,
+                "score": score
+            })
+
+    return resolved_profile, id_to_name, tag_weights
+
+
+def _parse_steam_release_date(raw_date: str, today: date) -> Tuple[Optional[str], Optional[str], Optional[int]]:
+    """
+    Parses Steam store release date string into (iso_date, weekday, days_diff).
+    Handles '19 Nov, 2026', 'Nov 19, 2026', '19 Nov 2026', etc.
+    """
+    if not raw_date:
+        return None, None, None
+
+    cleaned = raw_date.strip()
+    parsed_date: Optional[date] = None
+    for fmt in ('%d %b, %Y', '%b %d, %Y', '%d %b %Y', '%d %B, %Y', '%B %d, %Y'):
+        try:
+            parsed_date = datetime.strptime(cleaned, fmt).date()
+            break
+        except ValueError:
+            pass
+
+    if parsed_date:
+        days_diff = (parsed_date - today).days
+        weekday = parsed_date.strftime('%A')
+        return parsed_date.isoformat(), weekday, days_diff
+
+    return None, None, None
+
+
+@safe_tool
+def get_personalized_calendar(
+    days_ahead: int = 14,
+    days_back: int = 30,
+    top_taste_tags: int = 6,
+) -> dict:
+    """
+    Personalized Release Calendar matching the Steam Store layout:
+    - Horizon 1: Released in the Last 7 Days (card grid with discounts, prices, taste alignment)
+    - Horizon 2: Released in the Last 30 Days (monthly highlights)
+    - Horizon 3: Upcoming Week Schedule (Monday-Sunday day columns with today highlighted, plus next-week horizon)
+    Scores and ranks drops against the user's recent and lifetime gaming taste profile and wishlist.
+    """
+    # 1. Taste Profile Forensics
+    taste_profile, id_to_name, tag_weights = get_user_taste_profile(top_n_tags=top_taste_tags)
+
+    # 2. Multi-Feed Query Orchestration
+    urls: List[str] = [
+        "https://store.steampowered.com/search/results/?category1=998&filter=popularcomingsoon&snr=1_7_7_230_7",
+        "https://store.steampowered.com/search/results/?category1=998&filter=popularnew&snr=1_7_7_230_7",
+    ]
+
+    # Add tag-specific streams for top affinity tags
+    for tag in taste_profile[:3]:
+        tid = tag["tagid"]
+        urls.append(f"https://store.steampowered.com/search/results/?category1=998&tags={tid}&sort_by=Released_DESC&snr=1_7_7_230_7")
+        urls.append(f"https://store.steampowered.com/search/results/?category1=998&tags={tid}&filter=popularcomingsoon&snr=1_7_7_230_7")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cookie": "birthtime=283993201; mature_content=1",
+    }
+
+    def _fetch_feed(url: str) -> str:
+        try:
+            r = requests.get(url, headers=headers, timeout=8)
+            if r.status_code == 200:
+                return r.text
+        except Exception as e:
+            print(f"Warning: Calendar feed fetch failed for {url}: {e}")
+        return ""
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        html_pages = list(executor.map(_fetch_feed, urls))
+
+    # 3. Parse and Deduplicate
+    wishlist_ids = get_wishlist_appids()
+    today = date.today()
+    parsed_games: Dict[int, Dict[str, Any]] = {}
+
+    for html in html_pages:
+        if not html:
+            continue
+        soup = BeautifulSoup(html, "html.parser")
+        for row in soup.select("a.search_result_row"):
+            aid_raw = row.get("data-ds-appid")
+            if not aid_raw or not aid_raw.isdigit():
+                continue
+            aid = int(aid_raw)
+            if aid in parsed_games:
+                continue
+
+            title_el = row.select_one(".title")
+            name = title_el.text.strip() if title_el else "Unknown Game"
+
+            img_el = row.select_one(".search_capsule img")
+            capsule_url = img_el.get("src", "") if img_el else ""
+
+            rel_el = row.select_one(".search_released")
+            raw_released = rel_el.text.strip() if rel_el else ""
+
+            iso_date, weekday, days_diff = _parse_steam_release_date(raw_released, today)
+
+            # Price & Discount parsing
+            disc_el = row.select_one(".discount_pct")
+            discount_pct = 0
+            if disc_el:
+                txt = disc_el.text.strip().replace("-", "").replace("%", "")
+                if txt.isdigit():
+                    discount_pct = int(txt)
+
+            price_el = row.select_one(".discount_final_price") or row.select_one(".search_price")
+            price_str = price_el.text.strip() if price_el else "TBA"
+
+            # Tag alignment forensics
+            tag_ids_raw = row.get("data-ds-tagids", "[]")
+            try:
+                row_tag_ids = json.loads(tag_ids_raw)
+            except Exception:
+                row_tag_ids = []
+
+            matched_tags = [id_to_name[t] for t in row_tag_ids if t in id_to_name and t in tag_weights]
+            base_taste_score = sum(tag_weights[t] for t in row_tag_ids if t in tag_weights)
+
+            is_wishlisted = aid in wishlist_ids
+            is_owned = vault.is_game_owned(aid)
+
+            # Wishlist boost
+            taste_score = base_taste_score + (100.0 if is_wishlisted else 0.0)
+
+            parsed_games[aid] = {
+                "appid": aid,
+                "name": name,
+                "release_raw": raw_released,
+                "date": iso_date,
+                "weekday": weekday,
+                "days_diff": days_diff,
+                "price": price_str,
+                "discount_pct": discount_pct,
+                "capsule_url": capsule_url,
+                "is_wishlisted": is_wishlisted,
+                "is_owned": is_owned,
+                "matched_tags": matched_tags,
+                "taste_score": round(taste_score, 1),
+            }
+
+    # 4. Partition into Three Horizons
+    # Horizon 1: Last 7 Days (-7 <= days_diff <= 0)
+    h1_games = [
+        g for g in parsed_games.values()
+        if g["days_diff"] is not None and -7 <= g["days_diff"] <= 0
+    ]
+    h1_games.sort(key=lambda x: (x["is_wishlisted"], x["taste_score"], x["discount_pct"]), reverse=True)
+    h1_top = h1_games[:16]
+
+    # Horizon 2: Last 30 Days (-30 <= days_diff < -7)
+    h2_games = [
+        g for g in parsed_games.values()
+        if g["days_diff"] is not None and -30 <= g["days_diff"] < -7 and (g["taste_score"] > 0 or g["is_wishlisted"])
+    ]
+    h2_games.sort(key=lambda x: (x["is_wishlisted"], x["taste_score"]), reverse=True)
+    h2_top = h2_games[:12]
+
+    # Horizon 3: Current Week Schedule (Monday..Sunday) + Upcoming Horizon
+    monday = today - timedelta(days=today.weekday())
+    week_days: List[Dict[str, Any]] = []
+
+    for i in range(7):
+        current_day = monday + timedelta(days=i)
+        iso_str = current_day.isoformat()
+        day_name = current_day.strftime("%A")
+        display_date = current_day.strftime("%B %d")
+
+        day_games = [g for g in parsed_games.values() if g["date"] == iso_str]
+        day_games.sort(key=lambda x: (x["is_wishlisted"], x["taste_score"]), reverse=True)
+
+        week_days.append({
+            "date": iso_str,
+            "weekday": day_name,
+            "display_date": display_date,
+            "is_today": (current_day == today),
+            "is_past": (current_day < today),
+            "games": day_games[:8],
+        })
+
+    # Beyond current week (up to days_ahead)
+    beyond_sunday = monday + timedelta(days=7)
+    cutoff_future = today + timedelta(days=days_ahead)
+
+    beyond_week_games = [
+        g for g in parsed_games.values()
+        if g["days_diff"] is not None and g["days_diff"] > 0 and (
+            g["date"] and g["date"] >= beyond_sunday.isoformat() and g["date"] <= cutoff_future.isoformat()
+        )
+    ]
+    beyond_week_games.sort(key=lambda x: (x["date"], -x["taste_score"]))
+
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "taste_profile": taste_profile,
+        "horizon_1_last_7_days": h1_top,
+        "horizon_2_last_30_days": h2_top,
+        "horizon_3_upcoming_week": {
+            "days": week_days,
+            "beyond_week": beyond_week_games[:10],
+        },
+        "summary_counts": {
+            "total_analyzed": len(parsed_games),
+            "last_7_days_count": len(h1_games),
+            "last_30_days_count": len(h2_games),
+            "upcoming_week_count": sum(len(d["games"]) for d in week_days),
+        },
+    }
