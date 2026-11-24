@@ -6,6 +6,7 @@ import concurrent.futures
 from datetime import date, datetime, timedelta
 import difflib
 import json
+import math
 import platform
 from pprint import pprint
 import re
@@ -1498,14 +1499,16 @@ def get_personalized_calendar(
             review_summary, review_pct, review_count = _parse_review_tooltip(tooltip)
 
             traction_modifier = 0.0
-            if review_pct is not None and review_count is not None:
-                if review_pct >= 80 and review_count >= 50:
-                    traction_modifier = 50.0
-                elif review_pct >= 75 and review_count >= 10:
-                    traction_modifier = 35.0
-                elif review_pct < 50 and review_count >= 10:
+            if review_pct is not None and review_count is not None and review_count >= 10:
+                # Smooth logarithmic confidence ramp so small sample sizes (10-25 reviews)
+                # get a modest nod instead of matching 300+ review breakouts.
+                confidence = min(1.0, max(0.0, (math.log10(review_count) - 1.0) / 1.5))
+                if review_pct >= 70:
+                    quality = (review_pct - 65.0) / 35.0
+                    traction_modifier = round((5.0 + 55.0 * confidence) * quality, 1)
+                elif review_pct < 50:
                     traction_modifier = -40.0
-                elif review_pct < 65 and review_count >= 10:
+                elif review_pct < 65:
                     traction_modifier = -15.0
 
             is_wishlisted = aid in wishlist_ids
