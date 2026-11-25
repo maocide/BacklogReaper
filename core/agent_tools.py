@@ -468,6 +468,23 @@ tools_schema = [
     {
         "type": "function",
         "function": {
+            "name": "get_now_playing",
+            "description": "Inspect the user's currently playing Steam game and live gaming telemetry in compact, macro-friendly Markdown (matching MusicImp's get_now_playing).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action_description": {
+                        "type": "string",
+                        "description": "A short, flavor-text description of what you are doing, written in your CURRENT persona."
+                    }
+                },
+                "required": ["action_description"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_user_activity",
             "description": "Inspect the user's live Steam presence (currently playing title and playtime) and temporal recent gaming sessions from their backlog vault, including games played and achievements unlocked during those sessions.",
             "parameters": {
@@ -664,6 +681,7 @@ def get_friendly_status(func_name):
         "get_library_stats": "📊 Auditing your entire life...",
         "find_similar_games": "🔍 Matching games in your vault...",
         "get_achievements": "🏆 Checking your trophy cabinet...",
+        "get_now_playing": "🎮 Checking your live gaming status...",
         "get_user_activity": "🎮 Checking your recent gaming activity & milestones...",
         "get_user_wishlist": "🌠 Judging your wishlist...",
         "search_by_vibe": "✨ Vibe searching your games...",
@@ -803,6 +821,10 @@ def execute_tool(tool_request):
                 page=clean_params.get("page"),
             )
             tool_output_md = formatters.format_achievements(stats, game_name=game_name)
+
+        elif tool_name == "get_now_playing":
+            data = game_intelligence.get_now_playing()
+            tool_output_md = formatters.format_now_playing(data)
 
         elif tool_name == "get_user_activity":
             include_sessions = bool(clean_params.get("include_sessions", True))

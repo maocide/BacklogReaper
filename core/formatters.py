@@ -4,6 +4,8 @@ Used identically by core/agent_tools.py and mcp_server.py so internal agents
 and external MCP callers receive compact, structured, consistent Markdown.
 """
 
+from datetime import datetime
+import time
 from typing import Any, Dict, List, Optional
 
 
@@ -852,6 +854,77 @@ def format_user_activity(data: Any) -> str:
                     lines.append(f"  - 🏆 **{u_name}** ({u.get('unlock_time')}){desc_str}")
 
     return "\n".join(lines)
+
+
+def format_relative_time(ts: Optional[float]) -> str:
+    """Calculates human-friendly relative time (e.g. '5 minutes ago', 'yesterday', 'Oct 28, 2026')."""
+    if not ts or ts <= 0:
+        return "never"
+
+    now = time.time()
+    diff = now - ts
+
+    if diff < 0:
+        return "just now"
+    if diff < 60:
+        return "just now"
+    if diff < 3600:
+        mins = int(diff // 60)
+        return f"{mins} minute{'s' if mins != 1 else ''} ago"
+    if diff < 86400:
+        hours = int(diff // 3600)
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    if diff < 172800:
+        return "yesterday"
+    if diff < 86400 * 30:
+        days = int(diff // 86400)
+        return f"{days} day{'s' if days != 1 else ''} ago"
+
+    try:
+        dt = datetime.fromtimestamp(ts)
+        return dt.strftime("%b %d, %Y")
+    except Exception:
+        return "past"
+
+
+def format_now_playing(data: Any) -> str:
+    """
+    Renders an agent-first, macro-friendly Markdown representation of current Steam gaming reality.
+    Mirrors MusicImp's get_now_playing structure:
+    - In-Game: Spotlight hero with title, AppID, vault hours, and tags.
+    - Not In-Game: Strict one-liner indicating Online or Offline status (with last seen time).
+    """
+    err = _format_error("Steam Status", data)
+    if err:
+        return err
+
+    status = data.get("status")
+    if status == "in_game":
+        game = data.get("game", "Unknown Game")
+        appid = data.get("appid")
+        appid_str = f" (AppID: {appid})" if appid else ""
+        hours = data.get("total_hours")
+        hours_str = f" • [{hours}h in vault]" if hours is not None else ""
+
+        lines = [
+            "### 🎮 Now Playing",
+            f"**{game}**{appid_str}{hours_str}",
+        ]
+        tags = data.get("tags") or []
+        if tags:
+            tags_str = " • ".join(tags)
+            lines.append(f"- **Tags**: {tags_str}")
+        return "\n".join(lines)
+
+    if data.get("online"):
+        persona = data.get("persona_state", "Online")
+        return f"### 🟢 Steam Status: Online ({persona})"
+
+    last_logoff = data.get("last_logoff")
+    time_ago = format_relative_time(last_logoff) if last_logoff else None
+    if time_ago and time_ago not in ("never", "past"):
+        return f"### ⚪ Steam Status: Offline (last seen {time_ago})"
+    return "### ⚪ Steam Status: Offline"
 
 
 def format_personalized_calendar(data: Any) -> str:

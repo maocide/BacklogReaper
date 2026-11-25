@@ -340,6 +340,21 @@ def get_achievements(game_name: str = "", appid: Optional[int] = None, page: Opt
 
 
 @mcp.tool()
+def get_now_playing() -> str:
+    """
+    Retrieves the user's currently playing Steam game and live gaming telemetry
+    rendered in agent-optimized, macro-friendly Markdown (matching MusicImp's get_now_playing).
+
+    Dynamically formats for minimal prompt footprint:
+    - Actively Playing: Returns spotlight hero with game title, AppID, vault hours, and genre tags.
+    - Not In-Game: Returns a strict one-liner indicating Online or Offline status (with last seen time),
+      preventing context bloat in Tavern and Bakabot prompt macro injections.
+    """
+    data = game_intelligence.get_now_playing()
+    return formatters.format_now_playing(data)
+
+
+@mcp.tool()
 def get_user_activity(include_sessions: bool = True, max_sessions: int = 3) -> str:
     """
     Check the user's live Steam gaming presence (in-game title and playtime)

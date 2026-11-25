@@ -596,3 +596,78 @@ def get_user_activity(
         "sessions": sessions_payload
     }
 
+
+@safe_tool
+def get_now_playing() -> dict:
+    """
+    Checks the user's live Steam gaming status (in-game title, AppID, tags, and playtime)
+    analogous to MusicImp's get_now_playing.
+    Fast direct probe to ISteamUser/GetPlayerSummaries without session clustering.
+    """
+    steam_id = resolve_steam_id(settings.STEAM_USER)
+    if not steam_id:
+        return {"error": "Could not resolve Steam ID for user."}
+
+    url = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
+    params = {"key": settings.STEAM_API_KEY, "steamids": steam_id}
+    try:
+        resp = requests.get(url, params=params, timeout=5)
+        if resp.status_code != 200:
+            return {"error": f"Steam API returned HTTP {resp.status_code}"}
+        players = resp.json().get("response", {}).get("players", [])
+        if not players:
+            return {"error": "No player summary returned from Steam."}
+        p = players[0]
+    except Exception as e:
+        return {"error": f"Failed to connect to Steam API: {e}"}
+
+    p_state = p.get("personastate", 0)
+    game_title = p.get("gameextrainfo")
+    game_id = p.get("gameid")
+    last_logoff = p.get("lastlogoff")
+
+    state_map = {
+        0: "Offline / Invisible",
+        1: "Online",
+        2: "Busy",
+        3: "Away",
+        4: "Snooze",
+        5: "Looking to trade",
+        6: "Looking to play",
+    }
+
+    if game_id:
+        appid_int = int(game_id) if str(game_id).isdigit() else None
+        total_hours = None
+        tags = []
+        if appid_int:
+            try:
+                g_entry = vault.get_game_by_appid(appid_int)
+                if g_entry:
+                    if g_entry.get("playtime_forever") is not None:
+                        total_hours = round(g_entry["playtime_forever"] / 60.0, 1)
+                    raw_tags = g_entry.get("tags")
+                    if raw_tags:
+                        tags = [t.strip() for t in raw_tags.split(",") if t.strip()][:5]
+            except Exception:
+                pass
+
+        return {
+            "online": True,
+            "status": "in_game",
+            "game": game_title or (f"AppID {game_id}" if game_id else "Unknown Game"),
+            "appid": appid_int or game_id,
+            "total_hours": total_hours,
+            "tags": tags,
+        }
+
+    return {
+        "online": p_state > 0,
+        "status": "online" if p_state > 0 else "offline",
+        "persona_state": state_map.get(p_state, "Unknown"),
+        "last_logoff": last_logoff,
+        "game": None,
+        "appid": None,
+    }
+
+

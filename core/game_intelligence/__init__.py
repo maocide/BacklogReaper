@@ -44,6 +44,7 @@ from core.game_intelligence.social import (
     compare_library_with_friend,
     get_active_friends,
     get_user_activity,
+    get_now_playing,
 )
 
 from core.game_intelligence.reviews import (
@@ -103,6 +104,7 @@ __all__ = [
     "compare_library_with_friend",
     "get_active_friends",
     "get_user_activity",
+    "get_now_playing",
     # Review Forensics
     "get_current_os_for_steam",
     "_normalize_review_record",
