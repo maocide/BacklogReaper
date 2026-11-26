@@ -619,7 +619,12 @@ def format_store_trends(data: Any) -> str:
 
     rows = []
     for g in games:
-        badge = "`[IN LIBRARY]`" if g.get("owned") else "Unowned"
+        if g.get("owned"):
+            badge = "`[IN LIBRARY]`"
+        elif g.get("on_wishlist"):
+            badge = "`[ON WISHLIST]`"
+        else:
+            badge = "Unowned"
         rows.append([
             g.get("appid", "N/A"),
             g.get("name", "Unknown"),

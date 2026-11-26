@@ -1146,16 +1146,54 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 def get_steam_store_trends(category="specials"):
     """
     Fetches the current front-page trends directly from the Steam Store.
-    Valid categories: 'specials' (current sales/deals), 'top_sellers', 'new_releases', 'coming_soon'.
-    Use this to tell the user about major seasonal sales, what's popular, or new drops.
+    Valid categories: 'specials' (current sales/deals), 'top_sellers', 'new_releases' (curated Popular New Releases via /explore/new/), 'coming_soon'.
+    Use this to tell the user about major seasonal sales, what's popular, or fresh curated new releases.
     """
-    url = "https://store.steampowered.com/api/featuredcategories/?cc=US"
     valid_categories = ['specials', 'top_sellers', 'new_releases', 'coming_soon']
 
     # Auto-correct if the LLM hallucinates a category
     if category not in valid_categories:
         category = 'specials'
 
+    wishlist_ids = get_wishlist_appids()
+
+    if category == 'new_releases':
+        explore_url = "https://store.steampowered.com/explore/new/"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cookie": "birthtime=283993201; mature_content=1",
+        }
+        try:
+            response = requests.get(explore_url, headers=headers, timeout=8)
+            response.raise_for_status()
+            parsed = _parse_explore_popular_new(response.text)
+            if not parsed:
+                return {"error": "No curated new releases found on Steam /explore/new/."}
+
+            results = []
+            for item in parsed[:25]:
+                appid = item["appid"]
+                discount = item.get("discount_pct", 0)
+                results.append({
+                    "appid": appid,
+                    "name": item.get("name", "Unknown"),
+                    "discount": f"{discount}% OFF" if discount > 0 else "None",
+                    "price": item.get("price", "TBA"),
+                    "original": item.get("original_price", "N/A"),
+                    "owned": vault.is_game_owned(appid),
+                    "on_wishlist": appid in wishlist_ids,
+                })
+
+            return {
+                "current_view": "new_releases",
+                "total_items": len(results),
+                "games": results,
+            }
+        except Exception as e:
+            return {"error": f"Could not fetch Steam curated new releases: {e}"}
+
+    url = "https://store.steampowered.com/api/featuredcategories/?cc=US"
     try:
         response = requests.get(url, timeout=5)
         response.raise_for_status()
@@ -1180,8 +1218,11 @@ def get_steam_store_trends(category="specials"):
 
             appid = item.get('id', '')
             is_owned = False
+            is_wishlisted = False
             if str(appid).isdigit():
-                is_owned = vault.is_game_owned(int(appid))
+                aid_int = int(appid)
+                is_owned = vault.is_game_owned(aid_int)
+                is_wishlisted = aid_int in wishlist_ids
 
             results.append({
                 "appid": appid,
@@ -1189,7 +1230,8 @@ def get_steam_store_trends(category="specials"):
                 "discount": f"{discount}% OFF" if discount > 0 else "None",
                 "price": price_str,
                 "original": f"${original_price:.2f}" if original_price > 0 else "N/A",
-                "owned": is_owned
+                "owned": is_owned,
+                "on_wishlist": is_wishlisted,
             })
 
         return {
@@ -1362,6 +1404,9 @@ def _parse_explore_popular_new(html: str) -> List[Dict[str, Any]]:
         price_el = item.select_one(".discount_final_price")
         price_str = price_el.text.strip() if price_el else "TBA"
 
+        orig_el = item.select_one(".discount_original_price")
+        original_price_str = orig_el.text.strip() if orig_el else "N/A"
+
         tag_ids_raw = item.get("data-ds-tagids", "[]")
         try:
             tag_ids = json.loads(tag_ids_raw)
@@ -1372,6 +1417,7 @@ def _parse_explore_popular_new(html: str) -> List[Dict[str, Any]]:
             "appid": int(aid_raw),
             "name": name,
             "price": price_str,
+            "original_price": original_price_str,
             "discount_pct": discount_pct,
             "capsule_url": capsule_url,
             "tag_ids": tag_ids,

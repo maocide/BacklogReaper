@@ -370,6 +370,24 @@ def get_user_activity(include_sessions: bool = True, max_sessions: int = 3) -> s
 
 
 @mcp.tool()
+def get_steam_store_trends(category: str = "specials") -> str:
+    """
+    Fetch current curated Steam Store front-page trends with ownership & wishlist badges.
+    Use this (NOT search_steam_store) when asked what just released on Steam, what's trending,
+    what's on sale, or what's coming soon globally.
+
+    Args:
+        category: One of:
+            - 'new_releases': Curated Popular New Releases directly from Steam /explore/new/ (best for "what released today/this week?")
+            - 'specials': Featured current sales and major discounts
+            - 'top_sellers': Global Steam top sellers right now
+            - 'coming_soon': Popular upcoming Steam releases
+    """
+    data = game_intelligence.get_steam_store_trends(category=category)
+    return formatters.format_store_trends(data)
+
+
+@mcp.tool()
 def get_personalized_calendar(days_ahead: int = 14, days_back: int = 30, top_taste_tags: int = 6) -> str:
     """
     Fetch a personalized Steam Release Calendar tailored to the user's gaming taste profile
