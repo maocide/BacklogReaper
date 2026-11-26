@@ -1146,10 +1146,14 @@ def get_user_wishlist(sort_by='recent', page=0, page_size=10):
 def get_steam_store_trends(category="specials"):
     """
     Fetches the current front-page trends directly from the Steam Store.
-    Valid categories: 'specials' (current sales/deals), 'top_sellers', 'new_releases' (curated Popular New Releases via /explore/new/), 'coming_soon'.
-    Use this to tell the user about major seasonal sales, what's popular, or fresh curated new releases.
+    Valid categories:
+    - 'popular_new': Curated Popular New Releases / New & Trending via /explore/new/ (best for notable new drops).
+    - 'new_releases': Chronological New Releases tab (raw latest drops from today, unfiltered).
+    - 'specials': Featured current sales and major discounts.
+    - 'top_sellers': Global Steam top sellers right now.
+    - 'coming_soon': Popular upcoming Steam releases.
     """
-    valid_categories = ['specials', 'top_sellers', 'new_releases', 'coming_soon']
+    valid_categories = ['specials', 'top_sellers', 'popular_new', 'new_releases', 'coming_soon']
 
     # Auto-correct if the LLM hallucinates a category
     if category not in valid_categories:
@@ -1157,7 +1161,7 @@ def get_steam_store_trends(category="specials"):
 
     wishlist_ids = get_wishlist_appids()
 
-    if category == 'new_releases':
+    if category == 'popular_new':
         explore_url = "https://store.steampowered.com/explore/new/"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
@@ -1169,7 +1173,7 @@ def get_steam_store_trends(category="specials"):
             response.raise_for_status()
             parsed = _parse_explore_popular_new(response.text)
             if not parsed:
-                return {"error": "No curated new releases found on Steam /explore/new/."}
+                return {"error": "No curated popular new releases found on Steam /explore/new/."}
 
             results = []
             for item in parsed[:25]:
@@ -1186,12 +1190,12 @@ def get_steam_store_trends(category="specials"):
                 })
 
             return {
-                "current_view": "new_releases",
+                "current_view": "popular_new",
                 "total_items": len(results),
                 "games": results,
             }
         except Exception as e:
-            return {"error": f"Could not fetch Steam curated new releases: {e}"}
+            return {"error": f"Could not fetch Steam curated popular new releases: {e}"}
 
     url = "https://store.steampowered.com/api/featuredcategories/?cc=US"
     try:

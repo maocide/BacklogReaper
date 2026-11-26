@@ -217,7 +217,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_game_details",
-            "description": "Get deep details for a SPECIFIC game from external APIs (description, price, best deal, HLTB times, review scores, and CCU/Concurrent Players). Use when the user asks about a specific game or a for a list of games.",
+            "description": "Batch metadata lookup for multiple games at once from external APIs (description, price, historic low deal, HLTB times, review scores, and CCU). For a single-game full verdict including reviews, prefer evaluate_game.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -239,7 +239,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "search_steam_store",
-            "description": "Search the official Steam Store catalog for games matching keywords, genre/mechanic tags, or sales filters. Supports ownership filtering and sorting by recent releases, top reviews, lowest price, or relevance.",
+            "description": "Targeted keyword/tag search across the official Steam Store catalog with discount, ownership, and sort filters. Do NOT use for general 'what released today/this week?' or front-page sales — use get_steam_store_trends instead (sort_by='recent' returns raw uncurated chronological listings unless paired with specific tags/terms).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -308,7 +308,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "evaluate_game",
-            "description": "Single-call game investigator combining library ownership/status, Steam & CheapShark store/price/HLTB details, and global + recent review telemetry. Set deep=True to also synthesize a review digest and Reddit/4chan/Steam Forum community consensus.",
+            "description": "DEFAULT single-call game investigator ('is X good?', 'should I buy/play X?') combining library ownership/status, Steam & CheapShark store/price/HLTB details, and global + recent review telemetry. Set deep=True to also synthesize a review digest and Reddit/4chan/Steam Forum community consensus.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -469,7 +469,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_now_playing",
-            "description": "Inspect the user's currently playing Steam game and live gaming telemetry in compact, macro-friendly Markdown (matching MusicImp's get_now_playing).",
+            "description": "FAST live status check: is the user online or playing a Steam game RIGHT NOW? Returns a strict one-liner when idle/offline or a spotlight card when in-game. Use this for live presence; use get_user_activity for past play sessions.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -486,7 +486,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_user_activity",
-            "description": "Inspect the user's live Steam presence (currently playing title and playtime) and temporal recent gaming sessions from their backlog vault, including games played and achievements unlocked during those sessions.",
+            "description": "HISTORICAL play sessions: inspects recent gaming sessions from the user's backlog vault, clustering games played and achievements unlocked (plus live status). For a fast 'what is the user playing right now?' check, use get_now_playing instead.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -526,14 +526,14 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_steam_store_trends",
-            "description": "Fetches the current front-page trends directly from the Steam Store. Use this to tell the user about major seasonal sales, what's popular right now, or new drops.",
+            "description": "Fetches Steam Store front-page trends with ownership & wishlist badges. Use this (NOT search_steam_store) when asked what just released on Steam ('popular_new' for curated New & Trending drops, 'new_releases' for raw chronological drops today), what's on sale ('specials'), top sellers ('top_sellers'), or upcoming ('coming_soon').",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "category": {
                         "type": "string",
-                        "enum": ["specials", "top_sellers", "new_releases", "coming_soon"],
-                        "description": "The store category to fetch. Defaults to 'specials'."
+                        "enum": ["popular_new", "new_releases", "specials", "top_sellers", "coming_soon"],
+                        "description": "The store category to fetch. Prefer 'popular_new' for curated trending releases, 'new_releases' for raw chronological drops today. Defaults to 'specials'."
                     },
                     "action_description": {
                         "type": "string",
@@ -548,7 +548,7 @@ tools_schema = [
         "type": "function",
         "function": {
             "name": "get_personalized_calendar",
-            "description": "Fetches a personalized Steam Release Calendar tailored to the user's gaming taste profile (Action Roguelike, Boomer Shooter, FPS, etc.) and wishlist. Covers three horizons: Horizon 1 (drops in the last 7 days), Horizon 2 (last 30 days highlights), and Horizon 3 (day-by-day current week schedule with today highlighted and upcoming drops).",
+            "description": "Fetches a PERSONALIZED Steam Release Calendar scored against the user's gaming taste profile (50/50 recent + lifetime affinities) and wishlist: last 7 days highlights, last 30 days, and day-by-day current week schedule + upcoming drops. For global un-personalized new releases or sales, use get_steam_store_trends instead.",
             "parameters": {
                 "type": "object",
                 "properties": {

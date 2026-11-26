@@ -29,7 +29,14 @@ vault.init_db()
 # Create MCP Server
 mcp = MCPServer(
     name="BacklogReaper",
-    instructions="Backlog Reaper game vault, community intelligence, and deal hunting assistant."
+    instructions=(
+        "BacklogReaper: personal Steam vault, game intelligence, community sentiment, and store discovery.\n"
+        "Tool routing rules:\n"
+        "- Live presence right now: use get_now_playing (fast, macro-friendly). For past play sessions & recent unlocks, use get_user_activity.\n"
+        "- Researching a single game: start with evaluate_game (bundles ownership, price/deals, HLTB, reviews; set deep=True for Reddit/4chan/Steam Forum consensus) instead of chaining multiple tools. Use get_game_details to batch-compare multiple titles.\n"
+        "- Store discovery & releases: use get_steam_store_trends(category='popular_new'|'new_releases'|'specials'|'top_sellers'|'coming_soon') for global front-page drops/sales (prefer 'popular_new' for curated trending releases, 'new_releases' for raw chronological drops today); use get_personalized_calendar for taste-matched weekly release schedules; use search_steam_store ONLY for specific keyword/tag queries.\n"
+        "- Owned backlog queries: use vault_search for structured tags/playtime/HLTB/status filters, search_by_vibe for abstract mood/atmosphere, and find_similar_games for 'games I own like X'."
+    )
 )
 
 # Concurrency guard for background library sync
@@ -207,7 +214,9 @@ def search_steam_store(
     limit: int = 10,
 ) -> str:
     """
-    Search official Steam Store catalog with optional semantic tag projection, discounts, ownership filtering, and sorting.
+    Targeted keyword/tag search across the official Steam Store catalog with discount, ownership, and sort filters.
+    Do NOT use for general "what released today/this week?" or front-page sales — use get_steam_store_trends
+    instead (sort_by='recent' returns raw uncurated chronological listings unless paired with specific tags/terms).
     - search_term: keywords/title (optional if tags or specials_only are provided)
     - tags: list of gameplay/genre tags (e.g. ['bullet heaven', 'action roguelike'])
     - specials_only: True to only show games currently discounted
@@ -235,8 +244,9 @@ def search_steam_store(
 @mcp.tool()
 def get_game_details(game_names: List[str]) -> str:
     """
-    Fetch comprehensive game intel from Steam and CheapShark:
-    pricing, discount percentage, DLCs, HLTB estimates, description, and deals.
+    Batch metadata lookup for multiple games at once from Steam and CheapShark:
+    pricing, discount percentage, historic lows, HLTB estimates, CCU, and descriptions.
+    For a single-game full verdict including reviews, prefer evaluate_game.
     """
     details = game_intelligence.get_batch_game_details(game_names)
     return formatters.format_game_details(details)
@@ -245,7 +255,8 @@ def get_game_details(game_names: List[str]) -> str:
 @mcp.tool()
 def get_reviews(game_name: str, limit: int = 10, summarize: bool = False) -> str:
     """
-    Fetch actual Steam player reviews, recent telemetry metrics, sentiment summary, and optional sub-LLM consensus digest.
+    Fetch raw Steam player review text, recent-sample purchase/playtime telemetry, and optional sub-LLM consensus digest.
+    Prefer evaluate_game unless you specifically need individual player review excerpts.
     """
     reviews = game_intelligence.get_reviews_byname(game_name, count=limit, summarize=summarize)
     if isinstance(reviews, dict):
@@ -256,7 +267,9 @@ def get_reviews(game_name: str, limit: int = 10, summarize: bool = False) -> str
 @mcp.tool()
 def evaluate_game(game_name: str, deep: bool = False) -> str:
     """
-    One-shot game evaluation combining library ownership, Store/CheapShark/HLTB details, review telemetry, and optional deep digest + community sentiment.
+    DEFAULT one-shot tool for researching a single game ("is X good?", "should I buy/play X?").
+    Combines library ownership, Store/CheapShark pricing & historic lows, HLTB, and global + recent review telemetry.
+    Set deep=True to also synthesize a review digest and Reddit/4chan/Steam Forum community consensus.
     """
     report = game_intelligence.evaluate_game(game_name=game_name, deep=deep)
     if isinstance(report, dict):
@@ -286,9 +299,8 @@ def compile_game_wiki(game_name: str, mode: str = "full", question: Optional[str
 @mcp.tool()
 def get_community_sentiment(game_name: str) -> str:
     """
-    Deep multi-community consensus report:
-    Synthesizes current discourse across Steam Community Forums, 4chan (/v/ and /vg/),
-    and Reddit gamer discussions.
+    Standalone deep multi-community consensus report across Steam Community Forums, 4chan (/v/ and /vg/),
+    and Reddit for uncensored opinions, drama, or post-launch issues (already included in evaluate_game(deep=True)).
     """
     data = community_sentiment.get_community_sentiment(game_name)
     if isinstance(data, dict):
@@ -299,8 +311,8 @@ def get_community_sentiment(game_name: str) -> str:
 @mcp.tool()
 def search_reddit_discussions(game_name: str, limit: int = 5) -> str:
     """
-    Directly extracts authentic Reddit gamer reviews, threads, and discourse for a game
-    via clean search syndication (bypassing anti-bot filters and Turnstile).
+    Targeted Reddit-only thread search for a game (bypassing anti-bot filters).
+    Prefer get_community_sentiment for multi-platform consensus unless specifically asked for Reddit threads.
     """
     results = web_tools.search_reddit_discussions(game_name, limit=limit)
     return formatters.format_reddit_discussions(results, game_name=game_name)
@@ -309,7 +321,8 @@ def search_reddit_discussions(game_name: str, limit: int = 5) -> str:
 @mcp.tool()
 def get_game_deals(game_name: str) -> str:
     """
-    Search CheapShark for current discounts, lowest historic prices, and store deals for a game.
+    Quick CheapShark-only price, current discount, and historic-low lookup for a single game
+    (pricing & historic lows are already included in get_game_details and evaluate_game).
     """
     app_info = game_intelligence.get_steam_app_info(game_name)
     appid = app_info["id"][0] if app_info and "id" in app_info else None
@@ -342,13 +355,11 @@ def get_achievements(game_name: str = "", appid: Optional[int] = None, page: Opt
 @mcp.tool()
 def get_now_playing() -> str:
     """
-    Retrieves the user's currently playing Steam game and live gaming telemetry
-    rendered in agent-optimized, macro-friendly Markdown (matching MusicImp's get_now_playing).
-
-    Dynamically formats for minimal prompt footprint:
-    - Actively Playing: Returns spotlight hero with game title, AppID, vault hours, and genre tags.
-    - Not In-Game: Returns a strict one-liner indicating Online or Offline status (with last seen time),
-      preventing context bloat in Tavern and Bakabot prompt macro injections.
+    FAST live status check: is the user online or playing a Steam game RIGHT NOW?
+    Renders agent-optimized, macro-friendly Markdown (matching MusicImp's get_now_playing):
+    - Actively Playing: Spotlight hero with game title, AppID, vault hours, and genre tags.
+    - Not In-Game: Strict one-liner (Online or Offline with last seen time) to avoid context bloat.
+    Use this for live presence; use get_user_activity for past play sessions & achievements.
     """
     data = game_intelligence.get_now_playing()
     return formatters.format_now_playing(data)
@@ -357,12 +368,12 @@ def get_now_playing() -> str:
 @mcp.tool()
 def get_user_activity(include_sessions: bool = True, max_sessions: int = 3) -> str:
     """
-    Check the user's live Steam gaming presence (in-game title and playtime)
-    and investigate recent gaming sessions from their backlog vault, including
-    games played and achievements unlocked during those sessions.
+    HISTORICAL play sessions: investigates recent gaming sessions from the user's vault,
+    clustering games played and reporting achievements unlocked during those sessions (plus live status).
+    For a fast "what is the user playing right now?" check, use get_now_playing instead.
 
     Args:
-        include_sessions: When True (default), clusters recent games and includes unlocked achievements. When False, checks only live presence.
+        include_sessions: When True (default), clusters recent games and includes unlocked achievements.
         max_sessions: Number of recent gaming sessions to investigate (default 3, max 5).
     """
     data = game_intelligence.get_user_activity(include_sessions=include_sessions, max_sessions=max_sessions)
@@ -372,13 +383,14 @@ def get_user_activity(include_sessions: bool = True, max_sessions: int = 3) -> s
 @mcp.tool()
 def get_steam_store_trends(category: str = "specials") -> str:
     """
-    Fetch current curated Steam Store front-page trends with ownership & wishlist badges.
+    Fetch current Steam Store front-page trends with ownership & wishlist badges.
     Use this (NOT search_steam_store) when asked what just released on Steam, what's trending,
     what's on sale, or what's coming soon globally.
 
     Args:
         category: One of:
-            - 'new_releases': Curated Popular New Releases directly from Steam /explore/new/ (best for "what released today/this week?")
+            - 'popular_new': Curated Popular New Releases / New & Trending via /explore/new/ (default pick for notable new releases with traction)
+            - 'new_releases': Raw chronological New Releases tab (everything that just unlocked today, unfiltered)
             - 'specials': Featured current sales and major discounts
             - 'top_sellers': Global Steam top sellers right now
             - 'coming_soon': Popular upcoming Steam releases
@@ -390,12 +402,11 @@ def get_steam_store_trends(category: str = "specials") -> str:
 @mcp.tool()
 def get_personalized_calendar(days_ahead: int = 14, days_back: int = 30, top_taste_tags: int = 6) -> str:
     """
-    Fetch a personalized Steam Release Calendar tailored to the user's gaming taste profile
-    (Action Roguelike, Boomer Shooter, FPS, Bullet Hell) and wishlist.
-    Covers three horizons:
-    - Horizon 1: Drops in the last 7 days (fresh releases, discounts, and prices).
-    - Horizon 2: Notable drops in the last 30 days.
-    - Horizon 3: Current week weekday schedule (Monday to Sunday) with today highlighted and upcoming drops.
+    Fetch a PERSONALIZED Steam Release Calendar scored against the user's gaming taste profile
+    (50/50 recent + lifetime affinities) and wishlist.
+    Covers three horizons: last 7 days highlights, last 30 days notable drops, and day-by-day
+    current week schedule (Monday–Sunday, today highlighted) + upcoming drops.
+    For global un-personalized new releases or sales, use get_steam_store_trends instead.
 
     Args:
         days_ahead: Number of days into the future to look for upcoming drops (default 14).
