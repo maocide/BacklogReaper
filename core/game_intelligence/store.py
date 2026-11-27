@@ -1162,16 +1162,8 @@ def get_steam_store_trends(category="specials"):
     wishlist_ids = get_wishlist_appids()
 
     if category == 'popular_new':
-        explore_url = "https://store.steampowered.com/explore/new/"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Cookie": "birthtime=283993201; mature_content=1",
-        }
         try:
-            response = requests.get(explore_url, headers=headers, timeout=8)
-            response.raise_for_status()
-            parsed = _parse_explore_popular_new(response.text)
+            parsed = _fetch_explore_popular_new()
             if not parsed:
                 return {"error": "No curated popular new releases found on Steam /explore/new/."}
 
@@ -1430,6 +1422,25 @@ def _parse_explore_popular_new(html: str) -> List[Dict[str, Any]]:
     return results
 
 
+_EXPLORE_NEW_URL = "https://store.steampowered.com/explore/new/"
+_STEAM_STORE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cookie": "birthtime=283993201; mature_content=1",
+}
+
+
+def _fetch_explore_popular_new(timeout: int = 8) -> List[Dict[str, Any]]:
+    """
+    Single source of truth for fetching & parsing Steam's curated Popular New Releases
+    (#tab_newreleases_content from https://store.steampowered.com/explore/new/).
+    Used by both get_steam_store_trends(category='popular_new') and get_personalized_calendar().
+    """
+    response = requests.get(_EXPLORE_NEW_URL, headers=_STEAM_STORE_HEADERS, timeout=timeout)
+    response.raise_for_status()
+    return _parse_explore_popular_new(response.text)
+
+
 @safe_tool
 def get_personalized_calendar(
     days_ahead: int = 14,
@@ -1448,7 +1459,6 @@ def get_personalized_calendar(
     taste_profile, id_to_name, tag_weights = get_user_taste_profile(top_n_tags=top_taste_tags)
 
     # 2. Multi-Feed Query Orchestration
-    explore_new_url = "https://store.steampowered.com/explore/new/"
     search_urls: List[str] = [
         "https://store.steampowered.com/search/results/?category1=998&filter=popularcomingsoon&snr=1_7_7_230_7",
     ]
@@ -1459,17 +1469,9 @@ def get_personalized_calendar(
         search_urls.append(f"https://store.steampowered.com/search/results/?category1=998&tags={tid}&sort_by=Released_DESC&snr=1_7_7_230_7")
         search_urls.append(f"https://store.steampowered.com/search/results/?category1=998&tags={tid}&filter=popularcomingsoon&snr=1_7_7_230_7")
 
-    all_urls = [explore_new_url] + search_urls
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cookie": "birthtime=283993201; mature_content=1",
-    }
-
     def _fetch_feed(url: str) -> str:
         try:
-            r = requests.get(url, headers=headers, timeout=8)
+            r = requests.get(url, headers=_STEAM_STORE_HEADERS, timeout=8)
             if r.status_code == 200:
                 return r.text
         except Exception as e:
@@ -1477,10 +1479,13 @@ def get_personalized_calendar(
         return ""
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-        fetched_pages = list(executor.map(_fetch_feed, all_urls))
-
-    explore_new_html = fetched_pages[0]
-    html_pages = fetched_pages[1:]
+        pop_future = executor.submit(_fetch_explore_popular_new)
+        html_pages = list(executor.map(_fetch_feed, search_urls))
+        try:
+            popular_new_items = pop_future.result()
+        except Exception as e:
+            print(f"Warning: Calendar popular_new fetch failed: {e}")
+            popular_new_items = []
 
     # 3. Parse and Deduplicate
     wishlist_ids = get_wishlist_appids()
@@ -1589,7 +1594,7 @@ def get_personalized_calendar(
             }
 
     # 3b. Cross-reference & enrich with Steam's curated Popular New Releases (/explore/new/)
-    for pop_item in _parse_explore_popular_new(explore_new_html):
+    for pop_item in popular_new_items:
         aid = pop_item["appid"]
         if aid in parsed_games:
             parsed_games[aid]["is_popular_new"] = True
